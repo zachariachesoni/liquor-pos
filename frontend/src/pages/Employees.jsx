@@ -1,0 +1,216 @@
+import React, { useState, useEffect } from 'react';
+import { Mail, Shield, UserCog, Send, Trash2, X } from 'lucide-react';
+import api from '../utils/api';
+import { useAuth } from '../context/AuthContext';
+import './Products.css';
+
+const Employees = () => {
+  const { isAdmin } = useAuth();
+  const [employees, setEmployees] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showModal, setShowModal] = useState(false);
+  const [inviteFeedback, setInviteFeedback] = useState(null);
+  
+  const [formData, setFormData] = useState({
+    username: '',
+    email: '',
+    role: 'cashier'
+  });
+
+  useEffect(() => {
+    fetchEmployees();
+  }, []);
+
+  const fetchEmployees = async () => {
+    try {
+      setLoading(true);
+      const res = await api.get('/users');
+      // Filter out admins if we just want to see employees, or show all
+      setEmployees(res.data.data.filter(u => u.role !== 'admin'));
+    } catch (err) {
+      console.error('Failed to load employees', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreateEmployee = async (e) => {
+    e.preventDefault();
+    try {
+      const payload = {
+         ...formData
+      };
+      const res = await api.post('/users', payload);
+      const emailSent = res.data.emailSent;
+      
+      setInviteFeedback({
+        status: 'success',
+        message: emailSent ? 'Employee account created and invite sent.' : 'Employee account created, but the email invite was not sent.',
+        emailResponse: res.data.emailResponse,
+        emailSent,
+        details: `Username: ${formData.username}\nTemp Password: ${res.data.temporaryPassword}`
+      });
+      
+      setShowModal(false);
+      fetchEmployees();
+      setFormData({ username: '', email: '', role: 'cashier' });
+    } catch (err) {
+      setInviteFeedback({
+        status: 'error',
+        message: err.response?.data?.message || 'Error creating employee account'
+      });
+      console.error(err);
+    }
+  };
+
+  const handleDeleteEmployee = async (employeeId, username) => {
+    if (!window.confirm(`Delete employee account for ${username}?`)) return;
+
+    try {
+      await api.delete(`/users/${employeeId}`);
+      setInviteFeedback({
+        status: 'success',
+        message: `Employee account for ${username} deleted.`,
+        emailResponse: 'Account removed successfully.',
+        emailSent: true,
+      });
+      fetchEmployees();
+    } catch (err) {
+      setInviteFeedback({
+        status: 'error',
+        message: err.response?.data?.message || 'Error deleting employee account'
+      });
+      console.error(err);
+    }
+  };
+
+  return (
+    <div className="page-container animate-fade-in">
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">Employee Management</h1>
+          <p className="page-subtitle">Provision staff accounts and send secure invites.</p>
+        </div>
+        <div style={{ display: 'flex', gap: '1rem' }}>
+          <button className="primary-btn" onClick={() => setShowModal(true)}>
+             <UserCog size={18} /> Add Employee
+          </button>
+        </div>
+      </div>
+
+      {inviteFeedback && (
+        <div style={{ padding: '1rem', marginBottom: '2rem', borderRadius: '8px', border: `1px solid ${inviteFeedback.status === 'success' ? 'var(--success)' : 'var(--danger)'}`, background: 'var(--bg-color)' }}>
+          <h3 style={{ color: inviteFeedback.status === 'success' ? 'var(--success)' : 'var(--danger)', marginBottom: '0.5rem' }}>
+             {inviteFeedback.message}
+          </h3>
+          {inviteFeedback.status === 'success' && (
+             <>
+               <p style={{ fontSize: '0.9rem', marginBottom: '0.5rem' }}><strong>Email Status:</strong> {inviteFeedback.emailResponse}</p>
+               {!inviteFeedback.emailSent && (
+                 <>
+                   <p style={{ fontSize: '0.9rem', marginBottom: '0.75rem' }}>
+                     The employee can still log in right away using these temporary credentials:
+                   </p>
+                   <div style={{ padding: '1rem', background: 'var(--input-bg)', borderRadius: '4px', fontFamily: 'monospace', color: 'var(--text-color)', whiteSpace: 'pre-wrap' }}>
+                     {inviteFeedback.details}
+                   </div>
+                 </>
+               )}
+             </>
+          )}
+          <button className="action-icon" style={{ marginTop: '0.5rem' }} onClick={() => setInviteFeedback(null)}>Dismiss</button>
+        </div>
+      )}
+
+      <div className="glass-panel main-panel">
+        <div className="table-container">
+          {loading ? (
+             <div style={{ padding: '2rem', textAlign: 'center' }}>Loading employees from database...</div>
+          ) : (
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Username</th>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Status</th>
+                {isAdmin && <th className="text-center">Actions</th>}
+              </tr>
+            </thead>
+            <tbody>
+              {employees.map(emp => (
+                <tr key={emp._id}>
+                  <td className="font-medium text-primary">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <Shield size={16} /> {emp.username}
+                    </div>
+                  </td>
+                  <td>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <Mail size={14} className="text-secondary" /> {emp.email}
+                    </div>
+                  </td>
+                  <td><span className="badge">{emp.role}</span></td>
+                  <td>
+                    {emp.is_active ? <span className="status-dot green" title="Active"></span> : <span className="status-dot red" title="Inactive"></span>}
+                    {emp.is_active ? 'Active' : 'Disabled'}
+                  </td>
+                  {isAdmin && (
+                    <td className="action-cell">
+                      <button className="action-icon text-danger" title="Delete employee" onClick={() => handleDeleteEmployee(emp._id, emp.username)}>
+                        <Trash2 size={16} />
+                      </button>
+                    </td>
+                  )}
+                </tr>
+              ))}
+              {employees.length === 0 && (
+                <tr>
+                  <td colSpan={isAdmin ? '5' : '4'} className="empty-state">No employee records found.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+          )}
+        </div>
+      </div>
+
+      {showModal && (
+        <div className="modal-overlay">
+          <div className="glass-panel modal-card">
+            <button onClick={() => setShowModal(false)} style={{ position: 'absolute', right: '1rem', top: '1rem', background: 'transparent', border: 'none', color: 'var(--text-color)', cursor: 'pointer'}}>
+              <X size={20} />
+            </button>
+            <h2 style={{ marginBottom: '1.5rem' }}>Invite New Employee</h2>
+            <form onSubmit={handleCreateEmployee} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div style={{ display: 'flex', gap: '1rem' }}>
+                <div style={{ flex: 1 }}>
+                  <label>Username</label>
+                  <input required type="text" value={formData.username} onChange={e => setFormData({...formData, username: e.target.value})} style={{ width: '100%', padding: '0.5rem', background: 'var(--input-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '4px' }}/>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label>Email Address</label>
+                  <input required type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} style={{ width: '100%', padding: '0.5rem', background: 'var(--input-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '4px' }}/>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '1rem' }}>
+                <div style={{ flex: 1 }}>
+                  <label>Role</label>
+                  <select value={formData.role} onChange={e => setFormData({...formData, role: e.target.value})} style={{ width: '100%', padding: '0.5rem', background: 'var(--input-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '4px' }}>
+                     <option value="manager">Manager</option>
+                     <option value="cashier">Cashier</option>
+                  </select>
+                </div>
+              </div>
+              <p className="td-secondary">A secure temporary password will be generated automatically when the account is created.</p>
+              <button type="submit" className="primary-btn" style={{ marginTop: '1rem' }}><Send size={18} /> Provision & Dispatch Invite</button>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default Employees;

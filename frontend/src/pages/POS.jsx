@@ -1,0 +1,512 @@
+import React, { useState, useEffect } from 'react';
+import { Search, ShoppingCart, Minus, Plus, Trash2, CreditCard, Banknote, UserPlus, Printer, X } from 'lucide-react';
+import api from '../utils/api';
+import './POS.css';
+
+const POS = () => {
+  const [products, setProducts] = useState([]);
+  const [cart, setCart] = useState([]);
+  const [search, setSearch] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState('cash');
+  const [priceList, setPriceList] = useState('retail'); // 'retail' or 'wholesale'
+  const [loading, setLoading] = useState(true);
+  const [customers, setCustomers] = useState([]);
+  const [selectedCustomerId, setSelectedCustomerId] = useState('');
+  const [showWholesaleModal, setShowWholesaleModal] = useState(false);
+  const [showReceiptModal, setShowReceiptModal] = useState(false);
+  const [receiptData, setReceiptData] = useState(null);
+  const [newCustomer, setNewCustomer] = useState({ name: '', phone: '' });
+
+  useEffect(() => {
+    fetchCatalog();
+    fetchCustomers();
+  }, []);
+
+  const fetchCustomers = async () => {
+    try {
+      const res = await api.get('/customers');
+      setCustomers(res.data.data || res.data);
+    } catch (err) {
+      console.error('Failed to load customers', err);
+    }
+  };
+
+  const fetchCatalog = async () => {
+    try {
+      setLoading(true);
+      const res = await api.get('/products');
+      const flatList = [];
+      res.data.data.forEach(prod => {
+        if (prod.variants && prod.variants.length > 0) {
+          prod.variants.forEach(variant => {
+            flatList.push({
+              id: variant._id,
+              productId: prod._id,
+              name: prod.name,
+              variant: variant.size,
+              category: prod.category,
+              price: variant.retail_price,
+              wholesale_price: variant.wholesale_price,
+              buying_price: variant.buying_price,
+              bulk_threshold: variant.wholesale_threshold,
+              stock: variant.current_stock
+            });
+          });
+        }
+      });
+      setProducts(flatList);
+    } catch (err) {
+      console.error('Failed to load catalog', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const addToCart = (product) => {
+    setCart((prev) => {
+      const existing = prev.find(item => item.id === product.id);
+      if (existing) {
+        return prev.map(item => item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item);
+      }
+      return [...prev, { ...product, quantity: 1 }];
+    });
+  };
+
+  const updateQuantity = (id, delta) => {
+    setCart((prev) => prev.map(item => {
+      if (item.id === id) {
+        const newQty = Math.max(1, item.quantity + delta);
+        return { ...item, quantity: newQty };
+      }
+      return item;
+    }));
+  };
+
+  const removeFromCart = (id) => {
+    setCart((prev) => prev.filter(item => item.id !== id));
+  };
+
+  const activeCustomer = customers.find(c => c._id === selectedCustomerId);
+  const isWholesaleBuyer = activeCustomer?.customer_type === 'wholesale';
+
+  const calculateWholesaleApplies = (item) => {
+    return isWholesaleBuyer && (priceList === 'wholesale' || item.quantity >= item.bulk_threshold);
+  };
+
+  const calculateSubtotal = () => {
+    return cart.reduce((sum, item) => {
+      const activePrice = calculateWholesaleApplies(item) ? item.wholesale_price : item.price;
+      return sum + (activePrice * item.quantity);
+    }, 0);
+  };
+
+  const printReceipt = (receipt) => {
+    if (!receipt) return;
+
+    const receiptWindow = window.open('', '_blank', 'width=420,height=720');
+    if (!receiptWindow) return;
+
+    const rows = receipt.items.map((item) => `
+      <tr>
+        <td style="padding:6px 0;">${item.name}<div style="font-size:12px;color:#666;">${item.variant}${item.wholesaleApplied ? ' - Wholesale' : ''}</div></td>
+        <td style="padding:6px 0;text-align:center;">${item.quantity}</td>
+        <td style="padding:6px 0;text-align:right;">KES ${item.unitPrice.toLocaleString()}</td>
+        <td style="padding:6px 0;text-align:right;">KES ${item.total.toLocaleString()}</td>
+      </tr>
+    `).join('');
+
+    receiptWindow.document.write(`
+      <html>
+        <head>
+          <title>Receipt ${receipt.invoiceNumber}</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 24px; color: #111; }
+            h1, h2, p { margin: 0; }
+            .header { text-align: center; margin-bottom: 20px; }
+            .meta { margin: 16px 0; font-size: 14px; line-height: 1.6; }
+            table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+            thead th { text-align: left; font-size: 12px; border-bottom: 1px solid #ccc; padding-bottom: 8px; }
+            .totals { margin-top: 16px; border-top: 1px solid #ccc; padding-top: 12px; font-size: 14px; }
+            .totals div { display: flex; justify-content: space-between; margin-bottom: 6px; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>Liquor POS Receipt</h1>
+            <p>${receipt.invoiceNumber}</p>
+          </div>
+          <div class="meta">
+            <div><strong>Date:</strong> ${receipt.createdAt}</div>
+            <div><strong>Customer:</strong> ${receipt.customerName}</div>
+            <div><strong>Payment:</strong> ${receipt.paymentMethod}</div>
+            <div><strong>Price List:</strong> ${receipt.saleType}</div>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th style="text-align:center;">Qty</th>
+                <th style="text-align:right;">Price</th>
+                <th style="text-align:right;">Total</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+          <div class="totals">
+            <div><span>Subtotal</span><strong>KES ${receipt.subtotal.toLocaleString()}</strong></div>
+            <div><span>Amount Paid</span><strong>KES ${receipt.amountPaid.toLocaleString()}</strong></div>
+            <div><span>Change</span><strong>KES ${receipt.changeDue.toLocaleString()}</strong></div>
+          </div>
+        </body>
+      </html>
+    `);
+    receiptWindow.document.close();
+    receiptWindow.focus();
+    receiptWindow.print();
+  };
+
+  const handleCheckout = async () => {
+    try {
+      const subtotal = calculateSubtotal();
+      const receiptItems = cart.map((item) => {
+        const wholesaleApplied = calculateWholesaleApplies(item);
+        const unitPrice = wholesaleApplied ? item.wholesale_price : item.price;
+
+        return {
+          id: item.id,
+          name: item.name,
+          variant: item.variant,
+          quantity: item.quantity,
+          unitPrice,
+          wholesaleApplied,
+          total: unitPrice * item.quantity,
+        };
+      });
+
+      const payload = {
+        customerId: selectedCustomerId || null,
+        items: cart.map(item => ({
+          variantId: item.id,
+          quantity: item.quantity
+        })),
+        paymentMethod: paymentMethod,
+        priceList: priceList,
+        amountPaid: subtotal
+      };
+
+      const res = await api.post('/sales', payload);
+      const sale = res.data.data;
+      setReceiptData({
+        invoiceNumber: sale.invoice_number,
+        createdAt: new Date(sale.createdAt || Date.now()).toLocaleString(),
+        customerName: activeCustomer?.name || 'Walk-in Customer',
+        paymentMethod,
+        saleType: priceList,
+        subtotal,
+        amountPaid: subtotal,
+        changeDue: Number(sale.changeDue || 0),
+        items: receiptItems,
+      });
+      setShowReceiptModal(true);
+      setCart([]);
+      setSelectedCustomerId('');
+      setPriceList('retail');
+      fetchCatalog(); // Refresh stock
+    } catch (err) {
+      alert(err.response?.data?.message || 'Checkout failed');
+      console.error(err);
+    }
+  };
+
+  const handleCreateCustomer = async (e) => {
+    e.preventDefault();
+    try {
+      const payload = { ...newCustomer, customer_type: 'wholesale' };
+      const res = await api.post('/customers', payload);
+      const created = res.data.data;
+      setCustomers([...customers, created]);
+      setSelectedCustomerId(created._id);
+      setPriceList('wholesale');
+      setShowWholesaleModal(false);
+      setNewCustomer({ name: '', phone: '' });
+    } catch (err) {
+      alert('Error creating customer');
+      console.error(err);
+    }
+  };
+
+  const filteredProducts = products.filter(p => p.name.toLowerCase().includes(search.toLowerCase()));
+
+  return (
+    <div className="pos-container animate-fade-in">
+      <div className="pos-catalog glass-panel">
+        <div className="catalog-header">
+          <h2>Product Catalog</h2>
+          <div className="search-box">
+            <Search size={18} className="search-icon" />
+            <input
+              type="text"
+              placeholder="Search products..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+        </div>
+
+        <div className="product-grid">
+          {loading ? (<div style={{ padding: '2rem' }}>Loading...</div>) : filteredProducts.map(product => (
+            <div key={product.id} className="product-card" onClick={() => addToCart(product)}>
+              <div className="product-category-badge">{product.category}</div>
+              <h3 className="product-name">{product.name}</h3>
+              <div className="product-variant">{product.variant}</div>
+              <div className="product-prices">
+                <div className={`price-item ${priceList === 'retail' ? 'active-price' : ''}`}>
+                  <span>Retail</span>
+                  <strong>KES {product.price?.toLocaleString()}</strong>
+                </div>
+                <div className={`price-item wholesale ${priceList === 'wholesale' ? 'active-price' : ''}`}>
+                  <span>Wholesale</span>
+                  <strong>KES {product.wholesale_price?.toLocaleString()}</strong>
+                </div>
+              </div>
+              <div className="product-stock">{product.stock} in stock</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="pos-cart glass-panel">
+        <div className="cart-header">
+          <div className="cart-title">
+            <ShoppingCart size={20} />
+            <h2>Current Order</h2>
+          </div>
+          <button className="clear-btn" onClick={() => setCart([])}>Clear</button>
+        </div>
+
+        <div style={{ padding: '0 1rem 1rem 1rem' }}>
+          <div style={{ marginBottom: '0.75rem' }}>
+            <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Attach Customer</label>
+            <select
+              value={selectedCustomerId}
+              onChange={(e) => {
+                const nextCustomerId = e.target.value;
+                setSelectedCustomerId(nextCustomerId);
+                const customer = customers.find((entry) => entry._id === nextCustomerId);
+                setPriceList(customer?.customer_type === 'wholesale' ? 'wholesale' : 'retail');
+              }}
+              style={{ width: '100%', padding: '0.6rem', background: 'var(--input-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '4px' }}
+            >
+              <option value="">Walk-in customer</option>
+              {customers.map((customer) => (
+                <option key={customer._id} value={customer._id}>
+                  {customer.name} {customer.customer_type === 'wholesale' ? '(Wholesale)' : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+          {selectedCustomerId && !isWholesaleBuyer && (
+            <div style={{ fontSize: '0.75rem', color: 'var(--warning)', marginBottom: '0.5rem' }}>Retail customer selected. Wholesale discounts locked.</div>
+          )}
+          {selectedCustomerId && isWholesaleBuyer && (
+            <div style={{ fontSize: '0.75rem', color: 'var(--success)', marginBottom: '0.5rem' }}>Wholesale Customer: {activeCustomer?.name}</div>
+          )}
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <button
+              style={{ flex: 1, padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--border-color)', background: priceList === 'retail' ? 'var(--primary)' : 'transparent', color: priceList === 'retail' ? '#fff' : 'var(--text-color)', cursor: 'pointer', transition: 'all 0.2s' }}
+              onClick={() => { setPriceList('retail'); setSelectedCustomerId(''); }}
+            >
+              Retail Pricing
+            </button>
+            <button
+              style={{ flex: 1, padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--border-color)', background: priceList === 'wholesale' ? 'var(--primary)' : 'transparent', color: priceList === 'wholesale' ? '#fff' : 'var(--text-color)', cursor: 'pointer', transition: 'all 0.2s' }}
+              onClick={() => {
+                 if (!isWholesaleBuyer) {
+                   setShowWholesaleModal(true);
+                 } else {
+                   setPriceList('wholesale');
+                 }
+              }}
+            >
+              Wholesale Pricing
+            </button>
+          </div>
+        </div>
+
+        <div className="cart-items">
+          {cart.length === 0 ? (
+            <div className="empty-cart">
+              <ShoppingCart size={48} className="empty-icon" />
+              <p>Your cart is empty</p>
+            </div>
+          ) : (
+            cart.map(item => {
+              const appliesWholesale = calculateWholesaleApplies(item);
+              const unitPrice = appliesWholesale ? item.wholesale_price : item.price;
+              const itemTotal = unitPrice * item.quantity;
+
+              return (
+                <div key={item.id} className={`cart-item ${appliesWholesale ? 'wholesale-active' : ''}`}>
+                  <div className="item-info">
+                    <h4>{item.name}</h4>
+                    <span className="item-variant">{item.variant}</span>
+                    <div className="item-price">
+                      KES {unitPrice?.toLocaleString()} {appliesWholesale && <span className="wholesale-badge">Wholesale</span>}
+                    </div>
+                  </div>
+                  <div className="item-actions">
+                    <div className="quantity-control">
+                      <button onClick={() => updateQuantity(item.id, -1)}><Minus size={14} /></button>
+                      <span>{item.quantity}</span>
+                      <button onClick={() => updateQuantity(item.id, 1)}><Plus size={14} /></button>
+                    </div>
+                    <div className="item-total">KES {itemTotal.toLocaleString()}</div>
+                    <button className="del-btn" onClick={() => removeFromCart(item.id)}>
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        <div className="cart-summary">
+          <div className="summary-row">
+            <span>Subtotal</span>
+            <span>KES {calculateSubtotal().toLocaleString()}</span>
+          </div>
+          <div className="summary-row total">
+            <span>Total</span>
+            <span>KES {calculateSubtotal().toLocaleString()}</span>
+          </div>
+
+          <div className="payment-methods">
+            <button
+              className={`pay-btn ${paymentMethod === 'cash' ? 'active' : ''}`}
+              onClick={() => setPaymentMethod('cash')}
+            >
+              <Banknote size={16} /> Cash
+            </button>
+            <button
+              className={`pay-btn ${paymentMethod === 'mpesa' ? 'active' : ''}`}
+              onClick={() => setPaymentMethod('mpesa')}
+            >
+              <CreditCard size={16} /> M-Pesa
+            </button>
+          </div>
+
+          <button
+            className="checkout-btn"
+            disabled={cart.length === 0}
+            onClick={handleCheckout}
+          >
+            Complete Payment
+          </button>
+        </div>
+      </div>
+
+      {showWholesaleModal && (
+        <div className="modal-overlay">
+          <div className="glass-panel modal-card">
+            <button onClick={() => setShowWholesaleModal(false)} style={{ position: 'absolute', right: '1rem', top: '1rem', background: 'transparent', border: 'none', color: 'var(--text-color)', cursor: 'pointer'}}>
+              <X size={20} />
+            </button>
+            
+            <h2 style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <UserPlus size={24} className="text-primary"/> Select Wholesale Partner
+            </h2>
+            <p style={{ marginBottom: '1.5rem', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>You must select an existing wholesale account or create a new one to unlock wholesale pricing.</p>
+
+            <div style={{ marginBottom: '2rem' }}>
+              <label style={{ display: 'block', marginBottom: '0.5rem' }}>Existing Customers</label>
+              <select
+                value={selectedCustomerId}
+                onChange={e => {
+                  setSelectedCustomerId(e.target.value);
+                  const cust = customers.find(c => c._id === e.target.value);
+                  if (cust?.customer_type === 'wholesale') {
+                     setPriceList('wholesale');
+                     setShowWholesaleModal(false);
+                  }
+                }}
+                style={{ width: '100%', padding: '0.6rem', marginBottom: '0.5rem', background: 'var(--input-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '4px' }}
+              >
+                <option value="">-- Search Directory --</option>
+                {customers.map(c => (
+                  <option key={c._id} value={c._id} disabled={c.customer_type !== 'wholesale'}>
+                    {c.name} {c.customer_type !== 'wholesale' ? '(Retail Only - Locked)' : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div style={{ padding: '1rem', border: '1px dashed var(--border-color)', borderRadius: '8px' }}>
+              <h3 style={{ marginBottom: '1rem', fontSize: '1.1rem' }}>Or Register New Wholesale Account</h3>
+              <form onSubmit={handleCreateCustomer} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <input required type="text" placeholder="Business / Customer Name" value={newCustomer.name} onChange={e => setNewCustomer({...newCustomer, name: e.target.value})} style={{ width: '100%', padding: '0.5rem', background: 'var(--input-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '4px' }}/>
+                <input type="text" placeholder="Phone Number" value={newCustomer.phone} onChange={e => setNewCustomer({...newCustomer, phone: e.target.value})} style={{ width: '100%', padding: '0.5rem', background: 'var(--input-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '4px' }}/>
+                <button type="submit" className="primary-btn">Register & Apply Wholesale</button>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showReceiptModal && receiptData && (
+        <div className="modal-overlay">
+          <div className="glass-panel modal-card" style={{ paddingTop: '3.5rem' }}>
+            <button onClick={() => setShowReceiptModal(false)} style={{ position: 'absolute', right: '1rem', top: '1rem', background: 'rgba(15, 23, 42, 0.9)', border: '1px solid var(--border-color)', color: 'var(--text-color)', cursor: 'pointer', borderRadius: '999px', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <X size={20} />
+            </button>
+            <div className="receipt-header">
+              <h2>Transaction Receipt</h2>
+              <button className="primary-btn" onClick={() => printReceipt(receiptData)}>
+                <Printer size={18} /> Print Receipt
+              </button>
+            </div>
+            <div className="receipt-meta">
+              <div><strong>Invoice:</strong> {receiptData.invoiceNumber}</div>
+              <div><strong>Date:</strong> {receiptData.createdAt}</div>
+              <div><strong>Customer:</strong> {receiptData.customerName}</div>
+              <div><strong>Payment:</strong> <span style={{ textTransform: 'capitalize' }}>{receiptData.paymentMethod}</span></div>
+              <div><strong>Price List:</strong> <span style={{ textTransform: 'capitalize' }}>{receiptData.saleType}</span></div>
+            </div>
+            <table className="data-table receipt-table">
+              <thead>
+                <tr>
+                  <th>Item</th>
+                  <th>Qty</th>
+                  <th>Unit Price</th>
+                  <th className="text-right">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {receiptData.items.map((item) => (
+                  <tr key={item.id}>
+                    <td>
+                      <div className="font-medium">{item.name}</div>
+                      <div className="td-secondary">
+                        {item.variant} {item.wholesaleApplied ? '- Wholesale' : ''}
+                      </div>
+                    </td>
+                    <td>{item.quantity}</td>
+                    <td>KES {item.unitPrice.toLocaleString()}</td>
+                    <td className="text-right">KES {item.total.toLocaleString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <div className="receipt-totals">
+              <div><span>Subtotal</span><strong>KES {receiptData.subtotal.toLocaleString()}</strong></div>
+              <div><span>Amount Paid</span><strong>KES {receiptData.amountPaid.toLocaleString()}</strong></div>
+              <div><span>Change</span><strong>KES {receiptData.changeDue.toLocaleString()}</strong></div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default POS;

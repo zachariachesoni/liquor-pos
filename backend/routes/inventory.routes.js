@@ -1,0 +1,15 @@
+import express from 'express';
+const router = express.Router();
+import { getStockLevels, getLowStock, getHistory, addStock, adjustStock } from '../controllers/inventory.controller.js';
+import { verifyToken, checkRole } from '../middleware/auth.middleware.js';
+
+// All routes are protected
+router.use(verifyToken);
+
+router.get('/stock-levels', getStockLevels);
+router.get('/low-stock', getLowStock);
+router.get('/history', getHistory);
+router.post('/stock-in', checkRole('admin', 'manager'), addStock);
+router.post('/adjustments', checkRole('admin', 'manager'), adjustStock);
+
+export default router;
