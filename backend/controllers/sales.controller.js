@@ -78,11 +78,11 @@ export const createSale = async (req, res) => {
       change_due: changeDue,
       sale_type: priceList || 'retail',
       user_id: req.user._id || req.user.id
-    }], { session });
+    }], { session, ordered: true });
 
     // Link sale id to sale items
     const saleItemsToCreate = saleItemsData.map(si => ({ ...si, sale_id: sale[0]._id }));
-    await SaleItem.create(saleItemsToCreate, { session });
+    await SaleItem.create(saleItemsToCreate, { session, ordered: true });
 
     await session.commitTransaction();
     res.status(201).json({ success: true, data: sale[0] });

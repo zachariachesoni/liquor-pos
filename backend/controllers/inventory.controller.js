@@ -68,7 +68,7 @@ export const addStock = async (req, res) => {
         reason: 'restocking',
         notes: notes || `From supplier: ${supplier}`,
         user_id: req.user._id || req.user.id
-      }], { session });
+      }], { session, ordered: true });
     }
 
     await session.commitTransaction();
@@ -141,7 +141,7 @@ export const adjustStock = async (req, res) => {
       reason,
       notes,
       user_id: req.user._id || req.user.id
-    }], { session });
+    }], { session, ordered: true });
 
     await session.commitTransaction();
     res.json({ success: true, message: 'Stock adjusted successfully' });
