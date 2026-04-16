@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Search, ShoppingCart, Minus, Plus, Trash2, CreditCard, Banknote, UserPlus, Printer, X } from 'lucide-react';
 import api from '../utils/api';
+import { useSystemSettings } from '../hooks/useSystemSettings';
 import './POS.css';
 
 const POS = () => {
@@ -17,6 +18,7 @@ const POS = () => {
   const [showReceiptModal, setShowReceiptModal] = useState(false);
   const [receiptData, setReceiptData] = useState(null);
   const [newCustomer, setNewCustomer] = useState({ name: '', phone: '' });
+  const { settings } = useSystemSettings();
 
   useEffect(() => {
     fetchCatalog();
@@ -120,6 +122,10 @@ const POS = () => {
     const receiptWindow = window.open('', '_blank', 'width=420,height=720');
     if (!receiptWindow) return;
 
+    const logoMarkup = settings.business_logo_url
+      ? `<img src="${settings.business_logo_url}" alt="${settings.business_name}" style="width:56px;height:56px;object-fit:contain;border-radius:12px;background:#f4f4f5;padding:6px;" />`
+      : '';
+
     const rows = receipt.items.map((item) => `
       <tr>
         <td style="padding:6px 0;">${item.name}<div style="font-size:12px;color:#666;">${item.variant}${item.wholesaleApplied ? ' - Wholesale' : ''}</div></td>
@@ -146,8 +152,13 @@ const POS = () => {
         </head>
         <body>
           <div class="header">
-            <h1>Liquor POS Receipt</h1>
-            <p>${receipt.invoiceNumber}</p>
+            <div style="display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:10px;">
+              ${logoMarkup}
+              <div>
+                <h1>${settings.business_name} Receipt</h1>
+                <p>${receipt.invoiceNumber}</p>
+              </div>
+            </div>
           </div>
           <div class="meta">
             <div><strong>Date:</strong> ${receipt.createdAt}</div>
@@ -171,6 +182,7 @@ const POS = () => {
             <div><span>Amount Paid</span><strong>KES ${receipt.amountPaid.toLocaleString()}</strong></div>
             <div><span>Change</span><strong>KES ${receipt.changeDue.toLocaleString()}</strong></div>
           </div>
+          <p style="margin-top:16px;text-align:center;color:#666;font-size:12px;">${settings.receipt_footer || ''}</p>
         </body>
       </html>
     `);

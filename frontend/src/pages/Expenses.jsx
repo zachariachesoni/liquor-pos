@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Receipt, Calendar, PieChart, X } from 'lucide-react';
+import { Plus, Receipt, Calendar, PieChart, X, Download } from 'lucide-react';
 import api from '../utils/api';
+import { useSystemSettings } from '../hooks/useSystemSettings';
 import './Products.css';
 
 const Expenses = () => {
@@ -10,6 +11,7 @@ const Expenses = () => {
   const [showBudgetModal, setShowBudgetModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [formData, setFormData] = useState({ amount: '', category: 'other', description: '', expenseDate: new Date().toISOString().split('T')[0] });
+  const { settings } = useSystemSettings();
 
   const calculateBudget = () => {
     const categories = {};
@@ -63,6 +65,148 @@ const Expenses = () => {
     }
   };
 
+  const exportExpenseReport = () => {
+    const reportWindow = window.open('', '_blank', 'width=1100,height=900');
+    if (!reportWindow) return;
+
+    const { categories, monthly, total, sortedExpenses } = calculateBudget();
+    const categoryRows = Object.entries(categories)
+      .sort((a, b) => b[1] - a[1])
+      .map(([category, amount]) => `
+        <tr>
+          <td style="padding:10px 8px;border-bottom:1px solid #e5e7eb;text-transform:capitalize;">${category}</td>
+          <td style="padding:10px 8px;border-bottom:1px solid #e5e7eb;text-align:right;">KES ${Number(amount).toLocaleString()}</td>
+        </tr>
+      `)
+      .join('');
+
+    const monthlyRows = Object.entries(monthly)
+      .map(([month, amount]) => `
+        <tr>
+          <td style="padding:10px 8px;border-bottom:1px solid #e5e7eb;">${month}</td>
+          <td style="padding:10px 8px;border-bottom:1px solid #e5e7eb;text-align:right;">KES ${Number(amount).toLocaleString()}</td>
+        </tr>
+      `)
+      .join('');
+
+    const expenseRows = sortedExpenses
+      .map((expense) => `
+        <tr>
+          <td style="padding:10px 8px;border-bottom:1px solid #e5e7eb;">${new Date(expense.expenseDate || expense.createdAt).toLocaleDateString()}</td>
+          <td style="padding:10px 8px;border-bottom:1px solid #e5e7eb;">${expense.description}</td>
+          <td style="padding:10px 8px;border-bottom:1px solid #e5e7eb;text-transform:capitalize;">${expense.category}</td>
+          <td style="padding:10px 8px;border-bottom:1px solid #e5e7eb;">${expense.recordedBy?.username || 'admin'}</td>
+          <td style="padding:10px 8px;border-bottom:1px solid #e5e7eb;text-align:right;">KES ${Number(expense.amount || 0).toLocaleString()}</td>
+        </tr>
+      `)
+      .join('');
+
+    const logoMarkup = settings.business_logo_url
+      ? `<img src="${settings.business_logo_url}" alt="${settings.business_name}" style="width:72px;height:72px;object-fit:contain;border-radius:14px;background:#f4f4f5;padding:8px;" />`
+      : '';
+
+    reportWindow.document.write(`
+      <html>
+        <head>
+          <title>${settings.business_name} Expense Report</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 28px; color: #111827; }
+            h1, h2, h3, p { margin: 0; }
+            .header { display:flex; justify-content:space-between; gap:24px; flex-wrap:wrap; margin-bottom:28px; }
+            .brand { display:flex; align-items:center; gap:16px; }
+            .meta { text-align:right; font-size:14px; line-height:1.7; }
+            .summary { display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap:16px; margin-bottom:24px; }
+            .summary-card { border:1px solid #e5e7eb; border-radius:16px; padding:16px; }
+            .summary-card span { display:block; color:#6b7280; font-size:13px; margin-bottom:8px; }
+            .summary-card strong { font-size:22px; }
+            .grid { display:grid; grid-template-columns: 1fr 1fr; gap:20px; margin-bottom:24px; }
+            .panel { border:1px solid #e5e7eb; border-radius:16px; padding:18px; }
+            table { width:100%; border-collapse:collapse; margin-top:12px; }
+            th { text-align:left; font-size:12px; text-transform:uppercase; color:#6b7280; padding:10px 8px; border-bottom:2px solid #d1d5db; }
+            .full-panel { border:1px solid #e5e7eb; border-radius:16px; padding:18px; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="brand">
+              ${logoMarkup}
+              <div>
+                <h1>${settings.business_name} Expense Report</h1>
+                <p style="margin-top:8px;color:#6b7280;">Comprehensive operating expense summary</p>
+              </div>
+            </div>
+            <div class="meta">
+              <div><strong>Generated:</strong> ${new Date().toLocaleString()}</div>
+              <div><strong>Total Records:</strong> ${expenses.length}</div>
+            </div>
+          </div>
+
+          <div class="summary">
+            <div class="summary-card"><span>Total Spend</span><strong>KES ${Number(total).toLocaleString()}</strong></div>
+            <div class="summary-card"><span>Tracked Categories</span><strong>${Object.keys(categories).length}</strong></div>
+            <div class="summary-card"><span>Largest Expense</span><strong>KES ${Number(sortedExpenses[0]?.amount || 0).toLocaleString()}</strong></div>
+          </div>
+
+          <div class="grid">
+            <div class="panel">
+              <h3>Category Breakdown</h3>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Category</th>
+                    <th style="text-align:right;">Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${categoryRows || '<tr><td colspan="2" style="padding:12px 8px;color:#6b7280;">No category data.</td></tr>'}
+                </tbody>
+              </table>
+            </div>
+            <div class="panel">
+              <h3>Monthly Spend Trend</h3>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Month</th>
+                    <th style="text-align:right;">Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${monthlyRows || '<tr><td colspan="2" style="padding:12px 8px;color:#6b7280;">No monthly data.</td></tr>'}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="full-panel">
+            <h3>Expense Ledger</h3>
+            <table>
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Description</th>
+                  <th>Category</th>
+                  <th>Recorded By</th>
+                  <th style="text-align:right;">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${expenseRows || '<tr><td colspan="5" style="padding:12px 8px;color:#6b7280;">No expenses recorded.</td></tr>'}
+                ${expenseRows ? `<tr><td colspan="4" style="padding:12px 8px;text-align:right;font-weight:700;">Total Spend</td><td style="padding:12px 8px;text-align:right;font-weight:700;">KES ${Number(total).toLocaleString()}</td></tr>` : ''}
+              </tbody>
+            </table>
+          </div>
+
+          <p style="margin-top:20px;color:#6b7280;font-size:12px;">${settings.receipt_footer || ''}</p>
+        </body>
+      </html>
+    `);
+
+    reportWindow.document.close();
+    reportWindow.focus();
+    reportWindow.print();
+  };
+
   return (
     <div className="page-container animate-fade-in">
       <div className="page-header">
@@ -71,6 +215,7 @@ const Expenses = () => {
           <p className="page-subtitle">Record and monitor business expenses.</p>
         </div>
         <div style={{ display: 'flex', gap: '1rem' }}>
+          <button className="icon-btn" onClick={exportExpenseReport}><Download size={18} /> Export PDF</button>
           <button className="icon-btn" onClick={() => setShowBudgetModal(true)}><PieChart size={18} /> Budget Report</button>
           <button className="primary-btn" onClick={() => setShowModal(true)}>
              <Plus size={18} /> Record Expense

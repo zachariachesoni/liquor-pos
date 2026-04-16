@@ -1,20 +1,15 @@
 import React, { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { LayoutDashboard, ShoppingCart, Package, ClipboardList, FileBarChart, Users, Receipt, PieChart, LogOut, Menu, X, KeyRound, Shield } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, Package, ClipboardList, FileBarChart, Users, Receipt, PieChart, LogOut, Menu, X, Shield } from 'lucide-react';
 import { useSystemSettings } from '../hooks/useSystemSettings';
 import './Layout.css';
 
 const Layout = ({ children }) => {
-  const { user, logout, changePassword } = useAuth();
+  const { user, logout } = useAuth();
   const { settings } = useSystemSettings();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [showPasswordModal, setShowPasswordModal] = useState(false);
-  const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
-  const [passwordMessage, setPasswordMessage] = useState('');
-  const [passwordError, setPasswordError] = useState('');
-  const [passwordLoading, setPasswordLoading] = useState(false);
 
   const handleLogout = () => {
     logout();
@@ -45,29 +40,6 @@ const Layout = ({ children }) => {
 
   const toggleMobileMenu = () => {
     setMobileMenuOpen(!mobileMenuOpen);
-  };
-
-  const handlePasswordSubmit = async (e) => {
-    e.preventDefault();
-    setPasswordError('');
-    setPasswordMessage('');
-
-    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      setPasswordError('New password and confirmation do not match');
-      return;
-    }
-
-    setPasswordLoading(true);
-    const result = await changePassword(passwordForm.currentPassword, passwordForm.newPassword);
-    setPasswordLoading(false);
-
-    if (!result.success) {
-      setPasswordError(result.message);
-      return;
-    }
-
-    setPasswordMessage(result.message);
-    setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
   };
 
   return (
@@ -106,10 +78,6 @@ const Layout = ({ children }) => {
         </nav>
 
         <div className="sidebar-footer">
-          <button className="logout-btn" onClick={() => setShowPasswordModal(true)}>
-            <KeyRound size={20} />
-            <span>Change Password</span>
-          </button>
           <button className="logout-btn" onClick={handleLogout}>
             <LogOut size={20} />
             <span>Logout</span>
@@ -134,44 +102,6 @@ const Layout = ({ children }) => {
       </main>
 
       {mobileMenuOpen && <div className="sidebar-overlay" onClick={toggleMobileMenu}></div>}
-
-      {showPasswordModal && (
-        <div className="modal-overlay">
-          <div className="glass-panel modal-card">
-            <button onClick={() => setShowPasswordModal(false)} style={{ position: 'absolute', right: '1rem', top: '1rem', background: 'transparent', border: 'none', color: 'var(--text-color)', cursor: 'pointer' }}>
-              <X size={20} />
-            </button>
-            <h2 style={{ marginBottom: '1rem' }}>Change Password</h2>
-            {passwordError && (
-              <div style={{ marginBottom: '1rem', padding: '0.75rem 1rem', borderRadius: '8px', background: 'var(--danger-bg)', color: 'var(--danger)' }}>
-                {passwordError}
-              </div>
-            )}
-            {passwordMessage && (
-              <div style={{ marginBottom: '1rem', padding: '0.75rem 1rem', borderRadius: '8px', background: 'var(--success-bg)', color: 'var(--success)' }}>
-                {passwordMessage}
-              </div>
-            )}
-            <form onSubmit={handlePasswordSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <div>
-                <label>Current Password</label>
-                <input type="password" required value={passwordForm.currentPassword} onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })} style={{ width: '100%', padding: '0.6rem', background: 'var(--input-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '4px' }} />
-              </div>
-              <div>
-                <label>New Password</label>
-                <input type="password" required minLength={6} value={passwordForm.newPassword} onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })} style={{ width: '100%', padding: '0.6rem', background: 'var(--input-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '4px' }} />
-              </div>
-              <div>
-                <label>Confirm New Password</label>
-                <input type="password" required minLength={6} value={passwordForm.confirmPassword} onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })} style={{ width: '100%', padding: '0.6rem', background: 'var(--input-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '4px' }} />
-              </div>
-              <button type="submit" className="primary-btn" disabled={passwordLoading}>
-                <KeyRound size={18} /> {passwordLoading ? 'Updating...' : 'Update Password'}
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
