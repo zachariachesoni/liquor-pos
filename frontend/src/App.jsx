@@ -10,7 +10,7 @@ import Customers from './pages/Customers';
 import Expenses from './pages/Expenses';
 import Reports from './pages/Reports';
 import Register from './pages/Register';
-import Employees from './pages/Employees';
+import AdminPanel from './pages/AdminPanel';
 import Layout from './components/Layout';
 import './App.css';
 
@@ -93,10 +93,19 @@ function App() {
       />
 
       <Route
+        path="/admin"
+        element={
+          <ProtectedRoute allowedRoles={['admin']}>
+            <AdminPanel />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
         path="/employees"
         element={
           <ProtectedRoute allowedRoles={['admin']}>
-            <Employees />
+            <AdminPanel />
           </ProtectedRoute>
         }
       />

@@ -2,13 +2,28 @@ import ProductVariant from '../models/ProductVariant.js';
 import StockAdjustment from '../models/StockAdjustment.js';
 import logger from '../utils/logger.js';
 import { mongoose } from '../config/database.js';
+import { calculateEffectiveLowStockLevel, getSystemSettings, serializeSystemSettings } from '../utils/systemSettings.js';
 
 // @desc    Get stock levels
 // @route   GET /api/inventory/stock-levels
 export const getStockLevels = async (req, res) => {
   try {
+    const settingsDoc = await getSystemSettings();
+    const settings = serializeSystemSettings(settingsDoc);
     const variants = await ProductVariant.find().populate('product_id', 'name category');
-    res.json({ success: true, count: variants.length, data: variants });
+
+    const enrichedVariants = variants.map((variant) => {
+      const doc = variant.toObject();
+      const effectiveLowStockLevel = calculateEffectiveLowStockLevel(doc, settings);
+
+      return {
+        ...doc,
+        effective_low_stock_level: effectiveLowStockLevel,
+        is_low_stock: doc.current_stock <= effectiveLowStockLevel,
+      };
+    });
+
+    res.json({ success: true, count: enrichedVariants.length, data: enrichedVariants, meta: { settings } });
   } catch (error) {
     logger.error('Get stock levels error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
@@ -19,9 +34,19 @@ export const getStockLevels = async (req, res) => {
 // @route   GET /api/inventory/low-stock
 export const getLowStock = async (req, res) => {
   try {
-    const lowStock = await ProductVariant.find({
-      current_stock: { $lte: 3 }
-    }).populate('product_id', 'name');
+    const settingsDoc = await getSystemSettings();
+    const settings = serializeSystemSettings(settingsDoc);
+    const variants = await ProductVariant.find().populate('product_id', 'name');
+    const lowStock = variants
+      .map((variant) => {
+        const doc = variant.toObject();
+        return {
+          ...doc,
+          effective_low_stock_level: calculateEffectiveLowStockLevel(doc, settings),
+        };
+      })
+      .filter((variant) => variant.current_stock <= variant.effective_low_stock_level);
+
     res.json({ success: true, count: lowStock.length, data: lowStock });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Server error' });

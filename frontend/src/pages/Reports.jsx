@@ -9,6 +9,7 @@ import {
   User
 } from 'lucide-react';
 import api from '../utils/api';
+import { useSystemSettings } from '../hooks/useSystemSettings';
 import './Reports.css';
 
 const defaultPnLData = {
@@ -70,6 +71,7 @@ const Reports = () => {
   const [pnlData, setPnLData] = useState(defaultPnLData);
   const [customerReport, setCustomerReport] = useState({ customer: null, summary: null, sales: [] });
   const [productReport, setProductReport] = useState({ product: null, summary: null, sales: [] });
+  const { settings } = useSystemSettings();
 
   useEffect(() => {
     const fetchLookups = async () => {
@@ -180,7 +182,7 @@ const Reports = () => {
 
   const handleExport = () => {
     const label = reportType === 'pnl' ? 'Financial Report' : reportType === 'customer' ? 'Customer Sales Report' : 'Product Sales Report';
-    document.title = `Liquor POS ${label} - ${period}`;
+    document.title = `${settings.business_name} ${label} - ${period}`;
     window.print();
   };
 
@@ -380,7 +382,7 @@ const Reports = () => {
             <div>
               <h2>{reportCustomer?.name || 'Customer sales report'}</h2>
               <p className="page-subtitle">
-                {reportCustomer?.phone || 'No phone'} {reportCustomer?.email ? `• ${reportCustomer.email}` : ''}
+                {reportCustomer?.phone || 'No phone'} {reportCustomer?.email ? ` | ${reportCustomer.email}` : ''}
               </p>
             </div>
             <div className="report-meta-chip">Items sold: {summary.total_items || 0}</div>
@@ -490,7 +492,7 @@ const Reports = () => {
             <div>
               <h2>{reportProduct?.name || 'Product sales report'}</h2>
               <p className="page-subtitle">
-                {reportProduct?.brand || 'No brand'} • {reportProduct?.category || 'Uncategorized'}
+                {reportProduct?.brand || 'No brand'} | {reportProduct?.category || 'Uncategorized'}
               </p>
             </div>
             <div className="report-meta-chip">Transactions: {summary.total_transactions || 0}</div>
@@ -546,10 +548,10 @@ const Reports = () => {
   };
 
   const exportTitle = reportType === 'pnl'
-    ? 'Liquor POS Financial Report'
+    ? `${settings.business_name} Financial Report`
     : reportType === 'customer'
-      ? 'Liquor POS Customer Sales Report'
-      : 'Liquor POS Product Sales Report';
+      ? `${settings.business_name} Customer Sales Report`
+      : `${settings.business_name} Product Sales Report`;
 
   return (
     <div className="page-container animate-fade-in reports-wrapper">
@@ -615,7 +617,7 @@ const Reports = () => {
       </div>
 
       {loading ? (
-        <div className="glass-panel main-panel report-loading">Loading report data...</div>
+        <div className="glass-panel main-panel loading-panel"><div className="loading-spinner" /><p>Refreshing report data...</p></div>
       ) : (
         <>
           {reportType === 'pnl' && renderPnLView()}
@@ -626,9 +628,12 @@ const Reports = () => {
 
       <section className="report-export-sheet">
         <div className="report-export-header">
-          <div>
-            <h1>{exportTitle}</h1>
-            <p>Generated from live system data for the selected reporting period.</p>
+          <div className="report-branding">
+            {settings.business_logo_url && <img src={settings.business_logo_url} alt={settings.business_name} />}
+            <div>
+              <h1>{exportTitle}</h1>
+              <p>Generated from live system data for the selected reporting period.</p>
+            </div>
           </div>
           <div className="report-export-meta">
             <span><strong>Period:</strong> This {period}</span>
@@ -731,6 +736,31 @@ const Reports = () => {
                 ))}
               </tbody>
             </table>
+            {(customerReport.sales || []).map((sale) => (
+              <table key={sale._id} className="report-export-table">
+                <thead>
+                  <tr>
+                    <th colSpan="4">{sale.invoice_number} item detail</th>
+                  </tr>
+                  <tr>
+                    <th>Item</th>
+                    <th>Qty</th>
+                    <th>Unit Price</th>
+                    <th className="text-right">Subtotal</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(sale.items || []).map((item) => (
+                    <tr key={item.id}>
+                      <td>{item.productName} {item.size ? `(${item.size})` : ''}</td>
+                      <td>{item.quantity}</td>
+                      <td>{Number(item.unit_price || 0).toLocaleString()}</td>
+                      <td className="text-right">{Number(item.subtotal || 0).toLocaleString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ))}
           </>
         )}
 
@@ -772,6 +802,7 @@ const Reports = () => {
             </div>
           </>
         )}
+        <p style={{ marginTop: '1.5rem', color: '#555' }}>{settings.receipt_footer}</p>
       </section>
     </div>
   );

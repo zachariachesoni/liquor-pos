@@ -21,6 +21,7 @@ import customerRoutes from './routes/customer.routes.js';
 import expenseRoutes from './routes/expense.routes.js';
 import dashboardRoutes from './routes/dashboard.routes.js';
 import reportRoutes from './routes/report.routes.js';
+import settingsRoutes from './routes/settings.routes.js';
 
 // Import database connection
 import { connectDB, mongoose } from './config/database.js';
@@ -120,6 +121,7 @@ app.use('/api/customers', customerRoutes);
 app.use('/api/expenses', expenseRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/reports', reportRoutes);
+app.use('/api/settings', settingsRoutes);
 
 // Serve Frontend in Production environment
 if (process.env.NODE_ENV === 'production') {

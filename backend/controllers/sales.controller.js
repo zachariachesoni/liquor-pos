@@ -163,6 +163,9 @@ export const createSale = async (req, res) => {
 export const getSales = async (req, res) => {
   try {
     const filters = {};
+    if (req.query.q) {
+      filters.invoice_number = { $regex: req.query.q.trim(), $options: 'i' };
+    }
     if (req.query.start_date) filters.createdAt = { $gte: new Date(req.query.start_date) };
     if (req.query.end_date) {
       filters.createdAt = filters.createdAt || {};

@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
-import { NavLink, useNavigate, useLocation } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { LayoutDashboard, ShoppingCart, Package, ClipboardList, FileBarChart, Users, Receipt, PieChart, LogOut, Menu, X, UserCog, KeyRound } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, Package, ClipboardList, FileBarChart, Users, Receipt, PieChart, LogOut, Menu, X, KeyRound, Shield } from 'lucide-react';
+import { useSystemSettings } from '../hooks/useSystemSettings';
 import './Layout.css';
 
 const Layout = ({ children }) => {
   const { user, logout, changePassword } = useAuth();
+  const { settings } = useSystemSettings();
   const navigate = useNavigate();
-  const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
@@ -28,9 +29,19 @@ const Layout = ({ children }) => {
     { name: 'Reports', path: '/reports', icon: <PieChart size={20} />, roles: ['admin', 'manager'] },
     { name: 'Sales', path: '/sales', icon: <FileBarChart size={20} />, roles: ['admin', 'manager'] },
     { name: 'Customers', path: '/customers', icon: <Users size={20} />, roles: ['admin', 'manager', 'cashier'] },
-    { name: 'Employees', path: '/employees', icon: <UserCog size={20} />, roles: ['admin'] },
+    { name: 'Admin', path: '/admin', icon: <Shield size={20} />, roles: ['admin'] },
     { name: 'Expenses', path: '/expenses', icon: <Receipt size={20} />, roles: ['admin', 'manager'] }
-  ].filter(item => user && item.roles.includes(user.role));
+  ].filter((item) => user && item.roles.includes(user.role));
+
+  const renderBrandIcon = () => (
+    <div className="brand-icon">
+      {settings.business_logo_url ? (
+        <img src={settings.business_logo_url} alt={settings.business_name} />
+      ) : (
+        'L'
+      )}
+    </div>
+  );
 
   const toggleMobileMenu = () => {
     setMobileMenuOpen(!mobileMenuOpen);
@@ -61,18 +72,17 @@ const Layout = ({ children }) => {
 
   return (
     <div className="layout-container">
-      {/* Sidebar sidebar */}
       <aside className={`sidebar glass-panel ${mobileMenuOpen ? 'open' : ''}`}>
         <div className="sidebar-header">
           <div className="brand">
-            <div className="brand-icon">🍸</div>
-            <h2>Liquor POS</h2>
+            {renderBrandIcon()}
+            <h2>{settings.business_name}</h2>
           </div>
           <button className="mobile-close" onClick={toggleMobileMenu}>
             <X size={24} />
           </button>
         </div>
-        
+
         <div className="user-profile">
           <div className="avatar">{user?.username?.charAt(0).toUpperCase()}</div>
           <div className="user-info">
@@ -83,9 +93,9 @@ const Layout = ({ children }) => {
 
         <nav className="sidebar-nav">
           {navItems.map((item) => (
-            <NavLink 
-              to={item.path} 
-              key={item.path} 
+            <NavLink
+              to={item.path}
+              key={item.path}
               className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
               onClick={() => setMobileMenuOpen(false)}
             >
@@ -107,12 +117,11 @@ const Layout = ({ children }) => {
         </div>
       </aside>
 
-      {/* Main Content Area */}
       <main className="main-content">
         <header className="mobile-header glass-panel">
           <div className="brand">
-            <div className="brand-icon">🍸</div>
-            <h2>Liquor POS</h2>
+            {renderBrandIcon()}
+            <h2>{settings.business_name}</h2>
           </div>
           <button className="mobile-toggle" onClick={toggleMobileMenu}>
             <Menu size={24} />
@@ -124,13 +133,12 @@ const Layout = ({ children }) => {
         </div>
       </main>
 
-      {/* Overlay for mobile */}
       {mobileMenuOpen && <div className="sidebar-overlay" onClick={toggleMobileMenu}></div>}
 
       {showPasswordModal && (
         <div className="modal-overlay">
           <div className="glass-panel modal-card">
-            <button onClick={() => setShowPasswordModal(false)} style={{ position: 'absolute', right: '1rem', top: '1rem', background: 'transparent', border: 'none', color: 'var(--text-color)', cursor: 'pointer'}}>
+            <button onClick={() => setShowPasswordModal(false)} style={{ position: 'absolute', right: '1rem', top: '1rem', background: 'transparent', border: 'none', color: 'var(--text-color)', cursor: 'pointer' }}>
               <X size={20} />
             </button>
             <h2 style={{ marginBottom: '1rem' }}>Change Password</h2>

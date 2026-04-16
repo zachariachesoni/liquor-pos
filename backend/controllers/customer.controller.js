@@ -106,6 +106,7 @@ export const deleteCustomer = async (req, res) => {
 // @route   GET /api/customers/:id/purchase-history
 export const getCustomerPurchaseHistory = async (req, res) => {
   try {
+    const query = req.query.q?.trim().toLowerCase();
     const history = await Sale.find({ customer_id: req.params.id })
       .populate('user_id', 'username')
       .sort({ createdAt: -1 });
@@ -139,7 +140,23 @@ export const getCustomerPurchaseHistory = async (req, res) => {
       })
     );
 
-    res.json({ success: true, count: historyWithItems.length, data: historyWithItems });
+    const filteredHistory = query
+      ? historyWithItems.filter((sale) => {
+          const itemMatch = (sale.items || []).some((item) =>
+            [item.productName, item.category, item.size]
+              .filter(Boolean)
+              .some((value) => value.toLowerCase().includes(query))
+          );
+
+          return (
+            sale.invoice_number?.toLowerCase().includes(query) ||
+            sale.payment_method?.toLowerCase().includes(query) ||
+            itemMatch
+          );
+        })
+      : historyWithItems;
+
+    res.json({ success: true, count: filteredHistory.length, data: filteredHistory });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Server error' });
   }

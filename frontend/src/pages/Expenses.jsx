@@ -13,12 +13,16 @@ const Expenses = () => {
 
   const calculateBudget = () => {
     const categories = {};
+    const monthly = {};
     let total = 0;
     expenses.forEach(exp => {
       categories[exp.category] = (categories[exp.category] || 0) + exp.amount;
+      const monthKey = new Date(exp.expenseDate || exp.createdAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+      monthly[monthKey] = (monthly[monthKey] || 0) + exp.amount;
       total += exp.amount;
     });
-    return { categories, total };
+    const sortedExpenses = [...expenses].sort((a, b) => b.amount - a.amount);
+    return { categories, monthly, total, sortedExpenses };
   };
 
   useEffect(() => {
@@ -77,7 +81,7 @@ const Expenses = () => {
       <div className="glass-panel main-panel">
         <div className="table-container">
           {loading ? (
-             <div style={{ padding: '2rem', textAlign: 'center' }}>Loading expenses from database...</div>
+             <div className="loading-panel"><div className="loading-spinner" /><p>Refreshing expense ledger...</p></div>
           ) : (
           <table className="data-table">
             <thead>
@@ -164,14 +168,38 @@ const Expenses = () => {
 
       {showBudgetModal && (
         <div className="modal-overlay">
-          <div className="glass-panel modal-card">
+          <div className="glass-panel modal-card modal-card-wide">
             <button onClick={() => setShowBudgetModal(false)} style={{ position: 'absolute', right: '1rem', top: '1rem', background: 'transparent', border: 'none', color: 'var(--text-color)', cursor: 'pointer'}}>
               <X size={20} />
             </button>
             <h2 style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <PieChart className="text-primary"/> Categorical Budget Report
+              <PieChart className="text-primary"/> Detailed Budget Report
             </h2>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
+              {(() => {
+                const { total, categories, sortedExpenses } = calculateBudget();
+                return (
+                  <>
+                    <div className="glass-panel" style={{ padding: '1rem', borderRadius: '14px' }}>
+                      <div className="td-secondary">Total Spend</div>
+                      <div className="font-medium" style={{ fontSize: '1.3rem', marginTop: '0.4rem' }}>KES {total.toLocaleString()}</div>
+                    </div>
+                    <div className="glass-panel" style={{ padding: '1rem', borderRadius: '14px' }}>
+                      <div className="td-secondary">Tracked Categories</div>
+                      <div className="font-medium" style={{ fontSize: '1.3rem', marginTop: '0.4rem' }}>{Object.keys(categories).length}</div>
+                    </div>
+                    <div className="glass-panel" style={{ padding: '1rem', borderRadius: '14px' }}>
+                      <div className="td-secondary">Largest Expense</div>
+                      <div className="font-medium" style={{ fontSize: '1.3rem', marginTop: '0.4rem' }}>KES {Number(sortedExpenses[0]?.amount || 0).toLocaleString()}</div>
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.9fr', gap: '1rem' }}>
+              <div className="glass-panel" style={{ padding: '1rem', borderRadius: '14px' }}>
+                <h3 style={{ marginBottom: '1rem' }}>Category Breakdown</h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               {(() => {
                 const { categories, total } = calculateBudget();
                 if (total === 0) return <p>No expenses recorded yet.</p>;
@@ -190,6 +218,51 @@ const Expenses = () => {
                    );
                 });
               })()}
+                </div>
+              </div>
+              <div className="glass-panel" style={{ padding: '1rem', borderRadius: '14px' }}>
+                <h3 style={{ marginBottom: '1rem' }}>Monthly Spend Trend</h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  {Object.entries(calculateBudget().monthly).length === 0 ? (
+                    <p>No monthly data yet.</p>
+                  ) : Object.entries(calculateBudget().monthly).map(([month, amount]) => (
+                    <div key={month} style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.6rem' }}>
+                      <span>{month}</span>
+                      <strong>KES {Number(amount).toLocaleString()}</strong>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="glass-panel" style={{ padding: '1rem', borderRadius: '14px', marginTop: '1rem' }}>
+              <h3 style={{ marginBottom: '1rem' }}>Highest Individual Expenses</h3>
+              <div className="table-container">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Description</th>
+                      <th>Category</th>
+                      <th>Date</th>
+                      <th className="text-right">Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {calculateBudget().sortedExpenses.slice(0, 5).map((expense) => (
+                      <tr key={expense._id}>
+                        <td className="font-medium">{expense.description}</td>
+                        <td style={{ textTransform: 'capitalize' }}>{expense.category}</td>
+                        <td>{new Date(expense.expenseDate || expense.createdAt).toLocaleDateString()}</td>
+                        <td className="text-right">KES {Number(expense.amount || 0).toLocaleString()}</td>
+                      </tr>
+                    ))}
+                    {calculateBudget().sortedExpenses.length === 0 && (
+                      <tr>
+                        <td colSpan="4" className="empty-state">No expenses recorded yet.</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         </div>

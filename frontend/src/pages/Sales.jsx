@@ -1,19 +1,22 @@
-import React, { useState, useEffect } from 'react';
-import { Download, ReceiptText, ChevronRight, X } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Download, ReceiptText, ChevronRight, X, Search } from 'lucide-react';
 import api from '../utils/api';
+import { useSystemSettings } from '../hooks/useSystemSettings';
 import './Products.css';
 
 const Sales = () => {
   const [sales, setSales] = useState([]);
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState('All');
+  const [search, setSearch] = useState('');
   const [selectedSale, setSelectedSale] = useState(null);
   const [saleDetails, setSaleDetails] = useState(null);
   const [detailsLoading, setDetailsLoading] = useState(false);
+  const { settings } = useSystemSettings();
 
   useEffect(() => {
     fetchSales();
-  }, [period]);
+  }, [period, search]);
 
   const fetchSales = async () => {
     try {
@@ -21,16 +24,19 @@ const Sales = () => {
       const params = {};
       const now = new Date();
       if (period === 'Today') {
-        now.setHours(0,0,0,0);
+        now.setHours(0, 0, 0, 0);
         params.start_date = now.toISOString();
       } else if (period === 'Month') {
         now.setDate(1);
-        now.setHours(0,0,0,0);
+        now.setHours(0, 0, 0, 0);
         params.start_date = now.toISOString();
+      }
+      if (search.trim()) {
+        params.q = search.trim();
       }
 
       const res = await api.get('/sales', { params });
-      setSales(res.data.data);
+      setSales(res.data.data || []);
     } catch (err) {
       console.error('Failed to load sales', err);
     } finally {
@@ -63,6 +69,10 @@ const Sales = () => {
     const invoiceWindow = window.open('', '_blank', 'width=900,height=900');
     if (!invoiceWindow) return;
 
+    const logoMarkup = settings.business_logo_url
+      ? `<img src="${settings.business_logo_url}" alt="${settings.business_name}" style="width:64px;height:64px;object-fit:contain;border-radius:12px;background:#f4f4f5;padding:8px;" />`
+      : '';
+
     const rows = (sale.items || []).map((item) => `
       <tr>
         <td style="padding:10px 8px;border-bottom:1px solid #ddd;">
@@ -94,8 +104,13 @@ const Sales = () => {
         <body>
           <div class="header">
             <div>
-              <h1 style="margin:0 0 8px 0;">Liquor POS Invoice</h1>
-              <div>${sale.invoice_number}</div>
+              <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
+                ${logoMarkup}
+                <div>
+                  <h1 style="margin:0 0 8px 0;">${settings.business_name} Invoice</h1>
+                  <div>${sale.invoice_number}</div>
+                </div>
+              </div>
             </div>
             <div style="text-align:right;">
               <div><strong>Date:</strong> ${new Date(sale.createdAt).toLocaleString()}</div>
@@ -126,6 +141,7 @@ const Sales = () => {
             <div><span>Total</span><strong>KES ${(sale.total_amount || 0).toLocaleString()}</strong></div>
             <div class="total-line"><span>Recorded By</span><strong>${sale.user_id?.username || 'Unknown'}</strong></div>
           </div>
+          <p style="margin-top:20px;color:#666;font-size:12px;">${settings.receipt_footer || ''}</p>
         </body>
       </html>
     `);
@@ -140,10 +156,19 @@ const Sales = () => {
         <div className="page-header">
           <div>
             <h1 className="page-title">Sales History</h1>
-            <p className="page-subtitle">View and filter transaction logs.</p>
+            <p className="page-subtitle">View and filter transaction logs by period or invoice number.</p>
           </div>
-          <div style={{ display: 'flex', gap: '1rem' }}>
-            <select 
+          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+            <div className="search-box" style={{ width: '260px' }}>
+              <Search size={18} className="search-icon" />
+              <input
+                type="text"
+                placeholder="Search invoice number..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+            <select
               style={{ padding: '0.5rem 1rem', background: 'var(--input-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '8px' }}
               value={period}
               onChange={(e) => setPeriod(e.target.value)}
@@ -158,43 +183,43 @@ const Sales = () => {
         <div className="glass-panel main-panel">
           <div className="table-container">
             {loading ? (
-               <div style={{ padding: '2rem', textAlign: 'center' }}>Loading sales from database...</div>
+              <div className="loading-panel"><div className="loading-spinner" /><p>Refreshing sales records...</p></div>
             ) : (
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Invoice</th>
-                  <th>Date & Time</th>
-                  <th>Type</th>
-                  <th>Payment</th>
-                  <th>Cashier</th>
-                  <th className="text-right">Total (KES)</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {sales.map(sale => (
-                  <tr key={sale._id} style={{ cursor: 'pointer' }} onClick={() => openSaleDetails(sale)}>
-                    <td className="font-medium text-primary">
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <ReceiptText size={16} /> {sale.invoice_number}
-                      </div>
-                    </td>
-                    <td className="td-secondary">{new Date(sale.createdAt).toLocaleString()}</td>
-                    <td>{sale.sale_type}</td>
-                    <td><span className="badge">{sale.payment_method}</span></td>
-                    <td>{sale.user_id?.username || 'admin'}</td>
-                    <td className="font-medium text-right">{sale.total_amount?.toLocaleString()}</td>
-                    <td className="text-right text-muted"><ChevronRight size={20} /></td>
-                  </tr>
-                ))}
-                {sales.length === 0 && (
+              <table className="data-table">
+                <thead>
                   <tr>
-                    <td colSpan="7" className="empty-state">No sales records found.</td>
+                    <th>Invoice</th>
+                    <th>Date & Time</th>
+                    <th>Type</th>
+                    <th>Payment</th>
+                    <th>Cashier</th>
+                    <th className="text-right">Total (KES)</th>
+                    <th></th>
                   </tr>
-                )}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {sales.map((sale) => (
+                    <tr key={sale._id} style={{ cursor: 'pointer' }} onClick={() => openSaleDetails(sale)}>
+                      <td className="font-medium text-primary">
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <ReceiptText size={16} /> {sale.invoice_number}
+                        </div>
+                      </td>
+                      <td className="td-secondary">{new Date(sale.createdAt).toLocaleString()}</td>
+                      <td>{sale.sale_type}</td>
+                      <td><span className="badge">{sale.payment_method}</span></td>
+                      <td>{sale.user_id?.username || 'admin'}</td>
+                      <td className="font-medium text-right">{sale.total_amount?.toLocaleString()}</td>
+                      <td className="text-right text-muted"><ChevronRight size={20} /></td>
+                    </tr>
+                  ))}
+                  {sales.length === 0 && (
+                    <tr>
+                      <td colSpan="7" className="empty-state">No sales records matched your filters.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             )}
           </div>
         </div>
@@ -207,7 +232,7 @@ const Sales = () => {
               <X size={20} />
             </button>
             {detailsLoading || !saleDetails ? (
-              <div className="empty-state">Loading invoice details...</div>
+              <div className="loading-panel"><div className="loading-spinner" /><p>Loading invoice details...</p></div>
             ) : (
               <>
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'center', flexWrap: 'wrap', marginBottom: '1rem' }}>

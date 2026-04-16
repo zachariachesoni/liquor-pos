@@ -1,9 +1,12 @@
 import Sale from '../models/Sale.js';
 import ProductVariant from '../models/ProductVariant.js';
 import SaleItem from '../models/SaleItem.js';
+import { calculateEffectiveLowStockLevel, getSystemSettings, serializeSystemSettings } from '../utils/systemSettings.js';
 
 export const getStats = async (req, res) => {
   try {
+    const settingsDoc = await getSystemSettings();
+    const settings = serializeSystemSettings(settingsDoc);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -24,9 +27,10 @@ export const getStats = async (req, res) => {
     const [monthSales] = await Sale.aggregate(pipe(monthStart));
 
     const totalProducts = await ProductVariant.countDocuments();
-    const lowStockItems = await ProductVariant.countDocuments({ 
-        $expr: { $lte: ['$current_stock', '$min_stock_level'] } 
-    });
+    const variants = await ProductVariant.find({}, 'current_stock min_stock_level retail_price buying_price');
+    const lowStockItems = variants.filter((variant) =>
+      variant.current_stock <= calculateEffectiveLowStockLevel(variant, settings)
+    ).length;
 
     const revenueOverview = await Sale.aggregate([
       { $match: { createdAt: { $gte: revenueWindowStart } } },

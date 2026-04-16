@@ -118,16 +118,15 @@ export const updateUser = async (req, res) => {
   }
 };
 
-// @desc    Delete user (soft delete)
+// @desc    Delete user
 // @route   DELETE /api/users/:id
 // @access  Private/Admin
 export const deleteUser = async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
-    
-    user.is_active = false;
-    await user.save();
+
+    await User.findByIdAndDelete(req.params.id);
     res.json({ success: true, data: {} });
   } catch (error) {
     logger.error('Delete user error:', error);

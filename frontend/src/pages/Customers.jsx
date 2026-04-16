@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { UserPlus, Search, Phone, Mail, History, X } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { UserPlus, Search, Phone, Mail, History, X, Download } from 'lucide-react';
 import api from '../utils/api';
+import { useSystemSettings } from '../hooks/useSystemSettings';
 import './Products.css';
 
 const Customers = () => {
@@ -10,8 +11,10 @@ const Customers = () => {
   const [showModal, setShowModal] = useState(false);
   const [historyCustomer, setHistoryCustomer] = useState(null);
   const [purchaseHistory, setPurchaseHistory] = useState([]);
+  const [historySearch, setHistorySearch] = useState('');
   const [historyLoading, setHistoryLoading] = useState(false);
   const [formData, setFormData] = useState({ name: '', phone: '', email: '', customer_type: 'retail' });
+  const { settings } = useSystemSettings();
 
   useEffect(() => {
     fetchCustomers();
@@ -21,7 +24,7 @@ const Customers = () => {
     try {
       setLoading(true);
       const res = await api.get('/customers');
-      setCustomers(res.data.data || res.data); // in case backend wrap changes
+      setCustomers(res.data.data || res.data);
     } catch (err) {
       console.error('Failed to load customers', err);
     } finally {
@@ -45,6 +48,7 @@ const Customers = () => {
   const openPurchaseHistory = async (customer) => {
     try {
       setHistoryCustomer(customer);
+      setHistorySearch('');
       setHistoryLoading(true);
       const res = await api.get(`/customers/${customer._id}/purchase-history`);
       setPurchaseHistory(res.data.data || []);
@@ -56,10 +60,115 @@ const Customers = () => {
     }
   };
 
-  const filtered = customers.filter(c => 
-    c.name?.toLowerCase().includes(search.toLowerCase()) || 
+  const filtered = customers.filter((c) =>
+    c.name?.toLowerCase().includes(search.toLowerCase()) ||
     c.phone?.includes(search)
   );
+
+  const filteredHistory = useMemo(() => {
+    const query = historySearch.trim().toLowerCase();
+    if (!query) return purchaseHistory;
+
+    return purchaseHistory.filter((sale) => {
+      const itemMatch = (sale.items || []).some((item) =>
+        [item.productName, item.category, item.size]
+          .filter(Boolean)
+          .some((value) => value.toLowerCase().includes(query))
+      );
+
+      return (
+        sale.invoice_number?.toLowerCase().includes(query) ||
+        sale.payment_method?.toLowerCase().includes(query) ||
+        itemMatch
+      );
+    });
+  }, [historySearch, purchaseHistory]);
+
+  const exportCustomerHistory = () => {
+    if (!historyCustomer) return;
+
+    const reportWindow = window.open('', '_blank', 'width=960,height=900');
+    if (!reportWindow) return;
+
+    const logoMarkup = settings.business_logo_url
+      ? `<img src="${settings.business_logo_url}" alt="${settings.business_name}" style="width:72px;height:72px;object-fit:contain;border-radius:12px;background:#f4f4f5;padding:8px;" />`
+      : '';
+
+    const saleBlocks = filteredHistory.map((sale) => {
+      const rows = (sale.items || []).map((item) => `
+        <tr>
+          <td style="padding:8px;border-bottom:1px solid #e5e7eb;">${item.productName}<div style="font-size:12px;color:#666;">${item.size || ''}</div></td>
+          <td style="padding:8px;border-bottom:1px solid #e5e7eb;">${item.category}</td>
+          <td style="padding:8px;border-bottom:1px solid #e5e7eb;text-align:center;">${item.quantity}</td>
+          <td style="padding:8px;border-bottom:1px solid #e5e7eb;text-align:right;">KES ${Number(item.unit_price || 0).toLocaleString()}</td>
+          <td style="padding:8px;border-bottom:1px solid #e5e7eb;text-align:right;">KES ${Number(item.subtotal || 0).toLocaleString()}</td>
+        </tr>
+      `).join('');
+
+      return `
+        <section style="margin-bottom:24px;border:1px solid #e5e7eb;border-radius:14px;padding:16px;">
+          <div style="display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:12px;">
+            <div>
+              <strong>${sale.invoice_number}</strong>
+              <div style="font-size:13px;color:#666;">${new Date(sale.createdAt).toLocaleString()}</div>
+            </div>
+            <div style="text-align:right;font-size:13px;">
+              <div><strong>Payment:</strong> ${sale.payment_method}</div>
+              <div><strong>Cashier:</strong> ${sale.user_id?.username || 'Unknown'}</div>
+            </div>
+          </div>
+          <table style="width:100%;border-collapse:collapse;">
+            <thead>
+              <tr>
+                <th style="text-align:left;padding:8px;border-bottom:2px solid #d1d5db;">Item</th>
+                <th style="text-align:left;padding:8px;border-bottom:2px solid #d1d5db;">Category</th>
+                <th style="text-align:center;padding:8px;border-bottom:2px solid #d1d5db;">Qty</th>
+                <th style="text-align:right;padding:8px;border-bottom:2px solid #d1d5db;">Unit Price</th>
+                <th style="text-align:right;padding:8px;border-bottom:2px solid #d1d5db;">Subtotal</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+          <div style="margin-top:12px;text-align:right;font-weight:700;">Sale Total: KES ${Number(sale.total_amount || 0).toLocaleString()}</div>
+        </section>
+      `;
+    }).join('');
+
+    reportWindow.document.write(`
+      <html>
+        <head>
+          <title>${historyCustomer.name} Report</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 28px; color: #111827; }
+            .header { display:flex; justify-content:space-between; gap:20px; flex-wrap:wrap; margin-bottom:28px; }
+            .customer-meta { line-height:1.7; color:#374151; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div style="display:flex;align-items:center;gap:16px;">
+              ${logoMarkup}
+              <div>
+                <h1 style="margin:0 0 8px 0;">${settings.business_name} Customer Report</h1>
+                <div>${historyCustomer.name}</div>
+              </div>
+            </div>
+            <div class="customer-meta">
+              <div><strong>Phone:</strong> ${historyCustomer.phone || 'N/A'}</div>
+              <div><strong>Email:</strong> ${historyCustomer.email || 'N/A'}</div>
+              <div><strong>Type:</strong> ${historyCustomer.customer_type || 'retail'}</div>
+            </div>
+          </div>
+          <div style="margin-bottom:18px;font-weight:600;">Extracted invoices: ${filteredHistory.length}</div>
+          ${saleBlocks || '<p>No purchase history matched the current search.</p>'}
+          <p style="margin-top:24px;color:#6b7280;font-size:12px;">${settings.receipt_footer || ''}</p>
+        </body>
+      </html>
+    `);
+    reportWindow.document.close();
+    reportWindow.focus();
+    reportWindow.print();
+  };
 
   return (
     <div className="page-container animate-fade-in">
@@ -77,61 +186,61 @@ const Customers = () => {
         <div className="panel-toolbar">
           <div className="search-box">
             <Search size={18} className="search-icon" />
-            <input 
-               type="text" 
-               placeholder="Search customers..." 
-               value={search}
-               onChange={(e) => setSearch(e.target.value)}
+            <input
+              type="text"
+              placeholder="Search customers..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
             />
           </div>
         </div>
 
         <div className="table-container">
           {loading ? (
-             <div style={{ padding: '2rem', textAlign: 'center' }}>Loading customers from database...</div>
+            <div className="loading-panel"><div className="loading-spinner" /><p>Loading customer directory...</p></div>
           ) : (
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Customer</th>
-                <th>Contact</th>
-                <th>Total Purchases</th>
-                <th>Total Spent (KES)</th>
-                <th className="text-center">History</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map(c => (
-                <tr key={c._id}>
-                  <td className="font-medium">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                      <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: 'var(--primary-bg)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>
-                        {c.name?.charAt(0) || 'U'}
-                      </div>
-                      {c.name}
-                      {c.customer_type === 'wholesale' && <span className="badge" style={{ background: 'var(--warning-bg)', color: 'var(--warning)', fontSize: '0.7rem' }}>Wholesale</span>}
-                    </div>
-                  </td>
-                  <td className="td-secondary">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}><Phone size={12}/> {c.phone || 'N/A'}</div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', marginTop: '4px' }}><Mail size={12}/> {c.email || 'N/A'}</div>
-                  </td>
-                  <td>{c.totalPurchases || 0} orders</td>
-                  <td className="font-medium">{c.totalSpent?.toLocaleString() || 0}</td>
-                  <td className="action-cell">
-                    <button className="action-icon" title="View purchase history" onClick={() => openPurchaseHistory(c)}>
-                      <History size={16} />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-              {filtered.length === 0 && (
+            <table className="data-table">
+              <thead>
                 <tr>
-                  <td colSpan="5" className="empty-state">No customers found.</td>
+                  <th>Customer</th>
+                  <th>Contact</th>
+                  <th>Total Purchases</th>
+                  <th>Total Spent (KES)</th>
+                  <th className="text-center">History</th>
                 </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {filtered.map((c) => (
+                  <tr key={c._id}>
+                    <td className="font-medium">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: 'var(--primary-bg)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>
+                          {c.name?.charAt(0) || 'U'}
+                        </div>
+                        {c.name}
+                        {c.customer_type === 'wholesale' && <span className="badge" style={{ background: 'var(--warning-bg)', color: 'var(--warning)', fontSize: '0.7rem' }}>Wholesale</span>}
+                      </div>
+                    </td>
+                    <td className="td-secondary">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}><Phone size={12} /> {c.phone || 'N/A'}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', marginTop: '4px' }}><Mail size={12} /> {c.email || 'N/A'}</div>
+                    </td>
+                    <td>{c.totalPurchases || 0} orders</td>
+                    <td className="font-medium">{c.totalSpent?.toLocaleString() || 0}</td>
+                    <td className="action-cell">
+                      <button className="action-icon" title="View purchase history" onClick={() => openPurchaseHistory(c)}>
+                        <History size={16} />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+                {filtered.length === 0 && (
+                  <tr>
+                    <td colSpan="5" className="empty-state">No customers found.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           )}
         </div>
       </div>
@@ -139,31 +248,31 @@ const Customers = () => {
       {showModal && (
         <div className="modal-overlay">
           <div className="glass-panel modal-card">
-            <button onClick={() => setShowModal(false)} style={{ position: 'absolute', right: '1rem', top: '1rem', background: 'transparent', border: 'none', color: 'var(--text-color)', cursor: 'pointer'}}>
+            <button onClick={() => setShowModal(false)} style={{ position: 'absolute', right: '1rem', top: '1rem', background: 'transparent', border: 'none', color: 'var(--text-color)', cursor: 'pointer' }}>
               <X size={20} />
             </button>
             <h2 style={{ marginBottom: '1.5rem' }}>Add New Customer</h2>
             <form onSubmit={handleAddCustomer} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <div>
                 <label>Customer Name</label>
-                <input required type="text" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} style={{ width: '100%', padding: '0.5rem', background: 'var(--input-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '4px' }}/>
+                <input required type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} style={{ width: '100%', padding: '0.5rem', background: 'var(--input-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '4px' }} />
               </div>
               <div style={{ display: 'flex', gap: '1rem' }}>
                 <div style={{ flex: 1 }}>
                   <label>Phone Number</label>
-                  <input required type="text" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} style={{ width: '100%', padding: '0.5rem', background: 'var(--input-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '4px' }}/>
+                  <input required type="text" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} style={{ width: '100%', padding: '0.5rem', background: 'var(--input-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '4px' }} />
                 </div>
                 <div style={{ flex: 1 }}>
                   <label>Email Address</label>
-                  <input type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} style={{ width: '100%', padding: '0.5rem', background: 'var(--input-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '4px' }}/>
+                  <input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} style={{ width: '100%', padding: '0.5rem', background: 'var(--input-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '4px' }} />
                 </div>
               </div>
               <div style={{ marginTop: '0.5rem' }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-                  <input 
-                    type="checkbox" 
-                    checked={formData.customer_type === 'wholesale'} 
-                    onChange={e => setFormData({...formData, customer_type: e.target.checked ? 'wholesale' : 'retail'})} 
+                  <input
+                    type="checkbox"
+                    checked={formData.customer_type === 'wholesale'}
+                    onChange={(e) => setFormData({ ...formData, customer_type: e.target.checked ? 'wholesale' : 'retail' })}
                   />
                   <span>This is a Wholesale Partner Account</span>
                 </label>
@@ -180,15 +289,33 @@ const Customers = () => {
             <button onClick={() => setHistoryCustomer(null)} style={{ position: 'absolute', right: '1rem', top: '1rem', background: 'rgba(15, 23, 42, 0.9)', border: '1px solid var(--border-color)', color: 'var(--text-color)', cursor: 'pointer', borderRadius: '999px', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }}>
               <X size={20} />
             </button>
-            <h2 style={{ marginBottom: '0.5rem' }}>{historyCustomer.name} Purchase History</h2>
-            <p className="page-subtitle" style={{ marginBottom: '1.5rem' }}>Orders and spending for this customer.</p>
+            <div className="detail-header" style={{ marginBottom: '1rem' }}>
+              <div>
+                <h2 style={{ marginBottom: '0.5rem' }}>{historyCustomer.name} Purchase History</h2>
+                <p className="page-subtitle">Search by invoice number, payment method, or items in this customer timeline.</p>
+              </div>
+              <button className="primary-btn" onClick={exportCustomerHistory}>
+                <Download size={18} /> Extract Customer Report
+              </button>
+            </div>
+            <div className="panel-toolbar" style={{ padding: '0 0 1rem 0', borderBottom: 'none' }}>
+              <div className="search-box">
+                <Search size={18} className="search-icon" />
+                <input
+                  type="text"
+                  placeholder="Search invoice or item..."
+                  value={historySearch}
+                  onChange={(e) => setHistorySearch(e.target.value)}
+                />
+              </div>
+            </div>
             {historyLoading ? (
-              <div className="empty-state">Loading purchase history...</div>
-            ) : purchaseHistory.length === 0 ? (
-              <div className="empty-state">No purchases recorded for this customer yet.</div>
+              <div className="loading-panel"><div className="loading-spinner" /><p>Loading purchase history...</p></div>
+            ) : filteredHistory.length === 0 ? (
+              <div className="empty-state">No purchase history matched the current search.</div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                {purchaseHistory.map((sale) => (
+                {filteredHistory.map((sale) => (
                   <div key={sale._id} className="glass-panel" style={{ padding: '1rem', borderRadius: '12px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', marginBottom: '0.75rem', flexWrap: 'wrap' }}>
                       <div>
@@ -245,5 +372,3 @@ const Customers = () => {
 };
 
 export default Customers;
-
-

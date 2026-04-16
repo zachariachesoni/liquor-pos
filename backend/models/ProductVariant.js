@@ -37,7 +37,7 @@ const productVariantSchema = new mongoose.Schema({
   },
   min_stock_level: {
     type: Number,
-    default: 3
+    default: 5
   },
   barcode: {
     type: String,

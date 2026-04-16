@@ -47,7 +47,7 @@ const Inventory = () => {
 
   const getStatus = (variant) => {
     if (variant.current_stock === 0) return 'Out';
-    if (variant.current_stock <= 3) return 'Low';
+    if (variant.current_stock <= (variant.effective_low_stock_level || variant.min_stock_level || 5)) return 'Low';
     return 'Optimal';
   };
 
@@ -73,7 +73,7 @@ const Inventory = () => {
       <div className="glass-panel main-panel">
         <div className="table-container">
           {loading ? (
-             <div style={{ padding: '2rem', textAlign: 'center' }}>Loading inventory from database...</div>
+             <div className="loading-panel"><div className="loading-spinner" /><p>Refreshing inventory levels...</p></div>
           ) : (
           <table className="data-table">
             <thead>
@@ -97,6 +97,7 @@ const Inventory = () => {
                     {status === 'Low' && <span className="status-dot yellow"></span>}
                     {status === 'Out' && <span className="status-dot red"></span>}
                     {status}
+                    <div className="td-secondary">Warn at {item.effective_low_stock_level || item.min_stock_level || 5}</div>
                   </td>
                   <td className="td-secondary">{new Date(item.updatedAt).toLocaleDateString()}</td>
                   <td className="text-right">

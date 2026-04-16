@@ -265,6 +265,21 @@
   margin-bottom: 2rem;
 }
 
+.report-branding {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.report-branding img {
+  width: 72px;
+  height: 72px;
+  object-fit: contain;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.06);
+  padding: 0.5rem;
+}
+
 .report-export-header h1 {
   font-size: 1.8rem;
   margin-bottom: 0.4rem;

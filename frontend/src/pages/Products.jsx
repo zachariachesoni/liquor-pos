@@ -19,7 +19,7 @@ const Products = () => {
     name: '', brand: '', category: 'whisky',
     size: '750ml', size_in_ml: 750,
     buying_price: 0, retail_price: 0, wholesale_price: 0,
-    wholesale_threshold: 12, current_stock: 0
+    wholesale_threshold: 12, current_stock: 0, min_stock_level: 5
   });
 
   useEffect(() => {
@@ -46,6 +46,8 @@ const Products = () => {
               price: variant.retail_price,
               bulk_price: variant.wholesale_price,
               stock: variant.current_stock,
+              minStockLevel: variant.min_stock_level,
+              effectiveLowStockLevel: variant.effective_low_stock_level || variant.min_stock_level,
               isActive: prod.is_active !== false && variant.is_active !== false
             });
           });
@@ -80,14 +82,15 @@ const Products = () => {
           retail_price: Number(formData.retail_price),
           wholesale_price: Number(formData.wholesale_price),
           wholesale_threshold: Number(formData.wholesale_threshold),
-          current_stock: Number(formData.current_stock)
+          current_stock: Number(formData.current_stock),
+          min_stock_level: Number(formData.min_stock_level)
         }]
       };
       await api.post('/products', payload);
       setShowModal(false);
       fetchProducts();
       // Reset
-      setFormData({ ...formData, name: '', brand: '', buying_price: 0, retail_price: 0, wholesale_price: 0, current_stock: 0, size_in_ml: 750, size: '750ml' });
+      setFormData({ ...formData, name: '', brand: '', buying_price: 0, retail_price: 0, wholesale_price: 0, current_stock: 0, size_in_ml: 750, size: '750ml', min_stock_level: 5 });
     } catch (err) {
       alert('Error creating product');
       console.error(err);
@@ -118,7 +121,8 @@ const Products = () => {
         buying_price: Number(editData.bp),
         retail_price: Number(editData.price),
         wholesale_price: Number(editData.bulk_price),
-        current_stock: Number(editData.stock)
+        current_stock: Number(editData.stock),
+        min_stock_level: Number(editData.minStockLevel)
       });
       setShowEditModal(false);
       fetchProducts();
@@ -139,7 +143,7 @@ const Products = () => {
     const matchesCategory = categoryFilter === 'all' || product.type === categoryFilter;
     const matchesStock = stockFilter === 'all'
       || (stockFilter === 'in-stock' && product.stock > 0)
-      || (stockFilter === 'low-stock' && product.stock > 0 && product.stock <= 30)
+      || (stockFilter === 'low-stock' && product.stock > 0 && product.stock <= product.effectiveLowStockLevel)
       || (stockFilter === 'out-of-stock' && product.stock <= 0);
 
     return matchesSearch && matchesCategory && matchesStock;
@@ -224,7 +228,7 @@ const Products = () => {
 
         <div className="table-container">
           {loading ? (
-            <div style={{ padding: '2rem', textAlign: 'center' }}>Loading products from database...</div>
+            <div className="loading-panel"><div className="loading-spinner" /><p>Loading product catalog...</p></div>
           ) : (
             <table className="data-table">
               <thead>
@@ -260,8 +264,9 @@ const Products = () => {
                       </div>
                     </td>
                     <td>
-                      <span className={`status-dot ${product.stock > 30 ? 'green' : 'red'}`}></span>
+                      <span className={`status-dot ${product.stock > product.effectiveLowStockLevel ? 'green' : 'red'}`}></span>
                       {product.stock} units
+                      <div className="td-secondary">Warn at {product.effectiveLowStockLevel}</div>
                     </td>
                     <td className="text-right">
                       <button className="action-icon" onClick={() => {
@@ -331,6 +336,10 @@ const Products = () => {
                   <label>Buying Price (BP)</label>
                   <input required type="number" value={formData.buying_price} onChange={e => setFormData({ ...formData, buying_price: e.target.value })} style={{ width: '100%', padding: '0.5rem', background: 'var(--input-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '4px' }} />
                 </div>
+                <div style={{ flex: 1 }}>
+                  <label>Low-Stock Threshold</label>
+                  <input required type="number" min="0" value={formData.min_stock_level} onChange={e => setFormData({ ...formData, min_stock_level: e.target.value })} style={{ width: '100%', padding: '0.5rem', background: 'var(--input-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '4px' }} />
+                </div>
               </div>
 
               <div style={{ display: 'flex', gap: '1rem' }}>
@@ -397,6 +406,10 @@ const Products = () => {
                 <div style={{ flex: 1 }}>
                   <label>Buying Price (BP)</label>
                   <input required type="number" value={editData.bp} onChange={e => setEditData({ ...editData, bp: e.target.value })} style={{ width: '100%', padding: '0.5rem', background: 'var(--input-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '4px' }} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label>Low-Stock Threshold</label>
+                  <input required type="number" min="0" value={editData.minStockLevel} onChange={e => setEditData({ ...editData, minStockLevel: e.target.value })} style={{ width: '100%', padding: '0.5rem', background: 'var(--input-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '4px' }} />
                 </div>
               </div>
 
