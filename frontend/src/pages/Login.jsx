@@ -71,7 +71,7 @@ const Login = () => {
         </form>
 
         <div className="login-footer">
-          <p>Don't have an account? <Link to="/register" style={{color: '#667eea', fontWeight: '600'}}>Create System Admin</Link></p>
+          <p>Setting up for the first time? <Link to="/register" style={{color: '#667eea', fontWeight: '600'}}>Create initial admin</Link></p>
         </div>
       </div>
     </div>

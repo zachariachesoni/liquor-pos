@@ -5,10 +5,10 @@ import { verifyToken, checkRole } from '../middleware/auth.middleware.js';
 
 router.use(verifyToken);
 
-router.get('/', checkRole('admin', 'manager'), getUsers);
-router.get('/:id', checkRole('admin', 'manager'), getUser);
-router.post('/', checkRole('admin', 'manager'), createUser);
-router.put('/:id', checkRole('admin', 'manager'), updateUser);
+router.get('/', checkRole('admin'), getUsers);
+router.get('/:id', checkRole('admin'), getUser);
+router.post('/', checkRole('admin'), createUser);
+router.put('/:id', checkRole('admin'), updateUser);
 router.delete('/:id', checkRole('admin'), deleteUser);
 
 export default router;

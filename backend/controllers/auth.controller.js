@@ -1,4 +1,3 @@
-import mongoose from 'mongoose';
 import { hashPassword, comparePassword, generateToken } from '../utils/helpers.js';
 import logger from '../utils/logger.js';
 import { sendRegistrationEmail } from '../utils/email.js';
@@ -10,14 +9,23 @@ import User from '../models/User.js';
 // @route   POST /api/auth/register
 // @access  Public (should be restricted in production)
 export const register = async (req, res) => {
-  const { username, password, email, role } = req.body;
+  const { username, password, email } = req.body;
 
   try {
+    const existingUserCount = await User.countDocuments();
+
+    if (existingUserCount > 0) {
+      return res.status(403).json({
+        success: false,
+        message: 'Public registration is disabled. Ask an admin to create your account.'
+      });
+    }
+
     // Validate required fields
-    if (!username || !password || !role) {
+    if (!username || !password) {
       return res.status(400).json({
         success: false,
-        message: 'Username, password, and role are required'
+        message: 'Username and password are required'
       });
     }
 
@@ -33,17 +41,6 @@ export const register = async (req, res) => {
       });
     }
 
-    // Limit employee accounts to 3
-    if (role !== 'admin') {
-      const employeeCount = await User.countDocuments({ role: { $ne: 'admin' } });
-      if (employeeCount >= 3) {
-        return res.status(400).json({
-          success: false,
-          message: 'Employee account limit reached (maximum 3 employees allowed)'
-        });
-      }
-    }
-
     // Hash password
     const hashedPassword = await hashPassword(password);
 
@@ -52,24 +49,24 @@ export const register = async (req, res) => {
       username,
       password: hashedPassword,
       email,
-      role,
+      role: 'admin',
       permissions: {}
     });
 
     let emailResult = null;
     if (email) {
       const loginLink = `${process.env.FRONTEND_URL || `${req.protocol}://${req.get('host')}`}/login`;
-      emailResult = await sendRegistrationEmail(email, username, role, loginLink);
+      emailResult = await sendRegistrationEmail(email, username, user.role, loginLink);
     }
 
     // Generate token
     const token = generateToken(user);
 
-    logger.info(`New user registered: ${username}`);
+    logger.info(`Initial admin registered: ${username}`);
 
     res.status(201).json({
       success: true,
-      message: 'User registered successfully',
+      message: 'Initial admin account created successfully',
       data: {
         user: {
           id: user._id,

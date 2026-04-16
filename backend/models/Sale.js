@@ -33,6 +33,15 @@ const saleSchema = new mongoose.Schema({
     type: Number,
     required: true
   },
+  amount_paid: {
+    type: Number,
+    required: true,
+    default: 0
+  },
+  change_due: {
+    type: Number,
+    default: 0
+  },
   payment_method: {
     type: String,
     enum: ['cash', 'mpesa', 'bank', 'split'],

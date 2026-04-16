@@ -12,28 +12,43 @@ export const createSale = async (req, res) => {
   try {
     session.startTransaction();
     const { items, customerId, paymentMethod, amountPaid, priceList } = req.body;
+    const normalizedAmountPaid = Number(amountPaid ?? 0);
+    const allowedPaymentMethods = ['cash', 'mpesa', 'bank', 'split'];
     let totalAmount = 0;
+
+    if (!Array.isArray(items) || items.length === 0) {
+      throw new Error('At least one sale item is required');
+    }
+
+    if (!allowedPaymentMethods.includes(paymentMethod || 'cash')) {
+      throw new Error('Invalid payment method');
+    }
 
     // We calculate real total dynamically based on explicit priceList or threshold
     const saleItemsData = [];
     for (const item of items) {
+      const quantity = Number(item.quantity);
+      if (!item.variantId || !Number.isFinite(quantity) || quantity <= 0) {
+        throw new Error('Each sale item must include a valid variant and quantity');
+      }
+
       const variant = await ProductVariant.findById(item.variantId).session(session);
-      if (!variant || variant.current_stock < item.quantity) {
+      if (!variant || variant.current_stock < quantity) {
         throw new Error(`Insufficient stock for ${variant ? variant._id : 'Unknown item'}`);
       }
       
       // Determine if wholesale manually selected via priceList OR threshold reached
-      const appliesWholesale = priceList === 'wholesale' || item.quantity >= variant.wholesale_threshold;
+      const appliesWholesale = priceList === 'wholesale' || quantity >= variant.wholesale_threshold;
       const unitPrice = appliesWholesale ? variant.wholesale_price : variant.retail_price;
-      const subtotal = unitPrice * item.quantity;
+      const subtotal = unitPrice * quantity;
       totalAmount += subtotal;
       
       // Calculate profit margin at time of sale
-      const itemProfitMargin = subtotal - (variant.buying_price * item.quantity);
+      const itemProfitMargin = subtotal - (variant.buying_price * quantity);
 
       saleItemsData.push({
         variant_id: variant._id,
-        quantity: item.quantity,
+        quantity,
         unit_price: unitPrice,
         wholesale_applied: appliesWholesale,
         buying_price: variant.buying_price,
@@ -42,11 +57,16 @@ export const createSale = async (req, res) => {
       });
 
       // Deduct stock
-      variant.current_stock -= item.quantity;
+      variant.current_stock -= quantity;
       await variant.save({ session });
     }
 
-    const changeDue = amountPaid ? amountPaid - totalAmount : 0;
+    const appliedAmountPaid = normalizedAmountPaid > 0 ? normalizedAmountPaid : totalAmount;
+    if (appliedAmountPaid < totalAmount) {
+      throw new Error('Amount paid cannot be less than the sale total');
+    }
+
+    const changeDue = appliedAmountPaid - totalAmount;
 
     const sale = await Sale.create([{
       invoice_number: generateInvoiceNumber(),
@@ -54,8 +74,8 @@ export const createSale = async (req, res) => {
       total_amount: totalAmount,
       subtotal: totalAmount, // Assuming no tax/discount applied for now
       payment_method: paymentMethod || 'cash',
-      amountPaid: amountPaid || totalAmount, // Assuming we don't have this field in DB, but ignoring if not required
-      changeDue,
+      amount_paid: appliedAmountPaid,
+      change_due: changeDue,
       sale_type: priceList || 'retail',
       user_id: req.user._id || req.user.id
     }], { session });
@@ -73,32 +93,43 @@ export const createSale = async (req, res) => {
       logger.warn('Transactions not supported. Falling back to non-transactional sale.');
       try {
         const { items, customerId, paymentMethod, amountPaid, priceList } = req.body;
+        const normalizedFallbackAmountPaid = Number(amountPaid ?? 0);
         let totalAmount = 0;
         const saleItemsData = [];
         
         for (const item of items) {
+          const quantity = Number(item.quantity);
+          if (!item.variantId || !Number.isFinite(quantity) || quantity <= 0) {
+            return res.status(400).json({ success: false, message: 'Each sale item must include a valid variant and quantity' });
+          }
+
           const variant = await ProductVariant.findById(item.variantId);
-          if (!variant || variant.current_stock < item.quantity) {
+          if (!variant || variant.current_stock < quantity) {
              return res.status(400).json({ success: false, message: `Insufficient stock` });
           }
-          const appliesWholesale = priceList === 'wholesale' || item.quantity >= variant.wholesale_threshold;
+          const appliesWholesale = priceList === 'wholesale' || quantity >= variant.wholesale_threshold;
           const unitPrice = appliesWholesale ? variant.wholesale_price : variant.retail_price;
-          const subtotal = unitPrice * item.quantity;
+          const subtotal = unitPrice * quantity;
           totalAmount += subtotal;
           
-          const itemProfitMargin = subtotal - (variant.buying_price * item.quantity);
+          const itemProfitMargin = subtotal - (variant.buying_price * quantity);
 
           saleItemsData.push({ 
             variant_id: variant._id, 
-            quantity: item.quantity, 
+            quantity, 
             unit_price: unitPrice, 
             wholesale_applied: appliesWholesale,
             buying_price: variant.buying_price,
             profit_margin: itemProfitMargin,
             subtotal 
           });
-          variant.current_stock -= item.quantity;
+          variant.current_stock -= quantity;
           await variant.save();
+        }
+
+        const appliedAmountPaid = normalizedFallbackAmountPaid > 0 ? normalizedFallbackAmountPaid : totalAmount;
+        if (appliedAmountPaid < totalAmount) {
+          return res.status(400).json({ success: false, message: 'Amount paid cannot be less than the sale total' });
         }
 
         const sale = await Sale.create({
@@ -106,7 +137,9 @@ export const createSale = async (req, res) => {
           customer_id: customerId || null,
           total_amount: totalAmount, 
           subtotal: totalAmount,
-          payment_method: paymentMethod || 'cash', 
+          payment_method: paymentMethod || 'cash',
+          amount_paid: appliedAmountPaid,
+          change_due: appliedAmountPaid - totalAmount,
           sale_type: priceList || 'retail',
           user_id: req.user._id || req.user.id
         });
@@ -115,6 +148,7 @@ export const createSale = async (req, res) => {
         await SaleItem.create(saleItemsToCreate);
         return res.status(201).json({ success: true, data: sale });
       } catch (fallbackErr) {
+        logger.error('Fallback sale creation failed:', fallbackErr);
         return res.status(500).json({ success: false, message: 'Fallback failed.' });
       }
     }

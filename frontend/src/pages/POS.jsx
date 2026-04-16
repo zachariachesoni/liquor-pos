@@ -203,8 +203,8 @@ const POS = () => {
         paymentMethod,
         saleType: priceList,
         subtotal,
-        amountPaid: subtotal,
-        changeDue: Number(sale.changeDue || 0),
+        amountPaid: Number(sale.amount_paid || subtotal),
+        changeDue: Number(sale.change_due || 0),
         items: receiptItems,
       });
       setShowReceiptModal(true);

@@ -61,8 +61,8 @@ const Register = () => {
     <div className="register-container">
       <div className="register-card">
         <div className="register-header">
-          <h1>Create Account</h1>
-          <p>Liquor POS & Inventory System</p>
+          <h1>Create First Admin</h1>
+          <p>Only available during initial system setup.</p>
         </div>
 
         <form onSubmit={handleSubmit} className="register-form">
@@ -135,7 +135,7 @@ const Register = () => {
           </button>
 
           <div className="register-footer">
-            Already have an account? <Link to="/">Login here</Link>
+            Already set up the system? <Link to="/login">Login here</Link>
           </div>
         </form>
       </div>

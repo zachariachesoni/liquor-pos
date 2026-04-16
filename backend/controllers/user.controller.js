@@ -41,6 +41,19 @@ export const getUser = async (req, res) => {
 export const createUser = async (req, res) => {
   try {
     const { username, email, role } = req.body;
+
+    if (!['manager', 'cashier'].includes(role)) {
+      return res.status(400).json({ success: false, message: 'Only manager and cashier accounts can be created here' });
+    }
+
+    const employeeCount = await User.countDocuments({ role: { $ne: 'admin' }, is_active: true });
+    if (employeeCount >= 3) {
+      return res.status(400).json({
+        success: false,
+        message: 'Employee account limit reached (maximum 3 active employees allowed)'
+      });
+    }
+
     const temporaryPassword = generateTemporaryPassword();
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(temporaryPassword, salt);
@@ -85,6 +98,10 @@ export const updateUser = async (req, res) => {
     const { username, email, role, isActive, permissions } = req.body;
     let user = await User.findById(req.params.id);
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+    if (role && !['manager', 'cashier'].includes(role)) {
+      return res.status(400).json({ success: false, message: 'Only manager and cashier roles can be assigned here' });
+    }
 
     user.username = username || user.username;
     user.email = email || user.email;

@@ -28,7 +28,7 @@ const Layout = ({ children }) => {
     { name: 'Reports', path: '/reports', icon: <PieChart size={20} />, roles: ['admin', 'manager'] },
     { name: 'Sales', path: '/sales', icon: <FileBarChart size={20} />, roles: ['admin', 'manager'] },
     { name: 'Customers', path: '/customers', icon: <Users size={20} />, roles: ['admin', 'manager', 'cashier'] },
-    { name: 'Employees', path: '/employees', icon: <UserCog size={20} />, roles: ['admin', 'manager'] },
+    { name: 'Employees', path: '/employees', icon: <UserCog size={20} />, roles: ['admin'] },
     { name: 'Expenses', path: '/expenses', icon: <Receipt size={20} />, roles: ['admin', 'manager'] }
   ].filter(item => user && item.roles.includes(user.role));
 

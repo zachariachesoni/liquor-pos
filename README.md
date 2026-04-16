@@ -2,7 +2,7 @@
 
 A comprehensive Point of Sale and Inventory Management System built specifically for liquor stores, featuring dual pricing (retail/wholesale), variant tracking by bottle size, and powerful analytics.
 
-![Tech Stack](https://img.shields.io/badge/Stack-React%20%7C%20Node.js%20%7C%20PostgreSQL-blue)
+![Tech Stack](https://img.shields.io/badge/Stack-React%20%7C%20Node.js%20%7C%20MongoDB-blue)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
 ## 🚀 Features
@@ -73,23 +73,23 @@ A comprehensive Point of Sale and Inventory Management System built specifically
 ### Backend
 - **Runtime**: Node.js
 - **Framework**: Express.js
-- **Database**: PostgreSQL
+- **Database**: MongoDB with Mongoose
 - **Authentication**: JWT (JSON Web Tokens)
-- **Security**: Helmet, XSS-Clean, Rate Limiting
+- **Security**: Helmet, Rate Limiting
 - **Logging**: Winston, Morgan
 
 ### Frontend
-- **Framework**: React 18
+- **Framework**: React 19
 - **Build Tool**: Vite
-- **Routing**: React Router v6
+- **Routing**: React Router v7
 - **HTTP Client**: Axios
 - **State Management**: Context API
 
 ## 📦 Installation
 
 ### Prerequisites
-- Node.js v16+
-- PostgreSQL v12+
+- Node.js v18+
+- MongoDB v6+
 - npm or yarn
 
 ### 1. Clone or Download Project
@@ -111,11 +111,7 @@ Configure environment variables in `.env`:
 PORT=5000
 NODE_ENV=development
 
-DB_HOST=localhost
-DB_PORT=5432
-DB_NAME=liquor_pos_db
-DB_USER=postgres
-DB_PASSWORD=your_password_here
+MONGODB_URI=mongodb://localhost:27017/liquor_pos_db
 
 JWT_SECRET=your_super_secret_jwt_key_change_this_in_production
 JWT_EXPIRE=7d
@@ -123,13 +119,7 @@ JWT_EXPIRE=7d
 FRONTEND_URL=http://localhost:5173
 ```
 
-Set up PostgreSQL database:
-```bash
-# Create database and run schema
-psql -U postgres -f database/schema.sql
-```
-
-Or manually execute `database/schema.sql` in pgAdmin.
+Make sure MongoDB is running locally, or point `MONGODB_URI` to your hosted cluster.
 
 Start backend server:
 ```bash
@@ -158,14 +148,13 @@ Frontend runs on: http://localhost:5173
 ### Main Tables
 
 1. **Products** - Master product catalog
-2. **Product Variants** - Size variants with individual pricing
+2. **Product Variants** - Size variants with individual pricing and stock
 3. **Customers** - Customer database
 4. **Sales** - Sales transactions header
 5. **Sale Items** - Individual items in each sale
 6. **Expenses** - Business expense tracking
 7. **Stock Adjustments** - Manual stock changes
 8. **Users** - System users with roles
-9. **Audit Logs** - System activity trail
 
 ### Product Structure Example
 
@@ -189,12 +178,13 @@ Product: Johnnie Walker Black Label
 ## 🔐 User Roles
 
 - **Admin** - Full system access including user management
-- **Manager** - Manage products, inventory, sales, expenses (no user management)
+- **Manager** - Manage products, inventory, sales, customers, expenses, and reports
 - **Cashier** - POS operations only
 
-Default admin credentials (change after first login!):
-- Username: `admin`
-- Password: Set via database hash update
+Initial setup:
+- The `/register` screen can only be used when there are no users yet.
+- It creates the first `admin` account.
+- After that, all additional staff accounts must be created by an admin from the Employees screen.
 
 ## 🎯 Key Features Explained
 
@@ -223,7 +213,6 @@ if (quantity >= variant.wholesale_threshold) {
 - Password hashing (bcrypt)
 - JWT authentication
 - Role-based access control
-- SQL injection prevention
 - XSS protection
 - Rate limiting
 
@@ -242,11 +231,11 @@ Key endpoints:
 
 ### First Time Setup
 
-1. Run database schema
-2. Update admin password hash in database
+1. Start MongoDB
+2. Create the initial admin account from `/register`
 3. Start backend: `npm run dev`
 4. Start frontend: `npm run dev`
-5. Login with admin credentials
+5. Login with the admin credentials you created
 6. Add your first product with variants
 7. Set initial stock levels
 8. Start making sales!
@@ -297,9 +286,9 @@ npm run preview  # Preview production build
 ## 🐛 Troubleshooting
 
 ### Database Connection Error
-- Verify PostgreSQL is running
-- Check credentials in `.env`
-- Ensure database exists
+- Verify MongoDB is running
+- Check `MONGODB_URI` in `.env`
+- Ensure the target database is reachable
 
 ### Port Already in Use
 - Change PORT in backend `.env`

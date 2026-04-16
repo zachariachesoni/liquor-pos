@@ -46,16 +46,25 @@ export const addStock = async (req, res) => {
   try {
     session.startTransaction();
     const { items, supplier, notes } = req.body;
+
+    if (!Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ success: false, message: 'At least one stock item is required' });
+    }
     
     for (const item of items) {
+      const quantity = Number(item.quantity);
+      if (!item.variantId || !Number.isFinite(quantity) || quantity <= 0) {
+        return res.status(400).json({ success: false, message: 'Each stock item must include a valid variant and quantity' });
+      }
+
       await ProductVariant.findByIdAndUpdate(item.variantId, {
-        $inc: { current_stock: item.quantity }
+        $inc: { current_stock: quantity }
       }, { session });
 
       await StockAdjustment.create([{
         variant_id: item.variantId,
         adjustment_type: 'in',
-        quantity: item.quantity,
+        quantity,
         reason: 'restocking',
         notes: notes || `From supplier: ${supplier}`,
         user_id: req.user._id || req.user.id
@@ -71,11 +80,16 @@ export const addStock = async (req, res) => {
       // Fallback for standalone mongo
       const { items, supplier, notes } = req.body;
       for (const item of items) {
-        await ProductVariant.findByIdAndUpdate(item.variantId, { $inc: { current_stock: item.quantity } });
+        const quantity = Number(item.quantity);
+        if (!item.variantId || !Number.isFinite(quantity) || quantity <= 0) {
+          return res.status(400).json({ success: false, message: 'Each stock item must include a valid variant and quantity' });
+        }
+
+        await ProductVariant.findByIdAndUpdate(item.variantId, { $inc: { current_stock: quantity } });
         await StockAdjustment.create({
           variant_id: item.variantId,
           adjustment_type: 'in',
-          quantity: item.quantity,
+          quantity,
           reason: 'restocking',
           notes: notes || `From supplier: ${supplier}`,
           user_id: req.user._id || req.user.id
@@ -96,17 +110,34 @@ export const adjustStock = async (req, res) => {
   try {
     session.startTransaction();
     const { variantId, quantity, type, reason, notes } = req.body; // type: 'in' or 'out'
+    const normalizedQuantity = Number(quantity);
+
+    if (!variantId || !Number.isFinite(normalizedQuantity) || normalizedQuantity <= 0) {
+      return res.status(400).json({ success: false, message: 'A valid inventory item and quantity are required' });
+    }
+
+    if (!['in', 'out'].includes(type)) {
+      return res.status(400).json({ success: false, message: 'Adjustment type must be either "in" or "out"' });
+    }
     
-    const qtyChange = type === 'in' ? quantity : -quantity;
+    const variant = await ProductVariant.findById(variantId).session(session);
+    if (!variant) {
+      return res.status(404).json({ success: false, message: 'Inventory item not found' });
+    }
+
+    if (type === 'out' && variant.current_stock < normalizedQuantity) {
+      return res.status(400).json({ success: false, message: 'Cannot remove more stock than is currently available' });
+    }
+
+    const qtyChange = type === 'in' ? normalizedQuantity : -normalizedQuantity;
     
-    await ProductVariant.findByIdAndUpdate(variantId, {
-      $inc: { current_stock: qtyChange }
-    }, { session });
+    variant.current_stock += qtyChange;
+    await variant.save({ session });
 
     await StockAdjustment.create([{
       variant_id: variantId,
       adjustment_type: type,
-      quantity: Math.abs(quantity),
+      quantity: normalizedQuantity,
       reason,
       notes,
       user_id: req.user._id || req.user.id
@@ -118,18 +149,30 @@ export const adjustStock = async (req, res) => {
     await session.abortTransaction();
     if (error.message.includes('Transaction') || error.message.includes('transaction')) {
       const { variantId, quantity, type, reason, notes } = req.body;
-      const qtyChange = type === 'in' ? quantity : -quantity;
-      await ProductVariant.findByIdAndUpdate(variantId, { $inc: { current_stock: qtyChange } });
+      const normalizedQuantity = Number(quantity);
+      const variant = await ProductVariant.findById(variantId);
+
+      if (!variant) {
+        return res.status(404).json({ success: false, message: 'Inventory item not found' });
+      }
+
+      if (type === 'out' && variant.current_stock < normalizedQuantity) {
+        return res.status(400).json({ success: false, message: 'Cannot remove more stock than is currently available' });
+      }
+
+      variant.current_stock += type === 'in' ? normalizedQuantity : -normalizedQuantity;
+      await variant.save();
       await StockAdjustment.create({
         variant_id: variantId,
         adjustment_type: type,
-        quantity: Math.abs(quantity),
+        quantity: normalizedQuantity,
         reason,
         notes,
         user_id: req.user._id || req.user.id
       });
       return res.json({ success: true, message: 'Stock adjusted via fallback' });
     }
+    logger.error('Stock adjustment error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   } finally {
     session.endSession();
