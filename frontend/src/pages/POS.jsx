@@ -8,6 +8,7 @@ const POS = () => {
   const [cart, setCart] = useState([]);
   const [search, setSearch] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('cash');
+  const [cashReceived, setCashReceived] = useState('');
   const [priceList, setPriceList] = useState('retail'); // 'retail' or 'wholesale'
   const [loading, setLoading] = useState(true);
   const [customers, setCustomers] = useState([]);
@@ -100,6 +101,19 @@ const POS = () => {
     }, 0);
   };
 
+  const subtotal = calculateSubtotal();
+  const normalizedCashReceived = Number(cashReceived || 0);
+  const computedAmountPaid = paymentMethod === 'cash'
+    ? (normalizedCashReceived > 0 ? normalizedCashReceived : subtotal)
+    : subtotal;
+  const computedChangeDue = paymentMethod === 'cash' && normalizedCashReceived > 0
+    ? Math.max(0, normalizedCashReceived - subtotal)
+    : 0;
+  const isCashShort = paymentMethod === 'cash' && cashReceived !== '' && normalizedCashReceived < subtotal;
+  const outstandingCash = paymentMethod === 'cash' && normalizedCashReceived > 0
+    ? Math.max(0, subtotal - normalizedCashReceived)
+    : 0;
+
   const printReceipt = (receipt) => {
     if (!receipt) return;
 
@@ -167,7 +181,6 @@ const POS = () => {
 
   const handleCheckout = async () => {
     try {
-      const subtotal = calculateSubtotal();
       const receiptItems = cart.map((item) => {
         const wholesaleApplied = calculateWholesaleApplies(item);
         const unitPrice = wholesaleApplied ? item.wholesale_price : item.price;
@@ -191,7 +204,7 @@ const POS = () => {
         })),
         paymentMethod: paymentMethod,
         priceList: priceList,
-        amountPaid: subtotal
+        amountPaid: computedAmountPaid
       };
 
       const res = await api.post('/sales', payload);
@@ -211,6 +224,7 @@ const POS = () => {
       setCart([]);
       setSelectedCustomerId('');
       setPriceList('retail');
+      setCashReceived('');
       fetchCatalog(); // Refresh stock
     } catch (err) {
       alert(err.response?.data?.message || 'Checkout failed');
@@ -390,18 +404,50 @@ const POS = () => {
             </button>
             <button
               className={`pay-btn ${paymentMethod === 'mpesa' ? 'active' : ''}`}
-              onClick={() => setPaymentMethod('mpesa')}
+              onClick={() => {
+                setPaymentMethod('mpesa');
+                setCashReceived('');
+              }}
             >
               <CreditCard size={16} /> M-Pesa
             </button>
           </div>
 
+          {paymentMethod === 'cash' && (
+            <div className="cash-panel">
+              <label htmlFor="cashReceived" className="cash-label">Cash Received</label>
+              <input
+                id="cashReceived"
+                type="number"
+                min="0"
+                step="1"
+                inputMode="numeric"
+                className="cash-input"
+                placeholder="Enter amount received"
+                value={cashReceived}
+                onChange={(e) => setCashReceived(e.target.value)}
+              />
+              <div className="cash-summary">
+                <div className="summary-row">
+                  <span>Amount Tendered</span>
+                  <span>KES {computedAmountPaid.toLocaleString()}</span>
+                </div>
+                {cashReceived !== '' && (
+                  <div className={`summary-row ${isCashShort ? 'cash-warning' : 'cash-change'}`}>
+                    <span>{isCashShort ? 'Balance Remaining' : 'Change Due'}</span>
+                    <span>KES {(isCashShort ? outstandingCash : computedChangeDue).toLocaleString()}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           <button
             className="checkout-btn"
-            disabled={cart.length === 0}
+            disabled={cart.length === 0 || isCashShort}
             onClick={handleCheckout}
           >
-            Complete Payment
+            {isCashShort ? 'Enter Full Cash Amount' : 'Complete Payment'}
           </button>
         </div>
       </div>
