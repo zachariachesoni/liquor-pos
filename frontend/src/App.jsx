@@ -11,6 +11,7 @@ import Expenses from './pages/Expenses';
 import Reports from './pages/Reports';
 import Register from './pages/Register';
 import AdminPanel from './pages/AdminPanel';
+import Account from './pages/Account';
 import Layout from './components/Layout';
 import './App.css';
 
@@ -88,6 +89,15 @@ function App() {
         element={
           <ProtectedRoute allowedRoles={['admin', 'manager', 'cashier']}>
             <Customers />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/account"
+        element={
+          <ProtectedRoute>
+            <Account />
           </ProtectedRoute>
         }
       />

@@ -2,6 +2,35 @@ import Product from '../models/Product.js';
 import ProductVariant from '../models/ProductVariant.js';
 import logger from '../utils/logger.js';
 
+const normalizeProductName = (name = '') => (
+  typeof name === 'string' ? name.trim().replace(/\s+/g, ' ') : ''
+);
+
+const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const findExistingProductByName = async (name, excludeId = null) => {
+  const normalizedName = normalizeProductName(name);
+
+  if (!normalizedName) {
+    return null;
+  }
+
+  const pattern = normalizedName
+    .split(' ')
+    .map(escapeRegex)
+    .join('\\s+');
+
+  const query = {
+    name: new RegExp(`^${pattern}$`, 'i'),
+  };
+
+  if (excludeId) {
+    query._id = { $ne: excludeId };
+  }
+
+  return Product.findOne(query);
+};
+
 // @desc    Get all products
 // @route   GET /api/products
 export const getProducts = async (req, res) => {
@@ -48,9 +77,23 @@ export const getProduct = async (req, res) => {
 // @route   POST /api/products
 export const createProduct = async (req, res) => {
   try {
+    const normalizedName = normalizeProductName(req.body.name);
+
+    if (!normalizedName) {
+      return res.status(400).json({ success: false, message: 'Product name is required' });
+    }
+
+    const existingProduct = await findExistingProductByName(normalizedName);
+    if (existingProduct) {
+      return res.status(409).json({
+        success: false,
+        message: 'A product with that name already exists. Update the existing product instead of creating it again.'
+      });
+    }
+
     // Expected to receive basic product details + optionally variants array
     const product = await Product.create({
-      name: req.body.name,
+      name: normalizedName,
       brand: req.body.brand,
       category: req.body.category,
       description: req.body.description,
@@ -69,6 +112,10 @@ export const createProduct = async (req, res) => {
     
     res.status(201).json({ success: true, data: product });
   } catch (error) {
+    logger.error('Create product error:', error);
+    if (error.code === 11000) {
+      return res.status(409).json({ success: false, message: 'Product barcode already exists' });
+    }
     res.status(500).json({ success: false, message: 'Server error' });
   }
 };
@@ -77,10 +124,38 @@ export const createProduct = async (req, res) => {
 // @route   PUT /api/products/:id
 export const updateProduct = async (req, res) => {
   try {
-    const product = await Product.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const existingProduct = await Product.findById(req.params.id);
+    if (!existingProduct) return res.status(404).json({ success: false, message: 'Product not found' });
+
+    const nextName = req.body.name !== undefined
+      ? normalizeProductName(req.body.name)
+      : existingProduct.name;
+
+    if (!nextName) {
+      return res.status(400).json({ success: false, message: 'Product name is required' });
+    }
+
+    const duplicateProduct = await findExistingProductByName(nextName, existingProduct._id);
+    if (duplicateProduct) {
+      return res.status(409).json({
+        success: false,
+        message: 'A product with that name already exists. Choose a different name or edit the existing product.'
+      });
+    }
+
+    const product = await Product.findByIdAndUpdate(
+      req.params.id,
+      { ...req.body, name: nextName },
+      { new: true }
+    );
+
     if (!product) return res.status(404).json({ success: false, message: 'Product not found' });
     res.json({ success: true, data: product });
   } catch (error) {
+    logger.error('Update product error:', error);
+    if (error.code === 11000) {
+      return res.status(409).json({ success: false, message: 'Product barcode already exists' });
+    }
     res.status(500).json({ success: false, message: 'Server error' });
   }
 };

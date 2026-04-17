@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { LayoutDashboard, ShoppingCart, Package, ClipboardList, FileBarChart, Users, Receipt, PieChart, LogOut, Menu, X, Shield } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, Package, ClipboardList, FileBarChart, Users, Receipt, PieChart, LogOut, Menu, X, Shield, User } from 'lucide-react';
 import { useSystemSettings } from '../hooks/useSystemSettings';
 import './Layout.css';
 
@@ -24,6 +24,7 @@ const Layout = ({ children }) => {
     { name: 'Reports', path: '/reports', icon: <PieChart size={20} />, roles: ['admin', 'manager'] },
     { name: 'Sales', path: '/sales', icon: <FileBarChart size={20} />, roles: ['admin', 'manager'] },
     { name: 'Customers', path: '/customers', icon: <Users size={20} />, roles: ['admin', 'manager', 'cashier'] },
+    { name: 'Account', path: '/account', icon: <User size={20} />, roles: ['admin', 'manager', 'cashier'] },
     { name: 'Admin', path: '/admin', icon: <Shield size={20} />, roles: ['admin'] },
     { name: 'Expenses', path: '/expenses', icon: <Receipt size={20} />, roles: ['admin', 'manager'] }
   ].filter((item) => user && item.roles.includes(user.role));

@@ -1,5 +1,6 @@
 import nodemailer from 'nodemailer';
 import logger from './logger.js';
+import { getSystemSettings, serializeSystemSettings } from './systemSettings.js';
 
 const normalizeSmtpPassword = (host, password) => {
   const trimmedPassword = password?.trim();
@@ -28,12 +29,30 @@ const getSmtpConfig = () => {
 
 const createTransporter = () => nodemailer.createTransport(getSmtpConfig());
 
-const getFromAddress = () => {
+const getFallbackFromAddress = (businessName = 'Liquor POS') => {
   const customFrom = process.env.MAIL_FROM?.trim();
   if (customFrom) return customFrom;
 
   const smtpUser = process.env.SMTP_USER?.trim();
-  return smtpUser ? `"Liquor POS Admin" <${smtpUser}>` : undefined;
+  return smtpUser ? `"${businessName} Admin" <${smtpUser}>` : undefined;
+};
+
+const getEmailBranding = async () => {
+  try {
+    const settings = serializeSystemSettings(await getSystemSettings());
+    const businessName = settings.business_name?.trim() || 'Liquor POS';
+
+    return {
+      businessName,
+      from: getFallbackFromAddress(businessName),
+    };
+  } catch (error) {
+    logger.warn('Failed to load system settings for email branding. Falling back to default brand.');
+    return {
+      businessName: 'Liquor POS',
+      from: getFallbackFromAddress(),
+    };
+  }
 };
 
 const hasSmtpCredentials = () => {
@@ -54,9 +73,9 @@ const getEmailErrorMessage = (error) => {
   return error?.message || 'Email could not be sent';
 };
 
-const buildInviteEmailHtml = (username, role, inviteLink, tempPassword) => `
+const buildInviteEmailHtml = ({ username, role, inviteLink, tempPassword, businessName }) => `
   <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
-    <h2 style="color: #6366f1;">Welcome to the Liquor POS Team!</h2>
+    <h2 style="color: #6366f1;">Welcome to ${businessName}!</h2>
     <p>Hi <b>${username}</b>,</p>
     <p>An administrator has created an account for you with the role: <b>${role.toUpperCase()}</b>.</p>
     
@@ -66,26 +85,26 @@ const buildInviteEmailHtml = (username, role, inviteLink, tempPassword) => `
     </div>
     
     <p>Please log in using the link below and change your password immediately:</p>
-    <a href="${inviteLink}" style="display: inline-block; padding: 10px 20px; background-color: #6366f1; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">Login to POS</a>
+    <a href="${inviteLink}" style="display: inline-block; padding: 10px 20px; background-color: #6366f1; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">Open ${businessName}</a>
     
     <p style="margin-top: 30px; font-size: 12px; color: #9ca3af;">If you did not expect this invitation, please ignore this email.</p>
   </div>
 `;
 
-const buildRegistrationEmailHtml = (username, role, loginLink) => `
+const buildRegistrationEmailHtml = ({ username, role, loginLink, businessName }) => `
   <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
-    <h2 style="color: #6366f1;">Welcome to Liquor POS!</h2>
+    <h2 style="color: #6366f1;">Welcome to ${businessName}!</h2>
     <p>Hi <b>${username}</b>,</p>
     <p>Your account has been registered successfully as <b>${role.toUpperCase()}</b>.</p>
     <p>You can now sign in using the button below.</p>
 
-    <a href="${loginLink}" style="display: inline-block; padding: 10px 20px; background-color: #6366f1; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">Open Login</a>
+    <a href="${loginLink}" style="display: inline-block; padding: 10px 20px; background-color: #6366f1; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">Open ${businessName}</a>
 
     <p style="margin-top: 30px; font-size: 12px; color: #9ca3af;">If you did not create this account, please contact an administrator immediately.</p>
   </div>
 `;
 
-const sendEmail = async ({ to, subject, html, mockMessage }) => {
+const sendEmail = async ({ to, from, subject, html, mockMessage }) => {
   try {
     if (!hasSmtpCredentials()) {
       logger.warn('SMTP credentials missing from .env. Mocking email send in development.');
@@ -95,7 +114,7 @@ const sendEmail = async ({ to, subject, html, mockMessage }) => {
 
     const transporter = createTransporter();
     const info = await transporter.sendMail({
-      from: getFromAddress(),
+      from,
       to,
       subject,
       html,
@@ -118,19 +137,25 @@ const sendEmail = async ({ to, subject, html, mockMessage }) => {
 };
 
 export const sendInviteEmail = async (toEmail, username, role, inviteLink, tempPassword) => {
+  const { businessName, from } = await getEmailBranding();
+
   return sendEmail({
     to: toEmail,
-    subject: `You have been added to the POS System as a ${role}`,
-    html: buildInviteEmailHtml(username, role, inviteLink, tempPassword),
-    mockMessage: `Your login link is ${inviteLink} (Pass: ${tempPassword})`,
+    from,
+    subject: `You have been added to ${businessName} as a ${role}`,
+    html: buildInviteEmailHtml({ username, role, inviteLink, tempPassword, businessName }),
+    mockMessage: `Your ${businessName} login link is ${inviteLink} (Pass: ${tempPassword})`,
   });
 };
 
 export const sendRegistrationEmail = async (toEmail, username, role, loginLink) => {
+  const { businessName, from } = await getEmailBranding();
+
   return sendEmail({
     to: toEmail,
-    subject: 'Your Liquor POS account is ready',
-    html: buildRegistrationEmailHtml(username, role, loginLink),
-    mockMessage: `Your account has been registered. Login here: ${loginLink}`,
+    from,
+    subject: `Your ${businessName} account is ready`,
+    html: buildRegistrationEmailHtml({ username, role, loginLink, businessName }),
+    mockMessage: `Your ${businessName} account has been registered. Login here: ${loginLink}`,
   });
 };

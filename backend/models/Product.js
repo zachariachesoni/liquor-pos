@@ -1,14 +1,20 @@
 import mongoose from 'mongoose';
 
+const normalizeTextValue = (value) => (
+  typeof value === 'string' ? value.trim().replace(/\s+/g, ' ') : value
+);
+
 const productSchema = new mongoose.Schema({
   name: {
     type: String,
     required: true,
-    trim: true
+    trim: true,
+    set: normalizeTextValue
   },
   brand: {
     type: String,
-    trim: true
+    trim: true,
+    set: normalizeTextValue
   },
   category: {
     type: String,
