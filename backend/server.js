@@ -35,12 +35,47 @@ const app = express();
 connectDB();
 
 // Security middleware
-app.use(helmet()); // Set security HTTP headers
+app.use(helmet());
+
+// CORS middleware - MUST come before routes
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://localhost:3000',
+  process.env.FRONTEND_URL,
+  process.env.FRONTEND_URL?.replace(/\/$/, ''),
+  'https://your-other-link.com'
+].filter(Boolean);
+
+const corsOptions = {
+  origin(origin, callback) {
+    if (!origin) {
+      return callback(null, true);
+    }
+
+    const normalizedOrigin = origin.replace(/\/$/, '');
+
+    if (
+      allowedOrigins.includes(normalizedOrigin) ||
+      normalizedOrigin.endsWith('.vercel.app')
+    ) {
+      return callback(null, true);
+    }
+
+    return callback(new Error(`Not allowed by CORS: ${normalizedOrigin}`));
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  optionsSuccessStatus: 204
+};
+
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 
 // Rate limiting
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
+  windowMs: 15 * 60 * 1000,
+  max: 100,
   message: 'Too many requests from this IP, please try again later.'
 });
 app.use('/api', limiter);
@@ -48,31 +83,6 @@ app.use('/api', limiter);
 // Body parser middleware
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-
-// CORS middleware - MUST come before routes
-const allowedOrigins = [
-  'http://localhost:5173',
-  process.env.FRONTEND_URL,
-  'https://your-other-link.com' // 👈 add your new URL here
-].filter(Boolean);
-
-app.use(cors({
-  origin: function (origin, callback) {
-    if (!origin) return callback(null, true);
-
-    if (
-      allowedOrigins.includes(origin) ||
-      origin.endsWith('.vercel.app')
-    ) {
-      return callback(null, true);
-    }
-
-    return callback(new Error('Not allowed by CORS'));
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-}));
 
 // Morgan logger (development)
 if (process.env.NODE_ENV === 'development') {
@@ -128,7 +138,6 @@ if (process.env.NODE_ENV === 'production') {
   app.use(express.static(path.join(__dirname, '../frontend/dist')));
 
   app.get('*', (req, res) => {
-    // Only resolve to html if the route naturally missed all api checks
     if (!req.originalUrl.startsWith('/api')) {
       res.sendFile(path.resolve(__dirname, '../frontend', 'dist', 'index.html'));
     } else {
@@ -136,7 +145,6 @@ if (process.env.NODE_ENV === 'production') {
     }
   });
 } else {
-  // 404 handler for development modes
   app.use((req, res) => {
     res.status(404).json({
       success: false,
@@ -154,7 +162,6 @@ app.use((err, req, res, next) => {
     method: req.method
   });
 
-  // MongoDB unique constraint error
   if (err.name === 'MongoServerError' && err.code === 11000) {
     return res.status(400).json({
       success: false,
@@ -162,11 +169,10 @@ app.use((err, req, res, next) => {
     });
   }
 
-  // Mongoose validation error
   if (err.name === 'ValidationError') {
     return res.status(400).json({
       success: false,
-      message: Object.values(err.errors).map(val => val.message).join(', ')
+      message: Object.values(err.errors).map((val) => val.message).join(', ')
     });
   }
 

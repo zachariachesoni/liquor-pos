@@ -122,8 +122,8 @@ const POS = () => {
     const receiptWindow = window.open('', '_blank', 'width=420,height=720');
     if (!receiptWindow) return;
 
-    const logoMarkup = settings.business_logo_url
-      ? `<img src="${settings.business_logo_url}" alt="${settings.business_name}" style="width:56px;height:56px;object-fit:contain;border-radius:12px;background:#f4f4f5;padding:6px;" />`
+    const logoMarkup = receipt.businessLogoUrl
+      ? `<img src="${receipt.businessLogoUrl}" alt="${receipt.businessName}" style="width:56px;height:56px;object-fit:contain;border-radius:12px;background:#f4f4f5;padding:6px;" />`
       : '';
 
     const rows = receipt.items.map((item) => `
@@ -155,7 +155,7 @@ const POS = () => {
             <div style="display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:10px;">
               ${logoMarkup}
               <div>
-                <h1>${settings.business_name} Receipt</h1>
+                <h1>${receipt.businessName} Receipt</h1>
                 <p>${receipt.invoiceNumber}</p>
               </div>
             </div>
@@ -182,7 +182,7 @@ const POS = () => {
             <div><span>Amount Paid</span><strong>KES ${receipt.amountPaid.toLocaleString()}</strong></div>
             <div><span>Change</span><strong>KES ${receipt.changeDue.toLocaleString()}</strong></div>
           </div>
-          <p style="margin-top:16px;text-align:center;color:#666;font-size:12px;">${settings.receipt_footer || ''}</p>
+          <p style="margin-top:16px;text-align:center;color:#666;font-size:12px;">${receipt.receiptFooter || ''}</p>
         </body>
       </html>
     `);
@@ -222,6 +222,9 @@ const POS = () => {
       const res = await api.post('/sales', payload);
       const sale = res.data.data;
       setReceiptData({
+        businessName: settings.business_name || 'Business',
+        businessLogoUrl: settings.business_logo_url || '',
+        receiptFooter: settings.receipt_footer || '',
         invoiceNumber: sale.invoice_number,
         createdAt: new Date(sale.createdAt || Date.now()).toLocaleString(),
         customerName: activeCustomer?.name || 'Walk-in Customer',
@@ -518,7 +521,7 @@ const POS = () => {
               <X size={20} />
             </button>
             <div className="receipt-header">
-              <h2>Transaction Receipt</h2>
+              <h2>{receiptData.businessName} Receipt</h2>
               <button className="primary-btn" onClick={() => printReceipt(receiptData)}>
                 <Printer size={18} /> Print Receipt
               </button>
@@ -560,6 +563,9 @@ const POS = () => {
               <div><span>Amount Paid</span><strong>KES {receiptData.amountPaid.toLocaleString()}</strong></div>
               <div><span>Change</span><strong>KES {receiptData.changeDue.toLocaleString()}</strong></div>
             </div>
+            {receiptData.receiptFooter && (
+              <p className="td-secondary" style={{ marginTop: '1rem', textAlign: 'center' }}>{receiptData.receiptFooter}</p>
+            )}
           </div>
         </div>
       )}
