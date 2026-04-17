@@ -467,14 +467,28 @@ const POS = () => {
                   <div key={item.id} className={`cart-item ${appliesWholesale ? 'wholesale-active' : ''}`}>
                     <div className="cart-item-details">
                       <h4>{item.name}</h4>
-                      <div className="item-subline">
-                        <span>{item.variant}</span>
-                        <span>KES {unitPrice?.toLocaleString()} each</span>
-                        {appliesWholesale && <span className="item-inline-badge">Wholesale</span>}
-                        {!appliesWholesale && isWholesaleBuyer && item.bulk_threshold ? (
-                          <span className="item-inline-note">Wholesale at {item.bulk_threshold}+</span>
-                        ) : null}
+                      <div className="item-subline">{item.variant}</div>
+                      <div className="item-detail-grid">
+                        <div className="item-detail">
+                          <span className="item-detail-label">Category</span>
+                          <strong>{item.category}</strong>
+                        </div>
+                        <div className="item-detail">
+                          <span className="item-detail-label">Unit price</span>
+                          <strong>KES {unitPrice?.toLocaleString()}</strong>
+                        </div>
+                        <div className="item-detail">
+                          <span className="item-detail-label">Pricing</span>
+                          <strong>{appliesWholesale ? 'Wholesale' : 'Retail'}</strong>
+                        </div>
+                        <div className="item-detail">
+                          <span className="item-detail-label">In stock</span>
+                          <strong>{item.stock}</strong>
+                        </div>
                       </div>
+                      {!appliesWholesale && isWholesaleBuyer && item.bulk_threshold ? (
+                        <div className="item-inline-note">Wholesale applies at {item.bulk_threshold}+ units.</div>
+                      ) : null}
                     </div>
                     <div className="quantity-control">
                       <button
@@ -496,6 +510,7 @@ const POS = () => {
                       </button>
                     </div>
                     <div className="cart-item-total">
+                      <div className="item-total-label">Line total</div>
                       <div className="item-total">KES {itemTotal.toLocaleString()}</div>
                       <button type="button" className="del-btn" onClick={() => removeFromCart(item.id)}>
                         <Trash2 size={15} />
