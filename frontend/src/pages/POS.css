@@ -439,9 +439,14 @@
 }
 
 @media (max-width: 640px) {
+  .pos-container {
+    gap: 1rem;
+  }
+
   .catalog-header {
     flex-direction: column;
     align-items: stretch;
+    padding: 1rem;
   }
 
   .search-box {
@@ -450,20 +455,150 @@
 
   .product-grid {
     grid-template-columns: 1fr;
+    padding: 1rem;
+  }
+
+  .cart-header {
+    padding: 1rem;
+  }
+
+  .cart-title h2 {
+    font-size: 1.05rem;
+  }
+
+  .clear-btn {
+    font-size: 0.78rem;
+  }
+
+  .pos-cart > div[style*='padding: 0 1rem 1rem 1rem'] {
+    padding: 0 0.85rem 0.75rem 0.85rem !important;
+  }
+
+  .pos-cart label {
+    font-size: 0.8rem;
+  }
+
+  .pos-cart select,
+  .cash-input {
+    min-height: 38px;
+    padding: 0.62rem 0.8rem;
+    font-size: 0.95rem;
+  }
+
+  .cart-feedback {
+    margin: 0 0.85rem 0.45rem;
+    padding: 0.68rem 0.78rem;
+    font-size: 0.78rem;
+  }
+
+  .cart-items {
+    padding: 0.85rem;
+    gap: 0.6rem;
+  }
+
+  .cart-item {
+    padding: 0.72rem;
+    gap: 0.6rem;
   }
 
   .item-actions {
     justify-content: space-between;
     align-items: center;
+    gap: 0.55rem;
+    padding: 0.45rem 0.5rem;
   }
 
   .cart-item-top {
     flex-direction: column;
-    gap: 0.65rem;
+    gap: 0.45rem;
+  }
+
+  .item-info h4 {
+    font-size: 0.92rem;
+  }
+
+  .item-variant,
+  .item-stock-note {
+    font-size: 0.7rem;
+  }
+
+  .item-price {
+    font-size: 0.82rem;
+  }
+
+  .quantity-control {
+    gap: 0.35rem;
+  }
+
+  .quantity-control button {
+    width: 22px;
+    height: 22px;
+  }
+
+  .quantity-control span {
+    min-width: 1.2rem;
+    font-size: 0.86rem;
   }
 
   .item-total {
-    font-size: 1.05rem;
+    font-size: 0.92rem;
+  }
+
+  .del-btn svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  .cart-summary {
+    padding: 1rem 0.85rem 0.85rem;
+  }
+
+  .summary-row {
+    margin-bottom: 0.35rem;
+    font-size: 0.92rem;
+  }
+
+  .summary-row.total {
+    font-size: 1rem;
+    margin-top: 0.7rem;
+    margin-bottom: 0.9rem;
+    padding-top: 0.7rem;
+  }
+
+  .payment-methods {
+    gap: 0.45rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .pay-btn {
+    padding: 0.68rem 0.55rem;
+    font-size: 0.9rem;
+    gap: 0.35rem;
+  }
+
+  .pay-btn svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  .cash-panel {
+    margin-bottom: 0.75rem;
+    padding: 0.75rem;
+  }
+
+  .cash-label {
+    margin-bottom: 0.35rem;
+    font-size: 0.78rem;
+  }
+
+  .cash-summary {
+    margin-top: 0.6rem;
+    gap: 0.3rem;
+  }
+
+  .checkout-btn {
+    padding: 0.82rem;
+    font-size: 0.95rem;
   }
 }
 
