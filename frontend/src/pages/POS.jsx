@@ -144,6 +144,9 @@ const POS = () => {
   const cartUnitCount = cart.reduce((sum, item) => sum + item.quantity, 0);
   const customerSummary = activeCustomer?.name || 'Walk-in customer';
   const activePricingLabel = priceList === 'wholesale' ? 'Wholesale pricing' : 'Retail pricing';
+  const cartHeaderSummary = cartLineCount === 0
+    ? 'No items yet'
+    : `${cartUnitCount} unit${cartUnitCount === 1 ? '' : 's'} in ${cartLineCount} line${cartLineCount === 1 ? '' : 's'}`;
   const normalizedCashReceived = Number(cashReceived || 0);
   const computedAmountPaid = paymentMethod === 'cash'
     ? (normalizedCashReceived > 0 ? normalizedCashReceived : subtotal)
@@ -356,48 +359,23 @@ const POS = () => {
 
       <div className="pos-cart glass-panel">
         <div className="cart-header">
-          <div className="cart-header-main">
+          <div className="cart-title-block">
             <div className="cart-title">
               <ShoppingCart size={20} />
               <h2>Current Order</h2>
             </div>
-            <p className="cart-subtitle">Attach a customer, review line items, and collect payment in one place.</p>
-          </div>
-          <div className="cart-header-actions">
-            <div className="order-metrics" aria-label="Current order summary">
-              <div className="order-metric">
-                <span>Lines</span>
-                <strong>{cartLineCount}</strong>
-              </div>
-              <div className="order-metric">
-                <span>Units</span>
-                <strong>{cartUnitCount}</strong>
-              </div>
+            <div className="cart-header-tags" aria-label="Current order summary">
+              <span className="cart-tag">{cartHeaderSummary}</span>
+              <span className="cart-tag">{customerSummary}</span>
+              <span className={`cart-tag ${priceList === 'wholesale' ? 'wholesale' : ''}`}>{activePricingLabel}</span>
             </div>
-            <button className="clear-btn" onClick={() => setCart([])} disabled={cartLineCount === 0}>Clear order</button>
           </div>
+          <button className="clear-btn" onClick={() => setCart([])} disabled={cartLineCount === 0}>Clear order</button>
         </div>
 
-        <div className="cart-settings-panel">
-          <div className="order-section-heading">
-            <span className="section-step">1</span>
-            <div>
-              <h3>Customer & pricing</h3>
-              <p>Choose who this sale belongs to, then confirm the right price list.</p>
-            </div>
-          </div>
-          <div className="customer-status-card">
-            <div>
-              <span className="status-label">Customer</span>
-              <strong>{customerSummary}</strong>
-            </div>
-            <div>
-              <span className="status-label">Price list</span>
-              <strong className={`pricing-emphasis ${priceList === 'wholesale' ? 'wholesale' : ''}`}>{activePricingLabel}</strong>
-            </div>
-          </div>
-          <div className="cart-controls-block">
-            <label className="cart-section-label">Attach Customer</label>
+        <div className="order-toolbar">
+          <div className="toolbar-field customer-field">
+            <label className="cart-section-label">Customer</label>
             <select
               className="cart-select"
               value={selectedCustomerId}
@@ -416,64 +394,55 @@ const POS = () => {
               ))}
             </select>
           </div>
-          <div className="pricing-helper-row">
-            <span className="pricing-helper-copy">Need wholesale pricing?</span>
-            <button
-              type="button"
-              className="pricing-link-btn"
-              onClick={() => setShowWholesaleModal(true)}
-            >
-              Find or create a wholesale account
-            </button>
-          </div>
-          {selectedCustomerId && !isWholesaleBuyer && (
-            <div className="cart-context-warning">Retail customer selected. Wholesale discounts locked.</div>
-          )}
-          {selectedCustomerId && isWholesaleBuyer && (
-            <div className="cart-context-success">Wholesale Customer: {activeCustomer?.name}</div>
-          )}
-          <div className="pricing-toggle-group">
-            <button
-              className={`pricing-toggle-btn ${priceList === 'retail' ? 'active' : ''}`}
-              onClick={() => { setPriceList('retail'); }}
-            >
-              Retail Pricing
-            </button>
-            <button
-              className={`pricing-toggle-btn ${priceList === 'wholesale' ? 'active' : ''}`}
-              onClick={() => {
-                 if (!isWholesaleBuyer) {
-                   setShowWholesaleModal(true);
-                 } else {
-                   setPriceList('wholesale');
-                 }
-              }}
-            >
-              Wholesale Pricing
-            </button>
+          <div className="toolbar-field pricing-field">
+            <label className="cart-section-label">Pricing</label>
+            <div className="pricing-toggle-group">
+              <button
+                className={`pricing-toggle-btn ${priceList === 'retail' ? 'active' : ''}`}
+                onClick={() => { setPriceList('retail'); }}
+              >
+                Retail
+              </button>
+              <button
+                className={`pricing-toggle-btn ${priceList === 'wholesale' ? 'active' : ''}`}
+                onClick={() => {
+                   if (!isWholesaleBuyer) {
+                     setShowWholesaleModal(true);
+                   } else {
+                     setPriceList('wholesale');
+                   }
+                }}
+              >
+                Wholesale
+              </button>
+            </div>
           </div>
         </div>
+
+        {(selectedCustomerId || priceList === 'wholesale') && (
+          <div className={`cart-context-banner ${isWholesaleBuyer ? 'success' : 'warning'}`}>
+            {selectedCustomerId && !isWholesaleBuyer
+              ? 'Selected customer uses retail pricing.'
+              : isWholesaleBuyer
+                ? `Wholesale account active: ${activeCustomer?.name}`
+                : 'Wholesale pricing requires a wholesale account.'}
+            {!isWholesaleBuyer && (
+              <button
+                type="button"
+                className="pricing-link-btn"
+                onClick={() => setShowWholesaleModal(true)}
+              >
+                Manage wholesale access
+              </button>
+            )}
+          </div>
+        )}
 
         {cartFeedback && (
           <div className="cart-feedback" role="alert">
             {cartFeedback}
           </div>
         )}
-
-        <div className="cart-items-header">
-          <div className="order-section-heading compact">
-            <span className="section-step">2</span>
-            <div>
-              <h3>Review items</h3>
-              <p>Adjust quantities here before taking payment.</p>
-            </div>
-          </div>
-          <div className="cart-items-summary">
-            {cartLineCount === 0
-              ? 'No items added yet'
-              : `${cartUnitCount} unit${cartUnitCount === 1 ? '' : 's'} across ${cartLineCount} line${cartLineCount === 1 ? '' : 's'}`}
-          </div>
-        </div>
 
         <div className="cart-items">
           {cart.length === 0 ? (
@@ -483,39 +452,31 @@ const POS = () => {
               <span>Tap products on the left to start building this sale.</span>
             </div>
           ) : (
-            cart.map(item => {
-              const appliesWholesale = calculateWholesaleApplies(item);
-              const unitPrice = appliesWholesale ? item.wholesale_price : item.price;
-              const itemTotal = unitPrice * item.quantity;
+            <>
+              <div className="cart-list-header">
+                <span>Item</span>
+                <span>Qty</span>
+                <span>Total</span>
+              </div>
+              {cart.map(item => {
+                const appliesWholesale = calculateWholesaleApplies(item);
+                const unitPrice = appliesWholesale ? item.wholesale_price : item.price;
+                const itemTotal = unitPrice * item.quantity;
 
-              return (
-                <div key={item.id} className={`cart-item ${appliesWholesale ? 'wholesale-active' : ''}`}>
-                  <div className="cart-item-main">
-                    <div className="item-info">
+                return (
+                  <div key={item.id} className={`cart-item ${appliesWholesale ? 'wholesale-active' : ''}`}>
+                    <div className="cart-item-details">
                       <h4>{item.name}</h4>
-                      <div className="item-meta-row">
-                        <span className="item-meta-pill">{item.variant}</span>
-                        <span className="item-meta-pill">Stock {item.stock}</span>
-                        {appliesWholesale ? (
-                          <span className="item-meta-pill warning">Wholesale applied</span>
-                        ) : (
-                          isWholesaleBuyer && item.bulk_threshold ? (
-                            <span className="item-meta-pill accent">Wholesale at {item.bulk_threshold}+</span>
-                          ) : null
-                        )}
-                      </div>
-                      <div className="item-price">
-                        KES {unitPrice?.toLocaleString()} <span className="per-unit-label">per unit</span>
+                      <div className="item-subline">
+                        <span>{item.variant}</span>
+                        <span>KES {unitPrice?.toLocaleString()} each</span>
+                        {appliesWholesale && <span className="item-inline-badge">Wholesale</span>}
+                        {!appliesWholesale && isWholesaleBuyer && item.bulk_threshold ? (
+                          <span className="item-inline-note">Wholesale at {item.bulk_threshold}+</span>
+                        ) : null}
                       </div>
                     </div>
-                    <div className="item-total-block">
-                      <span className="item-total-label">Line total</span>
-                      <div className="item-total">KES {itemTotal.toLocaleString()}</div>
-                    </div>
-                  </div>
-                  <div className="item-actions">
                     <div className="quantity-control">
-                      <span className="quantity-label">Qty</span>
                       <button
                         type="button"
                         onClick={() => updateQuantity(item.id, -1)}
@@ -534,37 +495,33 @@ const POS = () => {
                         <Plus size={14} />
                       </button>
                     </div>
-                    <button type="button" className="del-btn" onClick={() => removeFromCart(item.id)}>
-                      <Trash2 size={16} />
-                      <span>Remove</span>
-                    </button>
+                    <div className="cart-item-total">
+                      <div className="item-total">KES {itemTotal.toLocaleString()}</div>
+                      <button type="button" className="del-btn" onClick={() => removeFromCart(item.id)}>
+                        <Trash2 size={15} />
+                        <span>Remove</span>
+                      </button>
+                    </div>
                   </div>
-                </div>
-              );
-            })
+                );
+              })}
+            </>
           )}
         </div>
 
         <div className={`cart-summary ${compactCheckout ? 'compact' : ''}`}>
-          <div className="order-section-heading summary-heading">
-            <span className="section-step">3</span>
-            <div>
-              <h3>Payment</h3>
-              <p>Confirm the total, collect payment, and finish the sale.</p>
-            </div>
-          </div>
           <div className="summary-card">
+            <div className="summary-row">
+              <span>Items</span>
+              <span>{cartHeaderSummary}</span>
+            </div>
             <div className="summary-row">
               <span>Customer</span>
               <span>{customerSummary}</span>
             </div>
             <div className="summary-row">
-              <span>Price list</span>
+              <span>Pricing</span>
               <span>{activePricingLabel}</span>
-            </div>
-            <div className="summary-row">
-              <span>Units</span>
-              <span>{cartUnitCount}</span>
             </div>
           </div>
           <div className="summary-row">
