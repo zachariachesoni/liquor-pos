@@ -55,7 +55,7 @@ export const register = async (req, res) => {
 
     let emailResult = null;
     if (email) {
-      const loginLink = `${process.env.FRONTEND_URL || `${req.protocol}://${req.get('host')}`}/login`;
+      const loginLink = `${process.env.FRONTEND_URL || `${req.protocol}://${req.get('host')}`}/login?username=${encodeURIComponent(username)}`;
       emailResult = await sendRegistrationEmail(email, username, user.role, loginLink);
     }
 
@@ -98,16 +98,26 @@ export const login = async (req, res) => {
   const { username, password } = req.body;
 
   try {
+    const identifier = typeof username === 'string' ? username.trim() : '';
+
     // Validate input
-    if (!username || !password) {
+    if (!identifier || !password) {
       return res.status(400).json({
         success: false,
-        message: 'Username and password are required'
+        message: 'Username or email and password are required'
       });
     }
 
-    // Find user
-    const user = await User.findOne({ username }).select('+password');
+    const escapedIdentifier = identifier.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const identifierRegex = new RegExp(`^${escapedIdentifier}$`, 'i');
+
+    // Find user by username or email
+    const user = await User.findOne({
+      $or: [
+        { username: identifierRegex },
+        { email: identifierRegex }
+      ]
+    }).select('+password');
 
     if (!user || !user.is_active) {
       return res.status(401).json({
@@ -129,7 +139,7 @@ export const login = async (req, res) => {
     // Generate token
     const token = generateToken(user);
 
-    logger.info(`User logged in: ${username}`);
+    logger.info(`User logged in: ${user.username}`);
 
     res.json({
       success: true,

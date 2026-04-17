@@ -71,7 +71,7 @@ export const createUser = async (req, res) => {
     user.password = undefined;
     
     // Dispatch SMTP Welcome Email Link
-    const inviteLink = `${process.env.FRONTEND_URL || `${req.protocol}://${req.get('host')}`}/login`;
+    const inviteLink = `${process.env.FRONTEND_URL || `${req.protocol}://${req.get('host')}`}/login?username=${encodeURIComponent(username)}`;
     const emailRes = await sendInviteEmail(email, username, role, inviteLink, temporaryPassword);
 
     res.status(201).json({ 

@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import './Login.css';
 
 const Login = () => {
-  const [username, setUsername] = useState('');
+  const [searchParams] = useSearchParams();
+  const [username, setUsername] = useState(searchParams.get('username') || '');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -40,13 +42,13 @@ const Login = () => {
           {error && <div className="error-message">{error}</div>}
           
           <div className="form-group">
-            <label htmlFor="username">Username</label>
+            <label htmlFor="username">Username or Email</label>
             <input
               type="text"
               id="username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="Enter your username"
+              placeholder="Enter your username or email"
               required
               disabled={loading}
             />
