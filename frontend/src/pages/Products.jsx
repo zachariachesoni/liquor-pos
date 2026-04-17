@@ -92,7 +92,7 @@ const Products = () => {
       // Reset
       setFormData({ ...formData, name: '', brand: '', buying_price: 0, retail_price: 0, wholesale_price: 0, current_stock: 0, size_in_ml: 750, size: '750ml', min_stock_level: 5 });
     } catch (err) {
-      alert('Error creating product');
+      alert(err.response?.data?.message || 'Error creating product');
       console.error(err);
     }
   };
@@ -127,7 +127,7 @@ const Products = () => {
       setShowEditModal(false);
       fetchProducts();
     } catch (err) {
-      alert('Error updating product details');
+      alert(err.response?.data?.message || 'Error updating product details');
       console.error(err);
     }
   };
@@ -266,7 +266,6 @@ const Products = () => {
                     <td>
                       <span className={`status-dot ${product.stock > product.effectiveLowStockLevel ? 'green' : 'red'}`}></span>
                       {product.stock} units
-                      <div className="td-secondary">Warn at {product.effectiveLowStockLevel}</div>
                     </td>
                     <td className="text-right">
                       <button className="action-icon" onClick={() => {

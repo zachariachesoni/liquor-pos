@@ -414,6 +414,24 @@ textarea {
   color: var(--text-muted);
 }
 
+.account-page-grid {
+  grid-template-columns: minmax(300px, 0.8fr) minmax(0, 1.2fr);
+}
+
+.account-summary-card {
+  padding: 1.1rem;
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.account-summary-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
 @media (max-width: 768px) {
   .modal-overlay {
     padding-top: 2rem;

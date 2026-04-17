@@ -27,7 +27,10 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    const requestUrl = error.config?.url || '';
+    const allowHandled401 = ['/auth/login', '/auth/change-password'].some((path) => requestUrl.includes(path));
+
+    if (error.response?.status === 401 && !allowHandled401) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       window.location.href = '/login';

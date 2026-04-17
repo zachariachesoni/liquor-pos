@@ -31,7 +31,18 @@ const createTransporter = () => nodemailer.createTransport(getSmtpConfig());
 
 const getFallbackFromAddress = (businessName = 'Liquor POS') => {
   const customFrom = process.env.MAIL_FROM?.trim();
-  if (customFrom) return customFrom;
+  if (customFrom) {
+    const customAddressMatch = customFrom.match(/<([^>]+)>/);
+    if (customAddressMatch?.[1]) {
+      return `"${businessName} Admin" <${customAddressMatch[1].trim()}>`;
+    }
+
+    if (customFrom.includes('@')) {
+      return `"${businessName} Admin" <${customFrom}>`;
+    }
+
+    return customFrom;
+  }
 
   const smtpUser = process.env.SMTP_USER?.trim();
   return smtpUser ? `"${businessName} Admin" <${smtpUser}>` : undefined;

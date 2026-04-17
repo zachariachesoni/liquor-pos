@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useSystemSettings } from '../hooks/useSystemSettings';
 import './Login.css';
 
 const Login = () => {
@@ -12,6 +13,7 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   
   const { login, logout, isAuthenticated } = useAuth();
+  const { settings } = useSystemSettings();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -40,7 +42,7 @@ const Login = () => {
     <div className="login-container">
       <div className="login-card">
         <div className="login-header">
-          <h1>Liquor POS</h1>
+          <h1>{settings.business_name}</h1>
           <p>Inventory & Sales Management System</p>
         </div>
 
