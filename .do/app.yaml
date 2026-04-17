@@ -1,0 +1,102 @@
+name: liquor-pos
+region: blr
+
+alerts:
+  - rule: DEPLOYMENT_FAILED
+  - rule: DOMAIN_FAILED
+
+ingress:
+  rules:
+    - component:
+        name: api
+      match:
+        path:
+          prefix: /api
+    - component:
+        name: web
+      match:
+        path:
+          prefix: /
+
+services:
+  - name: api
+    github:
+      repo: zachariachesoni/liquor-pos
+      branch: master
+      deploy_on_push: true
+    source_dir: backend
+    environment_slug: node-js
+    build_command: npm install
+    run_command: npm start
+    http_port: 8080
+    instance_count: 1
+    instance_size_slug: apps-s-1vcpu-1gb
+    health_check:
+      http_path: /api/health
+      initial_delay_seconds: 15
+      period_seconds: 15
+      timeout_seconds: 5
+      success_threshold: 1
+      failure_threshold: 5
+    envs:
+      - key: NODE_ENV
+        value: production
+        scope: RUN_TIME
+        type: GENERAL
+      - key: PORT
+        value: "8080"
+        scope: RUN_TIME
+        type: GENERAL
+      - key: FRONTEND_URL
+        value: ${APP_URL}
+        scope: RUN_TIME
+        type: GENERAL
+      - key: MONGODB_URI
+        value: REPLACE_WITH_YOUR_MONGODB_CONNECTION_STRING
+        scope: RUN_TIME
+        type: SECRET
+      - key: JWT_SECRET
+        value: REPLACE_WITH_YOUR_JWT_SECRET
+        scope: RUN_TIME
+        type: SECRET
+      - key: JWT_EXPIRE
+        value: 7d
+        scope: RUN_TIME
+        type: GENERAL
+      - key: SMTP_HOST
+        value: smtp.gmail.com
+        scope: RUN_TIME
+        type: GENERAL
+      - key: SMTP_PORT
+        value: "587"
+        scope: RUN_TIME
+        type: GENERAL
+      - key: SMTP_USER
+        value: REPLACE_WITH_YOUR_SMTP_USERNAME
+        scope: RUN_TIME
+        type: SECRET
+      - key: SMTP_PASS
+        value: REPLACE_WITH_YOUR_SMTP_PASSWORD
+        scope: RUN_TIME
+        type: SECRET
+      - key: MAIL_FROM
+        value: Liquor POS Admin <no-reply@example.com>
+        scope: RUN_TIME
+        type: GENERAL
+
+static_sites:
+  - name: web
+    github:
+      repo: zachariachesoni/liquor-pos
+      branch: master
+      deploy_on_push: true
+    source_dir: frontend
+    environment_slug: node-js
+    build_command: npm install && npm run build
+    output_dir: dist
+    catchall_document: index.html
+    envs:
+      - key: VITE_API_URL
+        value: /api
+        scope: BUILD_TIME
+        type: GENERAL
