@@ -5,6 +5,12 @@ This repo is a monorepo. The deployable components are not in the repository roo
 - Backend service: `backend`
 - Frontend static site: `frontend`
 
+To make DigitalOcean's auto-detector happier, the repo root now also includes:
+
+- [package.json](C:/Users/zacha/Documents/zach%20docs/liquor-pos-system/package.json)
+
+That lets App Platform detect the repository as a Node app even if it does not immediately pick up the monorepo structure.
+
 To avoid the "No components detected" error, use the included app spec:
 
 - App spec file: [.do/app.yaml](C:/Users/zacha/Documents/zach%20docs/liquor-pos-system/.do/app.yaml)
@@ -47,6 +53,23 @@ These values are already mapped in the spec because your backend expects them:
 - `MAIL_FROM=Liquor POS Admin <no-reply@example.com>`
 
 ## How To Deploy
+
+### Option A: Easiest Control Panel Path
+
+Use the repo root as a single web service:
+
+1. In App Platform, choose the repository root.
+2. Let DigitalOcean detect the root `package.json`.
+3. Set build command to:
+   `npm run build`
+4. Set run command to:
+   `npm start`
+5. Set HTTP port to:
+   `8080`
+
+This works because the backend already serves `frontend/dist` in production after the frontend build completes.
+
+### Option B: App Spec / Split Components
 
 1. In DigitalOcean App Platform, create a new app from GitHub.
 2. Choose the repository `zachariachesoni/liquor-pos`.
