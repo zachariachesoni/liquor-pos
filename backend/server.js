@@ -70,7 +70,7 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
-app.options('*', cors(corsOptions));
+app.options(/.*/, cors(corsOptions));
 
 // Rate limiting
 const limiter = rateLimit({
@@ -137,7 +137,7 @@ app.use('/api/settings', settingsRoutes);
 if (process.env.NODE_ENV === 'production') {
   app.use(express.static(path.join(__dirname, '../frontend/dist')));
 
-  app.get('*', (req, res) => {
+  app.get(/.*/, (req, res) => {
     if (!req.originalUrl.startsWith('/api')) {
       res.sendFile(path.resolve(__dirname, '../frontend', 'dist', 'index.html'));
     } else {
