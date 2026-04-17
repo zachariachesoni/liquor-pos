@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { ImagePlus, KeyRound, Save, Settings, Shield, Trash2, UserPlus } from 'lucide-react';
 import api from '../utils/api';
 import { useAuth } from '../context/AuthContext';
+import { getCacheableSettings } from '../hooks/useSystemSettings';
 import './Products.css';
 
 const defaultSettings = {
@@ -122,7 +123,7 @@ const AdminPanel = () => {
       const response = await api.put('/settings', payload);
       const nextSettings = { ...defaultSettings, ...(response.data.data || {}) };
       setSettings(nextSettings);
-      localStorage.setItem('system_settings_cache', JSON.stringify(nextSettings));
+      localStorage.setItem('system_settings_cache', JSON.stringify(getCacheableSettings(nextSettings)));
       setFeedback('Business settings saved successfully.');
     } catch (err) {
       console.error('Failed to save settings', err);

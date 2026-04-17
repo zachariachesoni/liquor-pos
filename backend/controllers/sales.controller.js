@@ -91,6 +91,10 @@ export const createSale = async (req, res) => {
     await session.abortTransaction();
     if (error.message.includes('Transaction') || error.message.includes('transaction')) {
       logger.warn('Transactions not supported. Falling back to non-transactional sale.');
+      let variantSnapshots = [];
+      let createdSale = null;
+      let saleItemsCreated = false;
+
       try {
         const { items, customerId, paymentMethod, amountPaid, priceList } = req.body;
         const normalizedFallbackAmountPaid = Number(amountPaid ?? 0);
@@ -107,6 +111,13 @@ export const createSale = async (req, res) => {
           if (!variant || variant.current_stock < quantity) {
              return res.status(400).json({ success: false, message: `Insufficient stock` });
           }
+
+          variantSnapshots.push({
+            id: variant._id,
+            quantity,
+            originalStock: variant.current_stock,
+          });
+
           const appliesWholesale = priceList === 'wholesale' || quantity >= variant.wholesale_threshold;
           const unitPrice = appliesWholesale ? variant.wholesale_price : variant.retail_price;
           const subtotal = unitPrice * quantity;
@@ -123,8 +134,6 @@ export const createSale = async (req, res) => {
             profit_margin: itemProfitMargin,
             subtotal 
           });
-          variant.current_stock -= quantity;
-          await variant.save();
         }
 
         const appliedAmountPaid = normalizedFallbackAmountPaid > 0 ? normalizedFallbackAmountPaid : totalAmount;
@@ -132,7 +141,7 @@ export const createSale = async (req, res) => {
           return res.status(400).json({ success: false, message: 'Amount paid cannot be less than the sale total' });
         }
 
-        const sale = await Sale.create({
+        createdSale = await Sale.create({
           invoice_number: generateInvoiceNumber(), 
           customer_id: customerId || null,
           total_amount: totalAmount, 
@@ -144,12 +153,48 @@ export const createSale = async (req, res) => {
           user_id: req.user._id || req.user.id
         });
 
-        const saleItemsToCreate = saleItemsData.map(si => ({ ...si, sale_id: sale._id }));
+        const saleItemsToCreate = saleItemsData.map(si => ({ ...si, sale_id: createdSale._id }));
         await SaleItem.create(saleItemsToCreate);
-        return res.status(201).json({ success: true, data: sale });
+        saleItemsCreated = true;
+
+        for (const snapshot of variantSnapshots) {
+          const updatedVariant = await ProductVariant.findOneAndUpdate(
+            { _id: snapshot.id, current_stock: { $gte: snapshot.quantity } },
+            { $inc: { current_stock: -snapshot.quantity } },
+            { new: true }
+          );
+
+          if (!updatedVariant) {
+            throw new Error('Stock changed before fallback checkout could finish');
+          }
+        }
+
+        return res.status(201).json({ success: true, data: createdSale });
       } catch (fallbackErr) {
         logger.error('Fallback sale creation failed:', fallbackErr);
-        return res.status(500).json({ success: false, message: 'Fallback failed.' });
+
+        try {
+          if (saleItemsCreated && createdSale?._id) {
+            await SaleItem.deleteMany({ sale_id: createdSale._id });
+          }
+
+          if (createdSale?._id) {
+            await Sale.findByIdAndDelete(createdSale._id);
+          }
+
+          for (const snapshot of variantSnapshots) {
+            await ProductVariant.findByIdAndUpdate(snapshot.id, {
+              $max: { current_stock: snapshot.originalStock }
+            });
+          }
+        } catch (rollbackError) {
+          logger.error('Fallback rollback failed:', rollbackError);
+        }
+
+        const message = fallbackErr.message === 'Stock changed before fallback checkout could finish'
+          ? 'Stock changed during checkout. Please review the cart and try again.'
+          : 'Fallback failed.';
+        return res.status(500).json({ success: false, message });
       }
     }
     res.status(400).json({ success: false, message: error.message || 'Server error' });

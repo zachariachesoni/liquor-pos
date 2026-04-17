@@ -38,13 +38,19 @@ connectDB();
 app.use(helmet());
 
 // CORS middleware - MUST come before routes
+const additionalOrigins = (process.env.ADDITIONAL_ALLOWED_ORIGINS || '')
+  .split(',')
+  .map((origin) => origin.trim().replace(/\/$/, ''))
+  .filter(Boolean);
+
 const allowedOrigins = [
-  'http://localhost:5173',
-  'http://localhost:3000',
   process.env.FRONTEND_URL,
   process.env.FRONTEND_URL?.replace(/\/$/, ''),
-  'https://your-other-link.com'
+  ...(process.env.NODE_ENV !== 'production' ? ['http://localhost:5173', 'http://localhost:3000'] : []),
+  ...additionalOrigins,
 ].filter(Boolean);
+
+const allowVercelPreviews = process.env.ALLOW_VERCEL_PREVIEWS === 'true';
 
 const corsOptions = {
   origin(origin, callback) {
@@ -56,7 +62,7 @@ const corsOptions = {
 
     if (
       allowedOrigins.includes(normalizedOrigin) ||
-      normalizedOrigin.endsWith('.vercel.app')
+      (allowVercelPreviews && normalizedOrigin.endsWith('.vercel.app'))
     ) {
       return callback(null, true);
     }

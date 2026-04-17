@@ -1,9 +1,21 @@
 import { hashPassword, comparePassword, generateToken } from '../utils/helpers.js';
 import logger from '../utils/logger.js';
 import { sendRegistrationEmail } from '../utils/email.js';
+import { getAuthCookieOptions } from '../utils/authCookies.js';
 
 // Import User model directly to ensure schema is registered
 import User from '../models/User.js';
+
+const attachAuthCookie = (res, token) => {
+  res.cookie('auth_token', token, getAuthCookieOptions());
+};
+
+const clearAuthCookie = (res) => {
+  res.clearCookie('auth_token', {
+    ...getAuthCookieOptions(),
+    maxAge: undefined,
+  });
+};
 
 // @desc    Register a new user
 // @route   POST /api/auth/register
@@ -61,6 +73,7 @@ export const register = async (req, res) => {
 
     // Generate token
     const token = generateToken(user);
+    attachAuthCookie(res, token);
 
     logger.info(`Initial admin registered: ${username}`);
 
@@ -138,6 +151,7 @@ export const login = async (req, res) => {
 
     // Generate token
     const token = generateToken(user);
+    attachAuthCookie(res, token);
 
     logger.info(`User logged in: ${user.username}`);
 
@@ -198,6 +212,7 @@ export const getMe = async (req, res) => {
 export const logout = async (req, res) => {
   try {
     logger.info(`User logged out: ${req.user.username}`);
+    clearAuthCookie(res);
     
     res.json({
       success: true,

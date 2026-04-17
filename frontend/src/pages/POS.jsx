@@ -8,6 +8,8 @@ const POS = () => {
   const [products, setProducts] = useState([]);
   const [cart, setCart] = useState([]);
   const [cartFeedback, setCartFeedback] = useState('');
+  const [compactCheckout, setCompactCheckout] = useState(() => (typeof window !== 'undefined' ? window.innerWidth <= 900 : false));
+  const [checkoutExpanded, setCheckoutExpanded] = useState(() => (typeof window !== 'undefined' ? window.innerWidth > 900 : true));
   const [search, setSearch] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('cash');
   const [cashReceived, setCashReceived] = useState('');
@@ -24,6 +26,19 @@ const POS = () => {
   useEffect(() => {
     fetchCatalog();
     fetchCustomers();
+  }, []);
+
+  useEffect(() => {
+    const handleResize = () => {
+      const isCompact = window.innerWidth <= 900;
+      setCompactCheckout(isCompact);
+      if (!isCompact) {
+        setCheckoutExpanded(true);
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   const fetchCustomers = async () => {
@@ -341,7 +356,7 @@ const POS = () => {
           <button className="clear-btn" onClick={() => setCart([])}>Clear</button>
         </div>
 
-        <div style={{ padding: '0 1rem 1rem 1rem' }}>
+        <div className="cart-settings-panel">
           <div className="cart-controls-block">
             <label className="cart-section-label">Attach Customer</label>
             <select
@@ -439,70 +454,84 @@ const POS = () => {
           )}
         </div>
 
-        <div className="cart-summary">
+        <div className={`cart-summary ${compactCheckout ? 'compact' : ''}`}>
           <div className="summary-row">
             <span>Subtotal</span>
             <span>KES {calculateSubtotal().toLocaleString()}</span>
           </div>
-          <div className="summary-row total">
+          <div className="summary-row total compact-total-row">
             <span>Total</span>
             <span>KES {calculateSubtotal().toLocaleString()}</span>
           </div>
 
-          <div className="payment-methods">
+          {compactCheckout && (
             <button
-              className={`pay-btn ${paymentMethod === 'cash' ? 'active' : ''}`}
-              onClick={() => setPaymentMethod('cash')}
+              type="button"
+              className="checkout-toggle-btn"
+              onClick={() => setCheckoutExpanded((prev) => !prev)}
             >
-              <Banknote size={16} /> Cash
+              {checkoutExpanded ? 'Hide Checkout Controls' : 'Show Checkout Controls'}
             </button>
-            <button
-              className={`pay-btn ${paymentMethod === 'mpesa' ? 'active' : ''}`}
-              onClick={() => {
-                setPaymentMethod('mpesa');
-                setCashReceived('');
-              }}
-            >
-              <CreditCard size={16} /> M-Pesa
-            </button>
-          </div>
-
-          {paymentMethod === 'cash' && (
-            <div className="cash-panel">
-              <label htmlFor="cashReceived" className="cash-label">Cash Received</label>
-              <input
-                id="cashReceived"
-                type="number"
-                min="0"
-                step="1"
-                inputMode="numeric"
-                className="cash-input"
-                placeholder="Enter amount received"
-                value={cashReceived}
-                onChange={(e) => setCashReceived(e.target.value)}
-              />
-              <div className="cash-summary">
-                <div className="summary-row">
-                  <span>Amount Tendered</span>
-                  <span>KES {computedAmountPaid.toLocaleString()}</span>
-                </div>
-                {cashReceived !== '' && (
-                  <div className={`summary-row ${isCashShort ? 'cash-warning' : 'cash-change'}`}>
-                    <span>{isCashShort ? 'Balance Remaining' : 'Change Due'}</span>
-                    <span>KES {(isCashShort ? outstandingCash : computedChangeDue).toLocaleString()}</span>
-                  </div>
-                )}
-              </div>
-            </div>
           )}
 
-          <button
-            className="checkout-btn"
-            disabled={cart.length === 0 || isCashShort}
-            onClick={handleCheckout}
-          >
-            {isCashShort ? 'Enter Full Cash Amount' : 'Complete Payment'}
-          </button>
+          {(!compactCheckout || checkoutExpanded) && (
+            <>
+              <div className="payment-methods">
+                <button
+                  className={`pay-btn ${paymentMethod === 'cash' ? 'active' : ''}`}
+                  onClick={() => setPaymentMethod('cash')}
+                >
+                  <Banknote size={16} /> Cash
+                </button>
+                <button
+                  className={`pay-btn ${paymentMethod === 'mpesa' ? 'active' : ''}`}
+                  onClick={() => {
+                    setPaymentMethod('mpesa');
+                    setCashReceived('');
+                  }}
+                >
+                  <CreditCard size={16} /> M-Pesa
+                </button>
+              </div>
+
+              {paymentMethod === 'cash' && (
+                <div className="cash-panel">
+                  <label htmlFor="cashReceived" className="cash-label">Cash Received</label>
+                  <input
+                    id="cashReceived"
+                    type="number"
+                    min="0"
+                    step="1"
+                    inputMode="numeric"
+                    className="cash-input"
+                    placeholder="Enter amount received"
+                    value={cashReceived}
+                    onChange={(e) => setCashReceived(e.target.value)}
+                  />
+                  <div className="cash-summary">
+                    <div className="summary-row">
+                      <span>Amount Tendered</span>
+                      <span>KES {computedAmountPaid.toLocaleString()}</span>
+                    </div>
+                    {cashReceived !== '' && (
+                      <div className={`summary-row ${isCashShort ? 'cash-warning' : 'cash-change'}`}>
+                        <span>{isCashShort ? 'Balance Remaining' : 'Change Due'}</span>
+                        <span>KES {(isCashShort ? outstandingCash : computedChangeDue).toLocaleString()}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              <button
+                className="checkout-btn"
+                disabled={cart.length === 0 || isCashShort}
+                onClick={handleCheckout}
+              >
+                {isCashShort ? 'Enter Full Cash Amount' : 'Complete Payment'}
+              </button>
+            </>
+          )}
         </div>
       </div>
 

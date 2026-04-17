@@ -8,23 +8,36 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check if user is logged in
-    const token = localStorage.getItem('token');
-    const storedUser = localStorage.getItem('user');
-    
-    if (token && storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
-    setLoading(false);
+    let active = true;
+
+    const restoreSession = async () => {
+      try {
+        const response = await api.get('/auth/me');
+        if (active) {
+          setUser(response.data.data || null);
+        }
+      } catch (error) {
+        if (active) {
+          setUser(null);
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    };
+
+    restoreSession();
+
+    return () => {
+      active = false;
+    };
   }, []);
 
   const login = async (username, password) => {
     try {
       const response = await api.post('/auth/login', { username, password });
-      const { user, token } = response.data.data;
-      
-      localStorage.setItem('token', token);
-      localStorage.setItem('user', JSON.stringify(user));
+      const { user } = response.data.data;
       setUser(user);
       
       return { success: true };
@@ -44,10 +57,7 @@ export const AuthProvider = ({ children }) => {
         password,
         role 
       });
-      const { user, token } = response.data.data;
-      
-      localStorage.setItem('token', token);
-      localStorage.setItem('user', JSON.stringify(user));
+      const { user } = response.data.data;
       setUser(user);
       
       return { success: true };
@@ -59,9 +69,12 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const logout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+  const logout = async () => {
+    try {
+      await api.post('/auth/logout');
+    } catch (error) {
+      // Ignore logout API failures and clear local session state regardless.
+    }
     setUser(null);
   };
 

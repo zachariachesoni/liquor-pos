@@ -172,6 +172,10 @@
   text-decoration: underline;
 }
 
+.cart-settings-panel {
+  padding: 0 1rem 1rem;
+}
+
 .cart-controls-block {
   margin-bottom: 0.75rem;
 }
@@ -385,6 +389,10 @@
   border-radius: 0 0 var(--radius-lg) var(--radius-lg);
 }
 
+.cart-summary.compact {
+  padding-top: 1rem;
+}
+
 .summary-row {
   display: flex;
   justify-content: space-between;
@@ -400,6 +408,22 @@
   margin-bottom: 1.5rem;
   border-top: 1px dashed var(--border-color);
   padding-top: 1rem;
+}
+
+.compact-total-row {
+  margin-bottom: 1rem;
+}
+
+.checkout-toggle-btn {
+  width: 100%;
+  margin-bottom: 0.9rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-primary);
+  font-size: 0.88rem;
+  font-weight: 600;
 }
 
 .payment-methods {
@@ -497,40 +521,13 @@
   }
 }
 
-@media (max-width: 640px) {
+@media (max-width: 900px) {
   .pos-container {
     gap: 1rem;
   }
 
-  .catalog-header {
-    flex-direction: column;
-    align-items: stretch;
-    padding: 1rem;
-  }
-
-  .search-box {
-    width: 100%;
-  }
-
-  .product-grid {
-    grid-template-columns: 1fr;
-    padding: 1rem;
-  }
-
-  .cart-header {
-    padding: 1rem;
-  }
-
-  .cart-title h2 {
-    font-size: 1.05rem;
-  }
-
-  .clear-btn {
-    font-size: 0.78rem;
-  }
-
-  .pos-cart > div[style*='padding: 0 1rem 1rem 1rem'] {
-    padding: 0 0.85rem 0.75rem 0.85rem !important;
+  .cart-settings-panel {
+    padding: 0 0.85rem 0.75rem;
   }
 
   .cart-section-label {
@@ -668,6 +665,52 @@
   .checkout-btn {
     padding: 0.82rem;
     font-size: 0.95rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .pos-container {
+    gap: 1rem;
+  }
+
+  .catalog-header {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 1rem;
+  }
+
+  .search-box {
+    width: 100%;
+  }
+
+  .product-grid {
+    grid-template-columns: 1fr;
+    padding: 1rem;
+  }
+
+  .cart-header {
+    padding: 1rem;
+  }
+
+  .cart-title h2 {
+    font-size: 1.05rem;
+  }
+
+  .clear-btn {
+    font-size: 0.78rem;
+  }
+
+  .cart-item-top {
+    flex-direction: column;
+    gap: 0.45rem;
+  }
+
+  .item-info h4 {
+    font-size: 0.92rem;
+  }
+
+  .item-total {
+    font-size: 0.9rem;
   }
 }
 
