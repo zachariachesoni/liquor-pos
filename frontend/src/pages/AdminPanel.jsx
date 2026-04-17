@@ -25,6 +25,8 @@ const defaultPasswordForm = {
   confirmPassword: '',
 };
 
+const MAX_LOGO_SIZE_BYTES = 2 * 1024 * 1024;
+
 const AdminPanel = () => {
   const { user, changePassword } = useAuth();
   const [settings, setSettings] = useState(defaultSettings);
@@ -128,6 +130,42 @@ const AdminPanel = () => {
     } finally {
       setSavingSettings(false);
     }
+  };
+
+  const handleLogoFileChange = (event) => {
+    const file = event.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    if (!file.type.startsWith('image/')) {
+      setFeedback('', 'Please choose an image file for the business logo.');
+      event.target.value = '';
+      return;
+    }
+
+    if (file.size > MAX_LOGO_SIZE_BYTES) {
+      setFeedback('', 'Logo image must be 2MB or smaller.');
+      event.target.value = '';
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setSettings((prev) => ({ ...prev, business_logo_url: reader.result }));
+      setFeedback('Logo selected. Save settings to apply it across the system.');
+    };
+    reader.onerror = () => {
+      setFeedback('', 'Could not read the selected logo file.');
+    };
+    reader.readAsDataURL(file);
+    event.target.value = '';
+  };
+
+  const handleRemoveLogo = () => {
+    setSettings((prev) => ({ ...prev, business_logo_url: '' }));
+    setFeedback('Logo removed. Save settings to apply the change.');
   };
 
   const handleCreateUser = async (e) => {
@@ -239,8 +277,25 @@ const AdminPanel = () => {
                   <input value={settings.business_name} onChange={(e) => setSettings((prev) => ({ ...prev, business_name: e.target.value }))} />
                 </div>
                 <div className="form-field form-field-full">
-                  <label>Business Logo URL</label>
-                  <input value={settings.business_logo_url} onChange={(e) => setSettings((prev) => ({ ...prev, business_logo_url: e.target.value }))} placeholder="https://example.com/logo.png" />
+                  <label>Business Logo</label>
+                  <div className="logo-upload-row">
+                    <label className="icon-btn logo-upload-btn" htmlFor="businessLogoUpload">
+                      <ImagePlus size={18} /> Choose Logo File
+                    </label>
+                    <input
+                      id="businessLogoUpload"
+                      type="file"
+                      accept="image/png,image/jpeg,image/jpg,image/webp,image/svg+xml"
+                      onChange={handleLogoFileChange}
+                      className="sr-only-input"
+                    />
+                    {settings.business_logo_url && (
+                      <button type="button" className="icon-btn" onClick={handleRemoveLogo}>
+                        Remove Logo
+                      </button>
+                    )}
+                  </div>
+                  <span className="td-secondary">Upload a PNG, JPG, WEBP, or SVG file up to 2MB.</span>
                 </div>
                 <div className="form-field form-field-full">
                   <label>Receipt / Report Footer</label>

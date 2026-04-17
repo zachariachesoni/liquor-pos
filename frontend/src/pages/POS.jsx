@@ -342,9 +342,10 @@ const POS = () => {
         </div>
 
         <div style={{ padding: '0 1rem 1rem 1rem' }}>
-          <div style={{ marginBottom: '0.75rem' }}>
-            <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Attach Customer</label>
+          <div className="cart-controls-block">
+            <label className="cart-section-label">Attach Customer</label>
             <select
+              className="cart-select"
               value={selectedCustomerId}
               onChange={(e) => {
                 const nextCustomerId = e.target.value;
@@ -352,7 +353,6 @@ const POS = () => {
                 const customer = customers.find((entry) => entry._id === nextCustomerId);
                 setPriceList(customer?.customer_type === 'wholesale' ? 'wholesale' : 'retail');
               }}
-              style={{ width: '100%', padding: '0.6rem', background: 'var(--input-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '4px' }}
             >
               <option value="">Walk-in customer</option>
               {customers.map((customer) => (
@@ -363,20 +363,20 @@ const POS = () => {
             </select>
           </div>
           {selectedCustomerId && !isWholesaleBuyer && (
-            <div style={{ fontSize: '0.75rem', color: 'var(--warning)', marginBottom: '0.5rem' }}>Retail customer selected. Wholesale discounts locked.</div>
+            <div className="cart-context-warning">Retail customer selected. Wholesale discounts locked.</div>
           )}
           {selectedCustomerId && isWholesaleBuyer && (
-            <div style={{ fontSize: '0.75rem', color: 'var(--success)', marginBottom: '0.5rem' }}>Wholesale Customer: {activeCustomer?.name}</div>
+            <div className="cart-context-success">Wholesale Customer: {activeCustomer?.name}</div>
           )}
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <div className="pricing-toggle-group">
             <button
-              style={{ flex: 1, padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--border-color)', background: priceList === 'retail' ? 'var(--primary)' : 'transparent', color: priceList === 'retail' ? '#fff' : 'var(--text-color)', cursor: 'pointer', transition: 'all 0.2s' }}
+              className={`pricing-toggle-btn ${priceList === 'retail' ? 'active' : ''}`}
               onClick={() => { setPriceList('retail'); setSelectedCustomerId(''); }}
             >
               Retail Pricing
             </button>
             <button
-              style={{ flex: 1, padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--border-color)', background: priceList === 'wholesale' ? 'var(--primary)' : 'transparent', color: priceList === 'wholesale' ? '#fff' : 'var(--text-color)', cursor: 'pointer', transition: 'all 0.2s' }}
+              className={`pricing-toggle-btn ${priceList === 'wholesale' ? 'active' : ''}`}
               onClick={() => {
                  if (!isWholesaleBuyer) {
                    setShowWholesaleModal(true);

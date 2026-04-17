@@ -414,6 +414,28 @@ textarea {
   color: var(--text-muted);
 }
 
+.logo-upload-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.logo-upload-btn {
+  cursor: pointer;
+}
+
+.sr-only-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
 .account-page-grid {
   grid-template-columns: minmax(300px, 0.8fr) minmax(0, 1.2fr);
 }
