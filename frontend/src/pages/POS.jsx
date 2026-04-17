@@ -140,6 +140,10 @@ const POS = () => {
   };
 
   const subtotal = calculateSubtotal();
+  const cartLineCount = cart.length;
+  const cartUnitCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+  const customerSummary = activeCustomer?.name || 'Walk-in customer';
+  const activePricingLabel = priceList === 'wholesale' ? 'Wholesale pricing' : 'Retail pricing';
   const normalizedCashReceived = Number(cashReceived || 0);
   const computedAmountPaid = paymentMethod === 'cash'
     ? (normalizedCashReceived > 0 ? normalizedCashReceived : subtotal)
@@ -151,6 +155,9 @@ const POS = () => {
   const outstandingCash = paymentMethod === 'cash' && normalizedCashReceived > 0
     ? Math.max(0, subtotal - normalizedCashReceived)
     : 0;
+  const checkoutButtonLabel = isCashShort
+    ? 'Enter Full Cash Amount'
+    : `Complete ${paymentMethod === 'cash' ? 'Cash Sale' : 'M-Pesa Sale'}`;
 
   const printReceipt = (receipt) => {
     if (!receipt) return;
@@ -349,14 +356,46 @@ const POS = () => {
 
       <div className="pos-cart glass-panel">
         <div className="cart-header">
-          <div className="cart-title">
-            <ShoppingCart size={20} />
-            <h2>Current Order</h2>
+          <div className="cart-header-main">
+            <div className="cart-title">
+              <ShoppingCart size={20} />
+              <h2>Current Order</h2>
+            </div>
+            <p className="cart-subtitle">Attach a customer, review line items, and collect payment in one place.</p>
           </div>
-          <button className="clear-btn" onClick={() => setCart([])}>Clear</button>
+          <div className="cart-header-actions">
+            <div className="order-metrics" aria-label="Current order summary">
+              <div className="order-metric">
+                <span>Lines</span>
+                <strong>{cartLineCount}</strong>
+              </div>
+              <div className="order-metric">
+                <span>Units</span>
+                <strong>{cartUnitCount}</strong>
+              </div>
+            </div>
+            <button className="clear-btn" onClick={() => setCart([])} disabled={cartLineCount === 0}>Clear order</button>
+          </div>
         </div>
 
         <div className="cart-settings-panel">
+          <div className="order-section-heading">
+            <span className="section-step">1</span>
+            <div>
+              <h3>Customer & pricing</h3>
+              <p>Choose who this sale belongs to, then confirm the right price list.</p>
+            </div>
+          </div>
+          <div className="customer-status-card">
+            <div>
+              <span className="status-label">Customer</span>
+              <strong>{customerSummary}</strong>
+            </div>
+            <div>
+              <span className="status-label">Price list</span>
+              <strong className={`pricing-emphasis ${priceList === 'wholesale' ? 'wholesale' : ''}`}>{activePricingLabel}</strong>
+            </div>
+          </div>
           <div className="cart-controls-block">
             <label className="cart-section-label">Attach Customer</label>
             <select
@@ -377,6 +416,16 @@ const POS = () => {
               ))}
             </select>
           </div>
+          <div className="pricing-helper-row">
+            <span className="pricing-helper-copy">Need wholesale pricing?</span>
+            <button
+              type="button"
+              className="pricing-link-btn"
+              onClick={() => setShowWholesaleModal(true)}
+            >
+              Find or create a wholesale account
+            </button>
+          </div>
           {selectedCustomerId && !isWholesaleBuyer && (
             <div className="cart-context-warning">Retail customer selected. Wholesale discounts locked.</div>
           )}
@@ -386,7 +435,7 @@ const POS = () => {
           <div className="pricing-toggle-group">
             <button
               className={`pricing-toggle-btn ${priceList === 'retail' ? 'active' : ''}`}
-              onClick={() => { setPriceList('retail'); setSelectedCustomerId(''); }}
+              onClick={() => { setPriceList('retail'); }}
             >
               Retail Pricing
             </button>
@@ -411,11 +460,27 @@ const POS = () => {
           </div>
         )}
 
+        <div className="cart-items-header">
+          <div className="order-section-heading compact">
+            <span className="section-step">2</span>
+            <div>
+              <h3>Review items</h3>
+              <p>Adjust quantities here before taking payment.</p>
+            </div>
+          </div>
+          <div className="cart-items-summary">
+            {cartLineCount === 0
+              ? 'No items added yet'
+              : `${cartUnitCount} unit${cartUnitCount === 1 ? '' : 's'} across ${cartLineCount} line${cartLineCount === 1 ? '' : 's'}`}
+          </div>
+        </div>
+
         <div className="cart-items">
           {cart.length === 0 ? (
             <div className="empty-cart">
               <ShoppingCart size={48} className="empty-icon" />
-              <p>Your cart is empty</p>
+              <p>Order is empty</p>
+              <span>Tap products on the left to start building this sale.</span>
             </div>
           ) : (
             cart.map(item => {
@@ -425,27 +490,53 @@ const POS = () => {
 
               return (
                 <div key={item.id} className={`cart-item ${appliesWholesale ? 'wholesale-active' : ''}`}>
-                  <div className="cart-item-top">
+                  <div className="cart-item-main">
                     <div className="item-info">
                       <h4>{item.name}</h4>
-                      <span className="item-variant">{item.variant}</span>
-                      <div className="item-price">
-                        KES {unitPrice?.toLocaleString()} {appliesWholesale && <span className="wholesale-badge">Wholesale</span>}
+                      <div className="item-meta-row">
+                        <span className="item-meta-pill">{item.variant}</span>
+                        <span className="item-meta-pill">Stock {item.stock}</span>
+                        {appliesWholesale ? (
+                          <span className="item-meta-pill warning">Wholesale applied</span>
+                        ) : (
+                          isWholesaleBuyer && item.bulk_threshold ? (
+                            <span className="item-meta-pill accent">Wholesale at {item.bulk_threshold}+</span>
+                          ) : null
+                        )}
                       </div>
-                      <div className="item-stock-note">
-                        {item.stock} available
+                      <div className="item-price">
+                        KES {unitPrice?.toLocaleString()} <span className="per-unit-label">per unit</span>
                       </div>
                     </div>
-                    <div className="item-total">KES {itemTotal.toLocaleString()}</div>
+                    <div className="item-total-block">
+                      <span className="item-total-label">Line total</span>
+                      <div className="item-total">KES {itemTotal.toLocaleString()}</div>
+                    </div>
                   </div>
                   <div className="item-actions">
                     <div className="quantity-control">
-                      <button onClick={() => updateQuantity(item.id, -1)}><Minus size={14} /></button>
-                      <span>{item.quantity}</span>
-                      <button onClick={() => updateQuantity(item.id, 1)}><Plus size={14} /></button>
+                      <span className="quantity-label">Qty</span>
+                      <button
+                        type="button"
+                        onClick={() => updateQuantity(item.id, -1)}
+                        disabled={item.quantity <= 1}
+                        aria-label={`Decrease quantity for ${item.name} ${item.variant}`}
+                      >
+                        <Minus size={14} />
+                      </button>
+                      <span className="quantity-value">{item.quantity}</span>
+                      <button
+                        type="button"
+                        onClick={() => updateQuantity(item.id, 1)}
+                        disabled={item.quantity >= item.stock}
+                        aria-label={`Increase quantity for ${item.name} ${item.variant}`}
+                      >
+                        <Plus size={14} />
+                      </button>
                     </div>
-                    <button className="del-btn" onClick={() => removeFromCart(item.id)}>
+                    <button type="button" className="del-btn" onClick={() => removeFromCart(item.id)}>
                       <Trash2 size={16} />
+                      <span>Remove</span>
                     </button>
                   </div>
                 </div>
@@ -455,13 +546,34 @@ const POS = () => {
         </div>
 
         <div className={`cart-summary ${compactCheckout ? 'compact' : ''}`}>
+          <div className="order-section-heading summary-heading">
+            <span className="section-step">3</span>
+            <div>
+              <h3>Payment</h3>
+              <p>Confirm the total, collect payment, and finish the sale.</p>
+            </div>
+          </div>
+          <div className="summary-card">
+            <div className="summary-row">
+              <span>Customer</span>
+              <span>{customerSummary}</span>
+            </div>
+            <div className="summary-row">
+              <span>Price list</span>
+              <span>{activePricingLabel}</span>
+            </div>
+            <div className="summary-row">
+              <span>Units</span>
+              <span>{cartUnitCount}</span>
+            </div>
+          </div>
           <div className="summary-row">
             <span>Subtotal</span>
-            <span>KES {calculateSubtotal().toLocaleString()}</span>
+            <span>KES {subtotal.toLocaleString()}</span>
           </div>
           <div className="summary-row total compact-total-row">
             <span>Total</span>
-            <span>KES {calculateSubtotal().toLocaleString()}</span>
+            <span>KES {subtotal.toLocaleString()}</span>
           </div>
 
           {compactCheckout && (
@@ -476,6 +588,7 @@ const POS = () => {
 
           {(!compactCheckout || checkoutExpanded) && (
             <>
+              <div className="payment-subheading">Choose payment method</div>
               <div className="payment-methods">
                 <button
                   className={`pay-btn ${paymentMethod === 'cash' ? 'active' : ''}`}
@@ -528,8 +641,14 @@ const POS = () => {
                 disabled={cart.length === 0 || isCashShort}
                 onClick={handleCheckout}
               >
-                {isCashShort ? 'Enter Full Cash Amount' : 'Complete Payment'}
+                {checkoutButtonLabel}
               </button>
+              {cart.length === 0 && (
+                <div className="checkout-hint">Add at least one item to continue.</div>
+              )}
+              {isCashShort && (
+                <div className="checkout-hint warning">Cash received is below the order total.</div>
+              )}
             </>
           )}
         </div>
