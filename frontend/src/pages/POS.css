@@ -69,6 +69,17 @@
   transform: translateY(-2px);
 }
 
+.product-card.disabled {
+  opacity: 0.58;
+  cursor: not-allowed;
+}
+
+.product-card.disabled:hover {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: var(--border-color);
+  transform: none;
+}
+
 .product-category-badge {
   position: absolute;
   top: 0.5rem;
@@ -118,6 +129,11 @@
   border-top: 1px solid rgba(255, 255, 255, 0.05);
 }
 
+.product-stock.out-of-stock {
+  color: var(--danger);
+  font-weight: 600;
+}
+
 /* POS Cart Side */
 .pos-cart {
   min-width: 0;
@@ -156,6 +172,16 @@
   text-decoration: underline;
 }
 
+.cart-feedback {
+  margin: 0 1rem 0.5rem;
+  padding: 0.8rem 0.9rem;
+  border-radius: 14px;
+  border: 1px solid rgba(248, 113, 113, 0.35);
+  background: rgba(127, 29, 29, 0.18);
+  color: #fca5a5;
+  font-size: 0.85rem;
+}
+
 .cart-items {
   flex: 1;
   overflow-y: auto;
@@ -189,6 +215,13 @@
   gap: 0.75rem;
 }
 
+.cart-item-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
 .cart-item.wholesale-active {
   border-left: 3px solid var(--warning);
 }
@@ -219,6 +252,11 @@
   align-items: center;
   flex-wrap: wrap;
   gap: 0.5rem;
+}
+
+.item-stock-note {
+  font-size: 0.74rem;
+  color: var(--text-muted);
 }
 
 .wholesale-badge {
@@ -267,8 +305,9 @@
 .item-total {
   font-weight: 600;
   font-size: 1rem;
-  margin-left: auto;
+  min-width: fit-content;
   white-space: nowrap;
+  padding-top: 0.1rem;
 }
 
 .del-btn {
@@ -414,11 +453,17 @@
   }
 
   .item-actions {
-    align-items: stretch;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .cart-item-top {
+    flex-direction: column;
+    gap: 0.65rem;
   }
 
   .item-total {
-    margin-left: 0;
+    font-size: 1.05rem;
   }
 }
 

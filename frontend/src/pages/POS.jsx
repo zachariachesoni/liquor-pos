@@ -7,6 +7,7 @@ import './POS.css';
 const POS = () => {
   const [products, setProducts] = useState([]);
   const [cart, setCart] = useState([]);
+  const [cartFeedback, setCartFeedback] = useState('');
   const [search, setSearch] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('cash');
   const [cashReceived, setCashReceived] = useState('');
@@ -66,11 +67,24 @@ const POS = () => {
   };
 
   const addToCart = (product) => {
+    if (product.stock <= 0) {
+      setCartFeedback(`${product.name} ${product.variant} is out of stock.`);
+      return;
+    }
+
     setCart((prev) => {
       const existing = prev.find(item => item.id === product.id);
       if (existing) {
+        if (existing.quantity >= product.stock) {
+          setCartFeedback(`Only ${product.stock} unit${product.stock === 1 ? '' : 's'} of ${product.name} ${product.variant} are available.`);
+          return prev;
+        }
+
+        setCartFeedback('');
         return prev.map(item => item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item);
       }
+
+      setCartFeedback('');
       return [...prev, { ...product, quantity: 1 }];
     });
   };
@@ -78,7 +92,13 @@ const POS = () => {
   const updateQuantity = (id, delta) => {
     setCart((prev) => prev.map(item => {
       if (item.id === id) {
+        if (delta > 0 && item.quantity >= item.stock) {
+          setCartFeedback(`Only ${item.stock} unit${item.stock === 1 ? '' : 's'} of ${item.name} ${item.variant} are available.`);
+          return item;
+        }
+
         const newQty = Math.max(1, item.quantity + delta);
+        setCartFeedback('');
         return { ...item, quantity: newQty };
       }
       return item;
@@ -87,6 +107,7 @@ const POS = () => {
 
   const removeFromCart = (id) => {
     setCart((prev) => prev.filter(item => item.id !== id));
+    setCartFeedback('');
   };
 
   const activeCustomer = customers.find(c => c._id === selectedCustomerId);
@@ -285,7 +306,11 @@ const POS = () => {
 
         <div className="product-grid">
           {loading ? (<div style={{ padding: '2rem' }}>Loading...</div>) : filteredProducts.map(product => (
-            <div key={product.id} className="product-card" onClick={() => addToCart(product)}>
+            <div
+              key={product.id}
+              className={`product-card ${product.stock <= 0 ? 'disabled' : ''}`}
+              onClick={() => addToCart(product)}
+            >
               <div className="product-category-badge">{product.category}</div>
               <h3 className="product-name">{product.name}</h3>
               <div className="product-variant">{product.variant}</div>
@@ -299,7 +324,9 @@ const POS = () => {
                   <strong>KES {product.wholesale_price?.toLocaleString()}</strong>
                 </div>
               </div>
-              <div className="product-stock">{product.stock} in stock</div>
+              <div className={`product-stock ${product.stock <= 0 ? 'out-of-stock' : ''}`}>
+                {product.stock <= 0 ? 'Out of stock' : `${product.stock} in stock`}
+              </div>
             </div>
           ))}
         </div>
@@ -363,6 +390,12 @@ const POS = () => {
           </div>
         </div>
 
+        {cartFeedback && (
+          <div className="cart-feedback" role="alert">
+            {cartFeedback}
+          </div>
+        )}
+
         <div className="cart-items">
           {cart.length === 0 ? (
             <div className="empty-cart">
@@ -377,12 +410,18 @@ const POS = () => {
 
               return (
                 <div key={item.id} className={`cart-item ${appliesWholesale ? 'wholesale-active' : ''}`}>
-                  <div className="item-info">
-                    <h4>{item.name}</h4>
-                    <span className="item-variant">{item.variant}</span>
-                    <div className="item-price">
-                      KES {unitPrice?.toLocaleString()} {appliesWholesale && <span className="wholesale-badge">Wholesale</span>}
+                  <div className="cart-item-top">
+                    <div className="item-info">
+                      <h4>{item.name}</h4>
+                      <span className="item-variant">{item.variant}</span>
+                      <div className="item-price">
+                        KES {unitPrice?.toLocaleString()} {appliesWholesale && <span className="wholesale-badge">Wholesale</span>}
+                      </div>
+                      <div className="item-stock-note">
+                        {item.stock} available
+                      </div>
                     </div>
+                    <div className="item-total">KES {itemTotal.toLocaleString()}</div>
                   </div>
                   <div className="item-actions">
                     <div className="quantity-control">
@@ -390,7 +429,6 @@ const POS = () => {
                       <span>{item.quantity}</span>
                       <button onClick={() => updateQuantity(item.id, 1)}><Plus size={14} /></button>
                     </div>
-                    <div className="item-total">KES {itemTotal.toLocaleString()}</div>
                     <button className="del-btn" onClick={() => removeFromCart(item.id)}>
                       <Trash2 size={16} />
                     </button>
