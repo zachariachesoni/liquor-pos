@@ -502,20 +502,6 @@ const POS = () => {
         </div>
 
         <div className={`cart-summary ${compactCheckout ? 'compact' : ''}`}>
-          <div className="summary-card">
-            <div className="summary-row">
-              <span>Items</span>
-              <span>{cartHeaderSummary}</span>
-            </div>
-            <div className="summary-row">
-              <span>Customer</span>
-              <span>{customerSummary}</span>
-            </div>
-            <div className="summary-row">
-              <span>Pricing</span>
-              <span>{activePricingLabel}</span>
-            </div>
-          </div>
           <div className="summary-row">
             <span>Subtotal</span>
             <span>KES {subtotal.toLocaleString()}</span>
