@@ -417,7 +417,7 @@ const Reports = () => {
                         <tr key={item.id}>
                           <td>
                             <div className="font-medium">{item.productName}</div>
-                            <div className="td-secondary">{item.size} {item.brand ? `• ${item.brand}` : ''}</div>
+                            <div className="td-secondary">{item.size} {item.brand ? `| ${item.brand}` : ''}</div>
                           </td>
                           <td>{item.quantity}</td>
                           <td>{formatCurrency(item.unit_price)}</td>
@@ -629,7 +629,6 @@ const Reports = () => {
       <section className="report-export-sheet">
         <div className="report-export-header">
           <div className="report-branding">
-            {settings.business_logo_url && <img src={settings.business_logo_url} alt={settings.business_name} />}
             <div>
               <h1>{exportTitle}</h1>
               <p>Generated from live system data for the selected reporting period.</p>

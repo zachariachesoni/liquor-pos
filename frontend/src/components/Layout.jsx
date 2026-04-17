@@ -29,13 +29,11 @@ const Layout = ({ children }) => {
   ].filter((item) => user && item.roles.includes(user.role));
 
   const renderBrandIcon = () => (
-    <div className="brand-icon">
-      {settings.business_logo_url ? (
+    settings.business_logo_url ? (
+      <div className="brand-icon">
         <img src={settings.business_logo_url} alt={settings.business_name} />
-      ) : (
-        'L'
-      )}
-    </div>
+      </div>
+    ) : null
   );
 
   const toggleMobileMenu = () => {

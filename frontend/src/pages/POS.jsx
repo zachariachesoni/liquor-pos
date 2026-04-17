@@ -18,7 +18,7 @@ const POS = () => {
   const [showReceiptModal, setShowReceiptModal] = useState(false);
   const [receiptData, setReceiptData] = useState(null);
   const [newCustomer, setNewCustomer] = useState({ name: '', phone: '' });
-  const { settings } = useSystemSettings();
+  const { settings, loading: settingsLoading } = useSystemSettings();
 
   useEffect(() => {
     fetchCatalog();
@@ -122,10 +122,6 @@ const POS = () => {
     const receiptWindow = window.open('', '_blank', 'width=420,height=720');
     if (!receiptWindow) return;
 
-    const logoMarkup = receipt.businessLogoUrl
-      ? `<img src="${receipt.businessLogoUrl}" alt="${receipt.businessName}" style="width:56px;height:56px;object-fit:contain;border-radius:12px;background:#f4f4f5;padding:6px;" />`
-      : '';
-
     const rows = receipt.items.map((item) => `
       <tr>
         <td style="padding:6px 0;">${item.name}<div style="font-size:12px;color:#666;">${item.variant}${item.wholesaleApplied ? ' - Wholesale' : ''}</div></td>
@@ -152,13 +148,8 @@ const POS = () => {
         </head>
         <body>
           <div class="header">
-            <div style="display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:10px;">
-              ${logoMarkup}
-              <div>
-                <h1>${receipt.businessName} Receipt</h1>
-                <p>${receipt.invoiceNumber}</p>
-              </div>
-            </div>
+            <h1>${receipt.businessName} Receipt</h1>
+            <p>${receipt.invoiceNumber}</p>
           </div>
           <div class="meta">
             <div><strong>Date:</strong> ${receipt.createdAt}</div>
@@ -221,10 +212,20 @@ const POS = () => {
 
       const res = await api.post('/sales', payload);
       const sale = res.data.data;
+      let resolvedSettings = settings;
+
+      if (settingsLoading || !settings.business_name || settings.business_name === 'Liquor POS') {
+        try {
+          const settingsResponse = await api.get('/settings/public');
+          resolvedSettings = { ...settings, ...(settingsResponse.data.data || {}) };
+        } catch (settingsError) {
+          console.error('Failed to refresh business settings before printing receipt', settingsError);
+        }
+      }
+
       setReceiptData({
-        businessName: settings.business_name || 'Business',
-        businessLogoUrl: settings.business_logo_url || '',
-        receiptFooter: settings.receipt_footer || '',
+        businessName: resolvedSettings.business_name || 'Business',
+        receiptFooter: resolvedSettings.receipt_footer || '',
         invoiceNumber: sale.invoice_number,
         createdAt: new Date(sale.createdAt || Date.now()).toLocaleString(),
         customerName: activeCustomer?.name || 'Walk-in Customer',

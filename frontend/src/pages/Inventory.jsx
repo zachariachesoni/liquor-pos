@@ -97,7 +97,6 @@ const Inventory = () => {
                     {status === 'Low' && <span className="status-dot yellow"></span>}
                     {status === 'Out' && <span className="status-dot red"></span>}
                     {status}
-                    <div className="td-secondary">Warn at {item.effective_low_stock_level || item.min_stock_level || 5}</div>
                   </td>
                   <td className="td-secondary">{new Date(item.updatedAt).toLocaleDateString()}</td>
                   <td className="text-right">

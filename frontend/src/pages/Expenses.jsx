@@ -101,10 +101,6 @@ const Expenses = () => {
       `)
       .join('');
 
-    const logoMarkup = settings.business_logo_url
-      ? `<img src="${settings.business_logo_url}" alt="${settings.business_name}" style="width:72px;height:72px;object-fit:contain;border-radius:14px;background:#f4f4f5;padding:8px;" />`
-      : '';
-
     reportWindow.document.write(`
       <html>
         <head>
@@ -129,7 +125,6 @@ const Expenses = () => {
         <body>
           <div class="header">
             <div class="brand">
-              ${logoMarkup}
               <div>
                 <h1>${settings.business_name} Expense Report</h1>
                 <p style="margin-top:8px;color:#6b7280;">Comprehensive operating expense summary</p>

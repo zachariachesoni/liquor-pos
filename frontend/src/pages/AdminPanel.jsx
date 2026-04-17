@@ -118,7 +118,9 @@ const AdminPanel = () => {
         high_value_low_stock_level: Number(settings.high_value_low_stock_level),
       };
       const response = await api.put('/settings', payload);
-      setSettings({ ...defaultSettings, ...(response.data.data || {}) });
+      const nextSettings = { ...defaultSettings, ...(response.data.data || {}) };
+      setSettings(nextSettings);
+      localStorage.setItem('system_settings_cache', JSON.stringify(nextSettings));
       setFeedback('Business settings saved successfully.');
     } catch (err) {
       console.error('Failed to save settings', err);

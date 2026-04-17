@@ -90,10 +90,6 @@ const Customers = () => {
     const reportWindow = window.open('', '_blank', 'width=960,height=900');
     if (!reportWindow) return;
 
-    const logoMarkup = settings.business_logo_url
-      ? `<img src="${settings.business_logo_url}" alt="${settings.business_name}" style="width:72px;height:72px;object-fit:contain;border-radius:12px;background:#f4f4f5;padding:8px;" />`
-      : '';
-
     const saleBlocks = filteredHistory.map((sale) => {
       const rows = (sale.items || []).map((item) => `
         <tr>
@@ -146,12 +142,9 @@ const Customers = () => {
         </head>
         <body>
           <div class="header">
-            <div style="display:flex;align-items:center;gap:16px;">
-              ${logoMarkup}
-              <div>
-                <h1 style="margin:0 0 8px 0;">${settings.business_name} Customer Report</h1>
-                <div>${historyCustomer.name}</div>
-              </div>
+            <div>
+              <h1 style="margin:0 0 8px 0;">${settings.business_name} Customer Report</h1>
+              <div>${historyCustomer.name}</div>
             </div>
             <div class="customer-meta">
               <div><strong>Phone:</strong> ${historyCustomer.phone || 'N/A'}</div>

@@ -69,10 +69,6 @@ const Sales = () => {
     const invoiceWindow = window.open('', '_blank', 'width=900,height=900');
     if (!invoiceWindow) return;
 
-    const logoMarkup = settings.business_logo_url
-      ? `<img src="${settings.business_logo_url}" alt="${settings.business_name}" style="width:64px;height:64px;object-fit:contain;border-radius:12px;background:#f4f4f5;padding:8px;" />`
-      : '';
-
     const rows = (sale.items || []).map((item) => `
       <tr>
         <td style="padding:10px 8px;border-bottom:1px solid #ddd;">
@@ -104,12 +100,9 @@ const Sales = () => {
         <body>
           <div class="header">
             <div>
-              <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
-                ${logoMarkup}
-                <div>
-                  <h1 style="margin:0 0 8px 0;">${settings.business_name} Invoice</h1>
-                  <div>${sale.invoice_number}</div>
-                </div>
+              <div>
+                <h1 style="margin:0 0 8px 0;">${settings.business_name} Invoice</h1>
+                <div>${sale.invoice_number}</div>
               </div>
             </div>
             <div style="text-align:right;">
