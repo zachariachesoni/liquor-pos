@@ -241,38 +241,40 @@ const Customers = () => {
 
       {showModal && (
         <div className="modal-overlay">
-          <div className="glass-panel modal-card customer-modal">
-            <button className="customer-modal-close" onClick={() => setShowModal(false)}>
+          <div className="glass-panel modal-card">
+            <button className="modal-close-btn" onClick={() => setShowModal(false)}>
               <X size={20} />
             </button>
-            <h2 className="customer-modal-title">Add New Customer</h2>
-            <form onSubmit={handleAddCustomer} className="customer-form">
-              <div className="customer-form-field customer-form-field-full">
-                <label>Customer Name</label>
-                <input required type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} />
-              </div>
-              <div className="customer-form-field">
+            <h2 className="modal-title">Add New Customer</h2>
+            <form onSubmit={handleAddCustomer} className="modal-form">
+              <div className="modal-form-grid">
+                <div className="modal-form-field modal-form-field-full">
+                  <label>Customer Name</label>
+                  <input required type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} />
+                </div>
+                <div className="modal-form-field">
                   <label>Phone Number</label>
                   <input required type="text" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} />
-              </div>
-              <div className="customer-form-field">
+                </div>
+                <div className="modal-form-field">
                   <label>Email Address</label>
                   <input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} />
+                </div>
+                <div className="modal-form-field modal-form-field-full">
+                  <label className="customer-checkbox-row">
+                    <input
+                      type="checkbox"
+                      checked={formData.customer_type === 'wholesale'}
+                      onChange={(e) => setFormData({ ...formData, customer_type: e.target.checked ? 'wholesale' : 'retail' })}
+                    />
+                    <div>
+                      <span>This is a Wholesale Partner Account</span>
+                      <small>Use this for customers who should access wholesale pricing.</small>
+                    </div>
+                  </label>
+                </div>
               </div>
-              <div className="customer-form-field customer-form-field-full">
-                <label className="customer-checkbox-row">
-                  <input
-                    type="checkbox"
-                    checked={formData.customer_type === 'wholesale'}
-                    onChange={(e) => setFormData({ ...formData, customer_type: e.target.checked ? 'wholesale' : 'retail' })}
-                  />
-                  <div>
-                    <span>This is a Wholesale Partner Account</span>
-                    <small>Use this for customers who should access wholesale pricing.</small>
-                  </div>
-                </label>
-              </div>
-              <div className="customer-form-actions customer-form-field-full">
+              <div className="modal-actions">
                 <button type="submit" className="primary-btn">Save & Add Customer</button>
               </div>
             </form>
@@ -282,20 +284,20 @@ const Customers = () => {
 
       {historyCustomer && (
         <div className="modal-overlay">
-          <div className="glass-panel modal-card modal-card-wide" style={{ paddingTop: '3.5rem' }}>
-            <button onClick={() => setHistoryCustomer(null)} style={{ position: 'absolute', right: '1rem', top: '1rem', background: 'rgba(15, 23, 42, 0.9)', border: '1px solid var(--border-color)', color: 'var(--text-color)', cursor: 'pointer', borderRadius: '999px', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }}>
+          <div className="glass-panel modal-card modal-card-wide modal-detail-card">
+            <button className="modal-close-btn" onClick={() => setHistoryCustomer(null)}>
               <X size={20} />
             </button>
-            <div className="detail-header" style={{ marginBottom: '1rem' }}>
-              <div>
-                <h2 style={{ marginBottom: '0.5rem' }}>{historyCustomer.name} Purchase History</h2>
-                <p className="page-subtitle">Search by invoice number, payment method, or items in this customer timeline.</p>
+            <div className="modal-detail-header">
+              <div className="modal-detail-intro">
+                <h2 className="modal-title">{historyCustomer.name} Purchase History</h2>
+                <p className="modal-detail-subtitle">Search by invoice number, payment method, or items in this customer timeline.</p>
               </div>
               <button className="primary-btn" onClick={exportCustomerHistory}>
                 <Download size={18} /> Extract Customer Report
               </button>
             </div>
-            <div className="panel-toolbar" style={{ padding: '0 0 1rem 0', borderBottom: 'none' }}>
+            <div className="modal-detail-search">
               <div className="search-box">
                 <Search size={18} className="search-icon" />
                 <input
@@ -311,15 +313,15 @@ const Customers = () => {
             ) : filteredHistory.length === 0 ? (
               <div className="empty-state">No purchase history matched the current search.</div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div className="modal-detail-stack">
                 {filteredHistory.map((sale) => (
-                  <div key={sale._id} className="glass-panel" style={{ padding: '1rem', borderRadius: '12px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', marginBottom: '0.75rem', flexWrap: 'wrap' }}>
+                  <div key={sale._id} className="glass-panel modal-detail-panel">
+                    <div className="modal-detail-panel-header">
                       <div>
                         <div className="font-medium">{sale.invoice_number}</div>
                         <div className="td-secondary">{new Date(sale.createdAt).toLocaleString()}</div>
                       </div>
-                      <div style={{ textAlign: 'right' }}>
+                      <div className="text-right">
                         <div className="badge" style={{ textTransform: 'capitalize' }}>{sale.sale_type || 'retail'}</div>
                         <div className="td-secondary" style={{ marginTop: '0.35rem', textTransform: 'capitalize' }}>{sale.payment_method}</div>
                       </div>
@@ -337,7 +339,7 @@ const Customers = () => {
                       </thead>
                       <tbody>
                         {sale.items?.map((item) => (
-                          <tr key={item.id}>
+                          <tr key={item.id || item._id}>
                             <td>
                               <div className="font-medium">{item.productName}</div>
                               <div className="td-secondary">
@@ -353,7 +355,7 @@ const Customers = () => {
                       </tbody>
                     </table>
 
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.75rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+                    <div className="modal-detail-totals">
                       <span className="td-secondary">Served by: {sale.user_id?.username || 'Unknown'}</span>
                       <strong>KES {sale.total_amount?.toLocaleString() || 0}</strong>
                     </div>

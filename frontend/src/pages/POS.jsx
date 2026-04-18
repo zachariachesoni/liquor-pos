@@ -364,11 +364,6 @@ const POS = () => {
               <ShoppingCart size={20} />
               <h2>Current Order</h2>
             </div>
-            <div className="cart-header-tags" aria-label="Current order summary">
-              <span className="cart-tag">{cartHeaderSummary}</span>
-              <span className="cart-tag">{customerSummary}</span>
-              <span className={`cart-tag ${priceList === 'wholesale' ? 'wholesale' : ''}`}>{activePricingLabel}</span>
-            </div>
           </div>
           <button className="clear-btn" onClick={() => setCart([])} disabled={cartLineCount === 0}>Clear order</button>
         </div>
@@ -592,17 +587,14 @@ const POS = () => {
       {showWholesaleModal && (
         <div className="modal-overlay">
           <div className="glass-panel modal-card">
-            <button onClick={() => setShowWholesaleModal(false)} style={{ position: 'absolute', right: '1rem', top: '1rem', background: 'transparent', border: 'none', color: 'var(--text-color)', cursor: 'pointer'}}>
+            <button className="modal-close-btn" onClick={() => setShowWholesaleModal(false)}>
               <X size={20} />
             </button>
-            
-            <h2 style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <UserPlus size={24} className="text-primary"/> Select Wholesale Partner
-            </h2>
-            <p style={{ marginBottom: '1.5rem', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>You must select an existing wholesale account or create a new one to unlock wholesale pricing.</p>
+            <h2 className="modal-title">Select Wholesale Partner</h2>
+            <p className="modal-note">You must select an existing wholesale account or create a new one to unlock wholesale pricing.</p>
 
-            <div style={{ marginBottom: '2rem' }}>
-              <label style={{ display: 'block', marginBottom: '0.5rem' }}>Existing Customers</label>
+            <div className="modal-form-field">
+              <label>Customer Directory</label>
               <select
                 value={selectedCustomerId}
                 onChange={e => {
@@ -613,7 +605,6 @@ const POS = () => {
                      setShowWholesaleModal(false);
                   }
                 }}
-                style={{ width: '100%', padding: '0.6rem', marginBottom: '0.5rem', background: 'var(--input-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '4px' }}
               >
                 <option value="">-- Search Directory --</option>
                 {customers.map(c => (
@@ -624,12 +615,22 @@ const POS = () => {
               </select>
             </div>
 
-            <div style={{ padding: '1rem', border: '1px dashed var(--border-color)', borderRadius: '8px' }}>
-              <h3 style={{ marginBottom: '1rem', fontSize: '1.1rem' }}>Or Register New Wholesale Account</h3>
-              <form onSubmit={handleCreateCustomer} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                <input required type="text" placeholder="Business / Customer Name" value={newCustomer.name} onChange={e => setNewCustomer({...newCustomer, name: e.target.value})} style={{ width: '100%', padding: '0.5rem', background: 'var(--input-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '4px' }}/>
-                <input type="text" placeholder="Phone Number" value={newCustomer.phone} onChange={e => setNewCustomer({...newCustomer, phone: e.target.value})} style={{ width: '100%', padding: '0.5rem', background: 'var(--input-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '4px' }}/>
-                <button type="submit" className="primary-btn">Register & Apply Wholesale</button>
+            <div className="pos-modal-panel">
+              <h3 className="pos-modal-panel-title">Or Register New Wholesale Account</h3>
+              <form onSubmit={handleCreateCustomer} className="modal-form">
+                <div className="modal-form-grid">
+                  <div className="modal-form-field modal-form-field-full">
+                    <label>Business / Customer Name</label>
+                    <input required type="text" value={newCustomer.name} onChange={e => setNewCustomer({...newCustomer, name: e.target.value})} />
+                  </div>
+                  <div className="modal-form-field modal-form-field-full">
+                    <label>Phone Number</label>
+                    <input type="text" value={newCustomer.phone} onChange={e => setNewCustomer({...newCustomer, phone: e.target.value})} />
+                  </div>
+                </div>
+                <div className="modal-actions">
+                  <button type="submit" className="primary-btn">Register & Apply Wholesale</button>
+                </div>
               </form>
             </div>
           </div>
@@ -638,18 +639,20 @@ const POS = () => {
 
       {showReceiptModal && receiptData && (
         <div className="modal-overlay">
-          <div className="glass-panel modal-card" style={{ paddingTop: '3.5rem' }}>
-            <button onClick={() => setShowReceiptModal(false)} style={{ position: 'absolute', right: '1rem', top: '1rem', background: 'rgba(15, 23, 42, 0.9)', border: '1px solid var(--border-color)', color: 'var(--text-color)', cursor: 'pointer', borderRadius: '999px', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div className="glass-panel modal-card modal-card-wide pos-receipt-modal">
+            <button className="modal-close-btn" onClick={() => setShowReceiptModal(false)}>
               <X size={20} />
             </button>
             <div className="receipt-header">
-              <h2>{receiptData.businessName} Receipt</h2>
+              <div>
+                <h2 className="modal-title">{receiptData.businessName} Receipt</h2>
+                <p className="receipt-subtitle">Invoice {receiptData.invoiceNumber}</p>
+              </div>
               <button className="primary-btn" onClick={() => printReceipt(receiptData)}>
                 <Printer size={18} /> Print Receipt
               </button>
             </div>
             <div className="receipt-meta">
-              <div><strong>Invoice:</strong> {receiptData.invoiceNumber}</div>
               <div><strong>Date:</strong> {receiptData.createdAt}</div>
               <div><strong>Customer:</strong> {receiptData.customerName}</div>
               <div><strong>Payment:</strong> <span style={{ textTransform: 'capitalize' }}>{receiptData.paymentMethod}</span></div>
@@ -686,7 +689,7 @@ const POS = () => {
               <div><span>Change</span><strong>KES {receiptData.changeDue.toLocaleString()}</strong></div>
             </div>
             {receiptData.receiptFooter && (
-              <p className="td-secondary" style={{ marginTop: '1rem', textAlign: 'center' }}>{receiptData.receiptFooter}</p>
+              <p className="td-secondary receipt-footer-note">{receiptData.receiptFooter}</p>
             )}
           </div>
         </div>

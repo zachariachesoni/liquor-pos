@@ -5,6 +5,22 @@ import { useSystemSettings } from '../hooks/useSystemSettings';
 import './Products.css';
 import './Expenses.css';
 
+const calculateBudget = (expenseRows) => {
+  const categories = {};
+  const monthly = {};
+  let total = 0;
+
+  expenseRows.forEach((exp) => {
+    categories[exp.category] = (categories[exp.category] || 0) + exp.amount;
+    const monthKey = new Date(exp.expenseDate || exp.createdAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+    monthly[monthKey] = (monthly[monthKey] || 0) + exp.amount;
+    total += exp.amount;
+  });
+
+  const sortedExpenses = [...expenseRows].sort((a, b) => b.amount - a.amount);
+  return { categories, monthly, total, sortedExpenses };
+};
+
 const Expenses = () => {
   const [expenses, setExpenses] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -13,21 +29,7 @@ const Expenses = () => {
   const [errorMessage, setErrorMessage] = useState('');
   const [formData, setFormData] = useState({ amount: '', category: 'other', description: '', expenseDate: new Date().toISOString().split('T')[0] });
   const { settings } = useSystemSettings();
-  const budget = useMemo(() => calculateBudget(), [expenses]);
-
-  const calculateBudget = () => {
-    const categories = {};
-    const monthly = {};
-    let total = 0;
-    expenses.forEach(exp => {
-      categories[exp.category] = (categories[exp.category] || 0) + exp.amount;
-      const monthKey = new Date(exp.expenseDate || exp.createdAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-      monthly[monthKey] = (monthly[monthKey] || 0) + exp.amount;
-      total += exp.amount;
-    });
-    const sortedExpenses = [...expenses].sort((a, b) => b.amount - a.amount);
-    return { categories, monthly, total, sortedExpenses };
-  };
+  const budget = useMemo(() => calculateBudget(expenses), [expenses]);
 
   useEffect(() => {
     fetchExpenses();
@@ -313,7 +315,7 @@ const Expenses = () => {
       {showBudgetModal && (
         <div className="modal-overlay">
           <div className="glass-panel modal-card modal-card-wide expense-budget-modal">
-            <button className="expense-modal-close" onClick={() => setShowBudgetModal(false)}>
+            <button className="modal-close-btn" onClick={() => setShowBudgetModal(false)}>
               <X size={20} />
             </button>
             <h2 className="expense-budget-title">

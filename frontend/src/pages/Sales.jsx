@@ -220,25 +220,27 @@ const Sales = () => {
 
       {selectedSale && (
         <div className="modal-overlay">
-          <div className="glass-panel modal-card modal-card-wide" style={{ paddingTop: '3.5rem' }}>
-            <button onClick={closeSaleDetails} style={{ position: 'absolute', right: '1rem', top: '1rem', background: 'rgba(15, 23, 42, 0.9)', border: '1px solid var(--border-color)', color: 'var(--text-color)', cursor: 'pointer', borderRadius: '999px', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }}>
+          <div className="glass-panel modal-card modal-card-wide modal-detail-card">
+            <button className="modal-close-btn" onClick={closeSaleDetails}>
               <X size={20} />
             </button>
-            {detailsLoading || !saleDetails ? (
+            {detailsLoading ? (
               <div className="loading-panel"><div className="loading-spinner" /><p>Loading invoice details...</p></div>
+            ) : !saleDetails ? (
+              <div className="empty-state">Unable to load invoice details.</div>
             ) : (
               <>
-                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'center', flexWrap: 'wrap', marginBottom: '1rem' }}>
-                  <div>
-                    <h2 style={{ marginBottom: '0.35rem' }}>{saleDetails.invoice_number}</h2>
-                    <p className="page-subtitle">Individual invoice record and downloadable receipt.</p>
+                <div className="modal-detail-header">
+                  <div className="modal-detail-intro">
+                    <h2 className="modal-title">{saleDetails.invoice_number}</h2>
+                    <p className="modal-detail-subtitle">Individual invoice record and downloadable receipt.</p>
                   </div>
                   <button className="primary-btn" onClick={() => downloadInvoice(saleDetails)}>
                     <Download size={18} /> Download Invoice
                   </button>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.75rem 1.25rem', marginBottom: '1rem', color: 'var(--text-secondary)' }}>
+                <div className="modal-detail-meta">
                   <div><strong>Date:</strong> {new Date(saleDetails.createdAt).toLocaleString()}</div>
                   <div><strong>Sales Person:</strong> {saleDetails.user_id?.username || 'Unknown'}</div>
                   <div><strong>Customer:</strong> {saleDetails.customer_id?.name || 'Walk-in Customer'}</div>
@@ -275,7 +277,7 @@ const Sales = () => {
                   </tbody>
                 </table>
 
-                <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px dashed var(--border-color)', display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
+                <div className="modal-detail-totals">
                   <strong>Total: KES {saleDetails.total_amount?.toLocaleString() || 0}</strong>
                 </div>
               </>
