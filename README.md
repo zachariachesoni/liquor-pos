@@ -275,12 +275,10 @@ npm run preview  # Preview production build
 
 - [ ] M-Pesa API integration
 - [ ] Barcode generator
-- [ ] PDF/Excel report export
 - [ ] Email notifications for low stock
 - [ ] Multi-store support
 - [ ] Customer loyalty program
 - [ ] Mobile app (React Native)
-- [ ] Offline mode
 - [ ] Volume-based intelligence (ml tracking)
 
 ## 🐛 Troubleshooting
