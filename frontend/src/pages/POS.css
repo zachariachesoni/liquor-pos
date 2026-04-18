@@ -597,6 +597,7 @@
   border-radius: 999px;
   background: transparent;
   color: var(--text-primary);
+  z-index: 2;
 }
 
 .modal-close-btn:hover {
@@ -676,9 +677,21 @@
 }
 
 .pos-receipt-modal {
+  width: min(620px, calc(100vw - 2.5rem));
+  align-self: flex-start;
+  max-height: calc(100vh - 3rem);
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   gap: 1rem;
+}
+
+.pos-receipt-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 0.35rem;
+  margin-right: -0.35rem;
 }
 
 .text-primary {
@@ -757,6 +770,11 @@
 
 .receipt-table {
   margin-top: 0.5rem;
+}
+
+.receipt-table th,
+.receipt-table td {
+  padding: 0.8rem 0.9rem;
 }
 
 .receipt-totals {
@@ -873,6 +891,10 @@
 
   .receipt-meta {
     grid-template-columns: 1fr;
+  }
+
+  .pos-receipt-modal {
+    max-height: calc(100vh - 2rem);
   }
 
   .modal-card {

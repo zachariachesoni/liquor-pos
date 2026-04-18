@@ -41,3 +41,28 @@
   font-size: 0.8rem;
   line-height: 1.4;
 }
+
+.customer-history-modal {
+  align-self: flex-start;
+  max-height: calc(100vh - 3rem);
+  overflow: hidden;
+}
+
+.customer-history-toolbar {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.customer-history-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 0.35rem;
+  margin-right: -0.35rem;
+}
+
+@media (max-width: 768px) {
+  .customer-history-modal {
+    max-height: calc(100vh - 2rem);
+  }
+}

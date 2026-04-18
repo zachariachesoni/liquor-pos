@@ -652,45 +652,47 @@ const POS = () => {
                 <Printer size={18} /> Print Receipt
               </button>
             </div>
-            <div className="receipt-meta">
-              <div><strong>Date:</strong> {receiptData.createdAt}</div>
-              <div><strong>Customer:</strong> {receiptData.customerName}</div>
-              <div><strong>Payment:</strong> <span style={{ textTransform: 'capitalize' }}>{receiptData.paymentMethod}</span></div>
-              <div><strong>Price List:</strong> <span style={{ textTransform: 'capitalize' }}>{receiptData.saleType}</span></div>
-            </div>
-            <table className="data-table receipt-table">
-              <thead>
-                <tr>
-                  <th>Item</th>
-                  <th>Qty</th>
-                  <th>Unit Price</th>
-                  <th className="text-right">Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {receiptData.items.map((item) => (
-                  <tr key={item.id}>
-                    <td>
-                      <div className="font-medium">{item.name}</div>
-                      <div className="td-secondary">
-                        {item.variant} {item.wholesaleApplied ? '- Wholesale' : ''}
-                      </div>
-                    </td>
-                    <td>{item.quantity}</td>
-                    <td>KES {item.unitPrice.toLocaleString()}</td>
-                    <td className="text-right">KES {item.total.toLocaleString()}</td>
+            <div className="pos-receipt-body">
+              <div className="receipt-meta">
+                <div><strong>Date:</strong> {receiptData.createdAt}</div>
+                <div><strong>Customer:</strong> {receiptData.customerName}</div>
+                <div><strong>Payment:</strong> <span style={{ textTransform: 'capitalize' }}>{receiptData.paymentMethod}</span></div>
+                <div><strong>Price List:</strong> <span style={{ textTransform: 'capitalize' }}>{receiptData.saleType}</span></div>
+              </div>
+              <table className="data-table receipt-table">
+                <thead>
+                  <tr>
+                    <th>Item</th>
+                    <th>Qty</th>
+                    <th>Unit Price</th>
+                    <th className="text-right">Total</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-            <div className="receipt-totals">
-              <div><span>Subtotal</span><strong>KES {receiptData.subtotal.toLocaleString()}</strong></div>
-              <div><span>Amount Paid</span><strong>KES {receiptData.amountPaid.toLocaleString()}</strong></div>
-              <div><span>Change</span><strong>KES {receiptData.changeDue.toLocaleString()}</strong></div>
+                </thead>
+                <tbody>
+                  {receiptData.items.map((item) => (
+                    <tr key={item.id}>
+                      <td>
+                        <div className="font-medium">{item.name}</div>
+                        <div className="td-secondary">
+                          {item.variant} {item.wholesaleApplied ? '- Wholesale' : ''}
+                        </div>
+                      </td>
+                      <td>{item.quantity}</td>
+                      <td>KES {item.unitPrice.toLocaleString()}</td>
+                      <td className="text-right">KES {item.total.toLocaleString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <div className="receipt-totals">
+                <div><span>Subtotal</span><strong>KES {receiptData.subtotal.toLocaleString()}</strong></div>
+                <div><span>Amount Paid</span><strong>KES {receiptData.amountPaid.toLocaleString()}</strong></div>
+                <div><span>Change</span><strong>KES {receiptData.changeDue.toLocaleString()}</strong></div>
+              </div>
+              {receiptData.receiptFooter && (
+                <p className="td-secondary receipt-footer-note">{receiptData.receiptFooter}</p>
+              )}
             </div>
-            {receiptData.receiptFooter && (
-              <p className="td-secondary receipt-footer-note">{receiptData.receiptFooter}</p>
-            )}
           </div>
         </div>
       )}

@@ -273,16 +273,28 @@ const Expenses = () => {
             </button>
             <h2 className="modal-title">Record Expense</h2>
             {errorMessage && (
-              <div style={{ marginBottom: '1rem', padding: '0.75rem 1rem', borderRadius: '8px', background: 'var(--danger-bg)', color: 'var(--danger)' }}>
+              <div className="feedback-banner error">
                 {errorMessage}
               </div>
             )}
             <form onSubmit={handleRecordExpense} className="modal-form">
-              <div className="modal-form-field">
-                <label>Description</label>
-                <input required type="text" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} placeholder="e.g. Electricity bill" />
-              </div>
               <div className="modal-form-grid">
+                <div className="modal-form-field">
+                  <label>Description</label>
+                  <input required type="text" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} placeholder="e.g. Electricity bill" />
+                </div>
+                <div className="modal-form-field">
+                  <label>Category</label>
+                  <select value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>
+                     <option value="rent">Rent</option>
+                     <option value="salaries">Salaries</option>
+                     <option value="transport">Transport</option>
+                     <option value="restocking">Restocking</option>
+                     <option value="utilities">Utilities</option>
+                     <option value="maintenance">Maintenance</option>
+                     <option value="other">Other</option>
+                  </select>
+                </div>
                 <div className="modal-form-field">
                   <label>Amount (KES)</label>
                   <input required type="number" min="0" value={formData.amount} onChange={e => setFormData({...formData, amount: e.target.value})} />
@@ -291,18 +303,6 @@ const Expenses = () => {
                   <label>Date</label>
                   <input required type="date" value={formData.expenseDate} onChange={e => setFormData({...formData, expenseDate: e.target.value})} />
                 </div>
-                <div className="modal-form-field modal-form-field-full">
-                <label>Category</label>
-                <select value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>
-                   <option value="rent">Rent</option>
-                   <option value="salaries">Salaries</option>
-                   <option value="transport">Transport</option>
-                   <option value="restocking">Restocking</option>
-                   <option value="utilities">Utilities</option>
-                   <option value="maintenance">Maintenance</option>
-                   <option value="other">Other</option>
-                </select>
-              </div>
               </div>
               <div className="modal-actions">
                 <button type="submit" className="primary-btn">Save Expense</button>

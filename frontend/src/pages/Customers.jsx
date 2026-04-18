@@ -284,7 +284,7 @@ const Customers = () => {
 
       {historyCustomer && (
         <div className="modal-overlay">
-          <div className="glass-panel modal-card modal-card-wide modal-detail-card">
+          <div className="glass-panel modal-card modal-card-wide modal-detail-card customer-history-modal">
             <button className="modal-close-btn" onClick={() => setHistoryCustomer(null)}>
               <X size={20} />
             </button>
@@ -297,7 +297,7 @@ const Customers = () => {
                 <Download size={18} /> Extract Customer Report
               </button>
             </div>
-            <div className="modal-detail-search">
+            <div className="modal-detail-search customer-history-toolbar">
               <div className="search-box">
                 <Search size={18} className="search-icon" />
                 <input
@@ -308,61 +308,63 @@ const Customers = () => {
                 />
               </div>
             </div>
-            {historyLoading ? (
-              <div className="loading-panel"><div className="loading-spinner" /><p>Loading purchase history...</p></div>
-            ) : filteredHistory.length === 0 ? (
-              <div className="empty-state">No purchase history matched the current search.</div>
-            ) : (
-              <div className="modal-detail-stack">
-                {filteredHistory.map((sale) => (
-                  <div key={sale._id} className="glass-panel modal-detail-panel">
-                    <div className="modal-detail-panel-header">
-                      <div>
-                        <div className="font-medium">{sale.invoice_number}</div>
-                        <div className="td-secondary">{new Date(sale.createdAt).toLocaleString()}</div>
+            <div className="customer-history-body">
+              {historyLoading ? (
+                <div className="loading-panel"><div className="loading-spinner" /><p>Loading purchase history...</p></div>
+              ) : filteredHistory.length === 0 ? (
+                <div className="empty-state">No purchase history matched the current search.</div>
+              ) : (
+                <div className="modal-detail-stack">
+                  {filteredHistory.map((sale) => (
+                    <div key={sale._id} className="glass-panel modal-detail-panel">
+                      <div className="modal-detail-panel-header">
+                        <div>
+                          <div className="font-medium">{sale.invoice_number}</div>
+                          <div className="td-secondary">{new Date(sale.createdAt).toLocaleString()}</div>
+                        </div>
+                        <div className="text-right">
+                          <div className="badge" style={{ textTransform: 'capitalize' }}>{sale.sale_type || 'retail'}</div>
+                          <div className="td-secondary" style={{ marginTop: '0.35rem', textTransform: 'capitalize' }}>{sale.payment_method}</div>
+                        </div>
                       </div>
-                      <div className="text-right">
-                        <div className="badge" style={{ textTransform: 'capitalize' }}>{sale.sale_type || 'retail'}</div>
-                        <div className="td-secondary" style={{ marginTop: '0.35rem', textTransform: 'capitalize' }}>{sale.payment_method}</div>
-                      </div>
-                    </div>
 
-                    <table className="data-table">
-                      <thead>
-                        <tr>
-                          <th>Item</th>
-                          <th>Category</th>
-                          <th>Qty</th>
-                          <th>Unit Price</th>
-                          <th className="text-right">Subtotal</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {sale.items?.map((item) => (
-                          <tr key={item.id || item._id}>
-                            <td>
-                              <div className="font-medium">{item.productName}</div>
-                              <div className="td-secondary">
-                                {item.size} {item.wholesale_applied ? '- Wholesale price applied' : ''}
-                              </div>
-                            </td>
-                            <td style={{ textTransform: 'capitalize' }}>{item.category}</td>
-                            <td>{item.quantity}</td>
-                            <td>KES {item.unit_price?.toLocaleString() || 0}</td>
-                            <td className="text-right">KES {item.subtotal?.toLocaleString() || 0}</td>
+                      <table className="data-table">
+                        <thead>
+                          <tr>
+                            <th>Item</th>
+                            <th>Category</th>
+                            <th>Qty</th>
+                            <th>Unit Price</th>
+                            <th className="text-right">Subtotal</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                        </thead>
+                        <tbody>
+                          {sale.items?.map((item) => (
+                            <tr key={item.id || item._id}>
+                              <td>
+                                <div className="font-medium">{item.productName}</div>
+                                <div className="td-secondary">
+                                  {item.size} {item.wholesale_applied ? '- Wholesale price applied' : ''}
+                                </div>
+                              </td>
+                              <td style={{ textTransform: 'capitalize' }}>{item.category}</td>
+                              <td>{item.quantity}</td>
+                              <td>KES {item.unit_price?.toLocaleString() || 0}</td>
+                              <td className="text-right">KES {item.subtotal?.toLocaleString() || 0}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
 
-                    <div className="modal-detail-totals">
-                      <span className="td-secondary">Served by: {sale.user_id?.username || 'Unknown'}</span>
-                      <strong>KES {sale.total_amount?.toLocaleString() || 0}</strong>
+                      <div className="modal-detail-totals">
+                        <span className="td-secondary">Served by: {sale.user_id?.username || 'Unknown'}</span>
+                        <strong>KES {sale.total_amount?.toLocaleString() || 0}</strong>
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
