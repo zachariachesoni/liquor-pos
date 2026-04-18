@@ -118,7 +118,7 @@ const Dashboard = () => {
           <div className="chart-header">
             <h3>Revenue Overview</h3>
           </div>
-          <div className="chart-body" style={{ height: '300px' }}>
+          <div className="chart-body">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={salesData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                 <defs>
@@ -144,7 +144,7 @@ const Dashboard = () => {
           <div className="chart-header">
             <h3>Sales by Category</h3>
           </div>
-          <div className="chart-body" style={{ height: '300px' }}>
+          <div className="chart-body">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie

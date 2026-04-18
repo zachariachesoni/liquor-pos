@@ -224,7 +224,7 @@ const AdminPanel = () => {
   return (
     <div className="page-container animate-fade-in admin-shell">
       <div className="page-header">
-        <div>
+        <div className="page-header-copy">
           <h1 className="page-title">Admin Console</h1>
           <p className="page-subtitle">Manage business identity, stock alert policies, employee roles, and your account from one place.</p>
         </div>
@@ -264,8 +264,8 @@ const AdminPanel = () => {
           <div className="admin-page-grid">
             <div className="glass-panel main-panel admin-section-card">
               <div className="detail-header admin-section-header">
-                <div>
-                  <h2 style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                <div className="page-header-copy">
+                  <h2 className="section-heading">
                     <Settings size={20} /> Business Identity
                   </h2>
                   <p className="page-subtitle">These settings flow through receipts, invoices, reports, and the app shell.</p>
@@ -331,20 +331,22 @@ const AdminPanel = () => {
                         No logo set
                       </div>
                     )}
-                    <div style={{ marginTop: '0.85rem' }}>
+                    <div className="preview-summary">
                       <div className="font-medium">{settings.business_name}</div>
                       <div className="td-secondary">{settings.receipt_footer}</div>
                     </div>
                   </div>
                   <div className="glass-panel admin-note-card">
-                    <h3 style={{ marginBottom: '0.5rem' }}>Stock Alert Rules</h3>
-                    <p className="td-secondary" style={{ marginBottom: '0.75rem' }}>
+                    <h3 className="section-heading">Stock Alert Rules</h3>
+                    <p className="section-note">
                       Variants default to the low-stock level above. If a variant&apos;s retail price meets or exceeds the high-value price threshold,
                       the warning automatically uses the high-value threshold instead.
                     </p>
-                    <div className="report-meta-chip">Default: {settings.default_low_stock_level} units</div>
-                    <div className="report-meta-chip" style={{ marginTop: '0.65rem', display: 'inline-flex' }}>
-                      High-value items at KES {Number(settings.high_value_price_threshold || 0).toLocaleString()} use {settings.high_value_low_stock_level} units
+                    <div className="chip-stack">
+                      <div className="report-meta-chip">Default: {settings.default_low_stock_level} units</div>
+                      <div className="report-meta-chip">
+                        High-value items at KES {Number(settings.high_value_price_threshold || 0).toLocaleString()} use {settings.high_value_low_stock_level} units
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -359,8 +361,8 @@ const AdminPanel = () => {
             <div className="admin-side-stack">
               <div className="glass-panel main-panel admin-section-card">
                 <div className="detail-header admin-section-header">
-                  <div>
-                    <h2 style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                  <div className="page-header-copy">
+                    <h2 className="section-heading">
                       <KeyRound size={20} /> Change Password
                     </h2>
                     <p className="page-subtitle">Update the admin password from one secure place.</p>
@@ -402,8 +404,8 @@ const AdminPanel = () => {
 
               <div className="glass-panel main-panel admin-section-card">
                 <div className="detail-header admin-section-header">
-                  <div>
-                    <h2 style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                  <div className="page-header-copy">
+                    <h2 className="section-heading">
                       <Shield size={20} /> Team Roles
                     </h2>
                     <p className="page-subtitle">Invite staff, adjust role assignments, and remove old accounts completely.</p>

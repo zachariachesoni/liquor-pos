@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import api from '../utils/api';
 import { useSystemSettings } from '../hooks/useSystemSettings';
+import './Products.css';
 import './Reports.css';
 
 const defaultPnLData = {
@@ -58,6 +59,19 @@ const calcMargin = (profit, revenue) => {
   if (!revenue || revenue === 0) return '0.0';
   return ((profit / revenue) * 100).toFixed(1);
 };
+
+const ReportStatCard = ({ icon: Icon, tone, title, value, note, valueClassName = '' }) => (
+  <div className="stat-card glass-panel">
+    <div className={`report-stat-icon ${tone}`}>
+      <Icon size={24} />
+    </div>
+    <div className="report-stat-copy">
+      <h3>{title}</h3>
+      <p className={`stat-number ${valueClassName}`.trim()}>{value}</p>
+      {note ? <span className="text-secondary text-xs">{note}</span> : null}
+    </div>
+  </div>
+);
 
 const Reports = () => {
   const [reportType, setReportType] = useState('pnl');
@@ -195,36 +209,27 @@ const Reports = () => {
   const renderPnLView = () => (
     <>
       <div className="reports-grid">
-        <div className="stat-card glass-panel">
-          <div className="stat-icon" style={{ background: 'rgba(56, 189, 248, 0.1)', color: '#38bdf8' }}>
-            <DollarSign size={24} />
-          </div>
-          <div>
-            <h3>Gross Revenue</h3>
-            <p className="stat-number">{formatCurrency(pnlData.gross_revenue)}</p>
-          </div>
-        </div>
-
-        <div className="stat-card glass-panel">
-          <div className="stat-icon" style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444' }}>
-            <TrendingDown size={24} />
-          </div>
-          <div>
-            <h3>COGS</h3>
-            <p className="stat-number text-danger">{formatCurrency(pnlData.cogs)}</p>
-          </div>
-        </div>
-
-        <div className="stat-card glass-panel">
-          <div className="stat-icon" style={{ background: 'rgba(34, 197, 94, 0.1)', color: '#22c55e' }}>
-            <TrendingUp size={24} />
-          </div>
-          <div>
-            <h3>Gross Profit</h3>
-            <p className="stat-number text-success">{formatCurrency(pnlData.gross_profit)}</p>
-            <span className="text-secondary text-xs">{pnlGrossMargin}% Margin</span>
-          </div>
-        </div>
+        <ReportStatCard
+          icon={DollarSign}
+          tone="tone-sky"
+          title="Gross Revenue"
+          value={formatCurrency(pnlData.gross_revenue)}
+        />
+        <ReportStatCard
+          icon={TrendingDown}
+          tone="tone-danger"
+          title="COGS"
+          value={formatCurrency(pnlData.cogs)}
+          valueClassName="text-danger"
+        />
+        <ReportStatCard
+          icon={TrendingUp}
+          tone="tone-success"
+          title="Gross Profit"
+          value={formatCurrency(pnlData.gross_profit)}
+          valueClassName="text-success"
+          note={`${pnlGrossMargin}% Margin`}
+        />
       </div>
 
       <div className="glass-panel main-panel pnl-statement">
@@ -314,7 +319,7 @@ const Reports = () => {
                       <div className="font-medium">{expense.description}</div>
                       <div className="td-secondary">{expense.reference_number || expense.referenceNumber || 'No reference'}</div>
                     </td>
-                    <td style={{ textTransform: 'capitalize' }}>{expense.category}</td>
+                    <td className="text-capitalize">{expense.category}</td>
                     <td>{expense.recordedBy?.username || 'Unknown'}</td>
                     <td className="text-right">{formatCurrency(expense.amount)}</td>
                   </tr>
@@ -345,36 +350,26 @@ const Reports = () => {
     return (
       <>
         <div className="reports-grid">
-          <div className="stat-card glass-panel">
-            <div className="stat-icon" style={{ background: 'rgba(59, 130, 246, 0.12)', color: '#3b82f6' }}>
-              <ShoppingCart size={24} />
-            </div>
-            <div>
-              <h3>Total Orders</h3>
-              <p className="stat-number">{summary.total_sales || 0}</p>
-            </div>
-          </div>
-
-          <div className="stat-card glass-panel">
-            <div className="stat-icon" style={{ background: 'rgba(34, 197, 94, 0.1)', color: '#22c55e' }}>
-              <DollarSign size={24} />
-            </div>
-            <div>
-              <h3>Total Revenue</h3>
-              <p className="stat-number">{formatCurrency(summary.total_revenue)}</p>
-            </div>
-          </div>
-
-          <div className="stat-card glass-panel">
-            <div className="stat-icon" style={{ background: 'rgba(234, 179, 8, 0.12)', color: '#eab308' }}>
-              <TrendingUp size={24} />
-            </div>
-            <div>
-              <h3>Total Profit</h3>
-              <p className="stat-number text-success">{formatCurrency(summary.total_profit)}</p>
-              <span className="text-secondary text-xs">{customerMargin}% Margin</span>
-            </div>
-          </div>
+          <ReportStatCard
+            icon={ShoppingCart}
+            tone="tone-primary"
+            title="Total Orders"
+            value={summary.total_sales || 0}
+          />
+          <ReportStatCard
+            icon={DollarSign}
+            tone="tone-success"
+            title="Total Revenue"
+            value={formatCurrency(summary.total_revenue)}
+          />
+          <ReportStatCard
+            icon={TrendingUp}
+            tone="tone-warning"
+            title="Total Profit"
+            value={formatCurrency(summary.total_profit)}
+            valueClassName="text-success"
+            note={`${customerMargin}% Margin`}
+          />
         </div>
 
         <div className="glass-panel main-panel report-detail-panel">
@@ -398,8 +393,8 @@ const Reports = () => {
                       <div className="td-secondary">{new Date(sale.createdAt).toLocaleString()}</div>
                     </div>
                     <div className="report-record-tags">
-                      <span className="badge">{sale.sale_type || 'retail'}</span>
-                      <span className="badge">{sale.payment_method || 'cash'}</span>
+                      <span className="badge text-capitalize">{sale.sale_type || 'retail'}</span>
+                      <span className="badge text-capitalize">{sale.payment_method || 'cash'}</span>
                     </div>
                   </div>
 
@@ -455,36 +450,26 @@ const Reports = () => {
     return (
       <>
         <div className="reports-grid">
-          <div className="stat-card glass-panel">
-            <div className="stat-icon" style={{ background: 'rgba(59, 130, 246, 0.12)', color: '#3b82f6' }}>
-              <Package size={24} />
-            </div>
-            <div>
-              <h3>Units Sold</h3>
-              <p className="stat-number">{summary.total_quantity || 0}</p>
-            </div>
-          </div>
-
-          <div className="stat-card glass-panel">
-            <div className="stat-icon" style={{ background: 'rgba(34, 197, 94, 0.1)', color: '#22c55e' }}>
-              <DollarSign size={24} />
-            </div>
-            <div>
-              <h3>Revenue</h3>
-              <p className="stat-number">{formatCurrency(summary.total_revenue)}</p>
-            </div>
-          </div>
-
-          <div className="stat-card glass-panel">
-            <div className="stat-icon" style={{ background: 'rgba(234, 179, 8, 0.12)', color: '#eab308' }}>
-              <TrendingUp size={24} />
-            </div>
-            <div>
-              <h3>Profit</h3>
-              <p className="stat-number text-success">{formatCurrency(summary.total_profit)}</p>
-              <span className="text-secondary text-xs">{productMargin}% Margin</span>
-            </div>
-          </div>
+          <ReportStatCard
+            icon={Package}
+            tone="tone-primary"
+            title="Units Sold"
+            value={summary.total_quantity || 0}
+          />
+          <ReportStatCard
+            icon={DollarSign}
+            tone="tone-success"
+            title="Revenue"
+            value={formatCurrency(summary.total_revenue)}
+          />
+          <ReportStatCard
+            icon={TrendingUp}
+            tone="tone-warning"
+            title="Profit"
+            value={formatCurrency(summary.total_profit)}
+            valueClassName="text-success"
+            note={`${productMargin}% Margin`}
+          />
         </div>
 
         <div className="glass-panel main-panel report-detail-panel">
@@ -556,17 +541,20 @@ const Reports = () => {
   return (
     <div className="page-container animate-fade-in reports-wrapper">
       <div className="page-header report-toolbar-wrap">
-        <div>
+        <div className="page-header-copy">
           <h1 className="page-title">Reports</h1>
           <p className="page-subtitle">Review financial performance and generate individual sales reports.</p>
         </div>
-        <div className="report-actions">
-          <select className="filter-select" value={period} onChange={(e) => setPeriod(e.target.value)}>
-            <option value="Today">Today</option>
-            <option value="Week">This Week</option>
-            <option value="Month">This Month</option>
-            <option value="Year">This Year</option>
-          </select>
+        <div className="page-header-actions report-actions">
+          <div className="toolbar-control compact report-period-control">
+            <label>Period</label>
+            <select className="filter-select field-select" value={period} onChange={(e) => setPeriod(e.target.value)}>
+              <option value="Today">Today</option>
+              <option value="Week">This Week</option>
+              <option value="Month">This Month</option>
+              <option value="Year">This Year</option>
+            </select>
+          </div>
           <button className="primary-btn" onClick={handleExport}>
             <Download size={18} /> Export PDF
           </button>
@@ -685,7 +673,7 @@ const Reports = () => {
                   <tr key={expense._id}>
                     <td>{new Date(expense.expenseDate || expense.expense_date || expense.createdAt).toLocaleDateString()}</td>
                     <td>{expense.description}</td>
-                    <td style={{ textTransform: 'capitalize' }}>{expense.category}</td>
+                    <td className="text-capitalize">{expense.category}</td>
                     <td>{expense.recordedBy?.username || 'Unknown'}</td>
                     <td className="text-right">{Number(expense.amount || 0).toLocaleString()}</td>
                   </tr>
@@ -801,7 +789,7 @@ const Reports = () => {
             </div>
           </>
         )}
-        <p style={{ marginTop: '1.5rem', color: '#555' }}>{settings.receipt_footer}</p>
+        <p className="report-export-note">{settings.receipt_footer}</p>
       </section>
     </div>
   );

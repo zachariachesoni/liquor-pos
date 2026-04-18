@@ -152,7 +152,7 @@ const Products = () => {
   return (
     <div className="page-container animate-fade-in">
       <div className="page-header">
-        <div>
+        <div className="page-header-copy">
           <h1 className="page-title">Products catalog</h1>
           <p className="page-subtitle">Manage your inventory items, costs, and pricing margins.</p>
         </div>
@@ -178,14 +178,14 @@ const Products = () => {
         </div>
 
         {showFilters && (
-          <div className="panel-toolbar" style={{ paddingTop: 0, borderTop: 'none' }}>
-            <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', width: '100%' }}>
-              <div style={{ minWidth: '200px' }}>
-                <label style={{ display: 'block', marginBottom: '0.4rem' }}>Category</label>
+          <div className="panel-toolbar panel-toolbar-subtle">
+            <div className="toolbar-inline-group">
+              <div className="toolbar-control">
+                <label>Category</label>
                 <select
+                  className="field-select"
                   value={categoryFilter}
                   onChange={(e) => setCategoryFilter(e.target.value)}
-                  style={{ width: '100%', padding: '0.6rem', background: 'var(--input-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '8px' }}
                 >
                   {categories.map((category) => (
                     <option key={category} value={category}>
@@ -195,12 +195,12 @@ const Products = () => {
                 </select>
               </div>
 
-              <div style={{ minWidth: '200px' }}>
-                <label style={{ display: 'block', marginBottom: '0.4rem' }}>Stock status</label>
+              <div className="toolbar-control">
+                <label>Stock status</label>
                 <select
+                  className="field-select"
                   value={stockFilter}
                   onChange={(e) => setStockFilter(e.target.value)}
-                  style={{ width: '100%', padding: '0.6rem', background: 'var(--input-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '8px' }}
                 >
                   <option value="all">All stock levels</option>
                   <option value="in-stock">In stock</option>
@@ -209,7 +209,7 @@ const Products = () => {
                 </select>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+              <div className="toolbar-control compact">
                 <button
                   className="icon-btn"
                   type="button"

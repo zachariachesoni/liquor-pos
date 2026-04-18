@@ -57,6 +57,13 @@
   overflow-y: auto;
 }
 
+.catalog-loading {
+  grid-column: 1 / -1;
+  padding: 2rem;
+  text-align: center;
+  color: var(--text-secondary);
+}
+
 .product-card {
   position: relative;
   padding: 1rem;
@@ -766,6 +773,10 @@
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(255, 255, 255, 0.03);
   color: var(--text-secondary);
+}
+
+.receipt-meta-value-capitalize {
+  text-transform: capitalize;
 }
 
 .receipt-table {

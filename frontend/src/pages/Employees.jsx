@@ -87,11 +87,11 @@ const Employees = () => {
   return (
     <div className="page-container animate-fade-in">
       <div className="page-header">
-        <div>
+        <div className="page-header-copy">
           <h1 className="page-title">Employee Management</h1>
           <p className="page-subtitle">Provision staff accounts and send secure invites.</p>
         </div>
-        <div style={{ display: 'flex', gap: '1rem' }}>
+        <div className="page-header-actions">
           <button className="primary-btn" onClick={() => setShowModal(true)}>
              <UserCog size={18} /> Add Employee
           </button>
@@ -99,33 +99,31 @@ const Employees = () => {
       </div>
 
       {inviteFeedback && (
-        <div style={{ padding: '1rem', marginBottom: '2rem', borderRadius: '8px', border: `1px solid ${inviteFeedback.status === 'success' ? 'var(--success)' : 'var(--danger)'}`, background: 'var(--bg-color)' }}>
-          <h3 style={{ color: inviteFeedback.status === 'success' ? 'var(--success)' : 'var(--danger)', marginBottom: '0.5rem' }}>
-             {inviteFeedback.message}
-          </h3>
+        <div className={`feedback-card ${inviteFeedback.status}`}>
+          <h3 className="feedback-card-title">{inviteFeedback.message}</h3>
           {inviteFeedback.status === 'success' && (
              <>
-               <p style={{ fontSize: '0.9rem', marginBottom: '0.5rem' }}><strong>Email Status:</strong> {inviteFeedback.emailResponse}</p>
+               <p className="feedback-card-copy"><strong>Email Status:</strong> {inviteFeedback.emailResponse}</p>
                {!inviteFeedback.emailSent && (
                  <>
-                   <p style={{ fontSize: '0.9rem', marginBottom: '0.75rem' }}>
+                   <p className="feedback-card-copy">
                      The employee can still log in right away using these temporary credentials:
                    </p>
-                   <div style={{ padding: '1rem', background: 'var(--input-bg)', borderRadius: '4px', fontFamily: 'monospace', color: 'var(--text-color)', whiteSpace: 'pre-wrap' }}>
+                   <div className="feedback-code">
                      {inviteFeedback.details}
                    </div>
                  </>
                )}
              </>
           )}
-          <button className="action-icon" style={{ marginTop: '0.5rem' }} onClick={() => setInviteFeedback(null)}>Dismiss</button>
+          <button className="action-icon feedback-dismiss" onClick={() => setInviteFeedback(null)}>Dismiss</button>
         </div>
       )}
 
       <div className="glass-panel main-panel">
         <div className="table-container">
           {loading ? (
-             <div style={{ padding: '2rem', textAlign: 'center' }}>Loading employees from database...</div>
+             <div className="inline-loading">Loading employees from database...</div>
           ) : (
           <table className="data-table">
             <thead>
@@ -141,12 +139,12 @@ const Employees = () => {
               {employees.map(emp => (
                 <tr key={emp._id}>
                   <td className="font-medium text-primary">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <div className="inline-cluster">
                       <Shield size={16} /> {emp.username}
                     </div>
                   </td>
                   <td>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <div className="inline-cluster">
                       <Mail size={14} className="text-secondary" /> {emp.email}
                     </div>
                   </td>

@@ -330,7 +330,7 @@ const POS = () => {
         </div>
 
         <div className="product-grid">
-          {loading ? (<div style={{ padding: '2rem' }}>Loading...</div>) : filteredProducts.map(product => (
+          {loading ? (<div className="catalog-loading">Loading products...</div>) : filteredProducts.map(product => (
             <div
               key={product.id}
               className={`product-card ${product.stock <= 0 ? 'disabled' : ''}`}
@@ -656,8 +656,8 @@ const POS = () => {
               <div className="receipt-meta">
                 <div><strong>Date:</strong> {receiptData.createdAt}</div>
                 <div><strong>Customer:</strong> {receiptData.customerName}</div>
-                <div><strong>Payment:</strong> <span style={{ textTransform: 'capitalize' }}>{receiptData.paymentMethod}</span></div>
-                <div><strong>Price List:</strong> <span style={{ textTransform: 'capitalize' }}>{receiptData.saleType}</span></div>
+                <div><strong>Payment:</strong> <span className="receipt-meta-value-capitalize">{receiptData.paymentMethod}</span></div>
+                <div><strong>Price List:</strong> <span className="receipt-meta-value-capitalize">{receiptData.saleType}</span></div>
               </div>
               <table className="data-table receipt-table">
                 <thead>

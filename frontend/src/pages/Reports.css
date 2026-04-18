@@ -6,7 +6,7 @@
 }
 
 .report-toolbar-wrap {
-  align-items: flex-start;
+  align-items: flex-end;
   gap: 1rem;
 }
 
@@ -14,6 +14,12 @@
   display: flex;
   gap: 1rem;
   flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: flex-end;
+}
+
+.report-period-control {
+  min-width: 170px;
 }
 
 .report-mode-panel {
@@ -81,11 +87,78 @@
   border-radius: 8px;
   outline: none;
   font-family: inherit;
+  min-height: 42px;
+  width: 100%;
 }
 
 .report-loading {
   text-align: center;
   padding: 2rem;
+}
+
+.reports-grid .stat-card {
+  padding: 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.report-stat-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.report-stat-icon.tone-sky {
+  background: rgba(56, 189, 248, 0.1);
+  color: #38bdf8;
+}
+
+.report-stat-icon.tone-danger {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+
+.report-stat-icon.tone-success {
+  background: rgba(34, 197, 94, 0.1);
+  color: #22c55e;
+}
+
+.report-stat-icon.tone-primary {
+  background: rgba(59, 130, 246, 0.12);
+  color: #3b82f6;
+}
+
+.report-stat-icon.tone-warning {
+  background: rgba(234, 179, 8, 0.12);
+  color: #eab308;
+}
+
+.report-stat-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.report-stat-copy h3 {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.86rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.reports-grid .stat-number {
+  margin: 0;
+  font-size: 1.45rem;
+  font-weight: 700;
+  line-height: 1.1;
 }
 
 .pnl-statement {
@@ -370,6 +443,11 @@
   color: #111827;
 }
 
+.report-export-note {
+  margin-top: 1.5rem;
+  color: #555;
+}
+
 @media print {
   body {
     background: white !important;
@@ -447,9 +525,21 @@
     align-items: stretch;
   }
 
+  .report-toolbar-wrap {
+    align-items: stretch;
+  }
+
   .report-mode-switch {
     display: grid;
     grid-template-columns: 1fr;
+  }
+
+  .report-period-control {
+    width: 100%;
+  }
+
+  .reports-grid .stat-card {
+    align-items: flex-start;
   }
 
   .report-filter-row label {

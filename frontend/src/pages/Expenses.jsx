@@ -209,11 +209,11 @@ const Expenses = () => {
   return (
     <div className="page-container animate-fade-in">
       <div className="page-header">
-        <div>
+        <div className="page-header-copy">
           <h1 className="page-title">Expenses Tracking</h1>
           <p className="page-subtitle">Record and monitor business expenses.</p>
         </div>
-        <div style={{ display: 'flex', gap: '1rem' }}>
+        <div className="page-header-actions">
           <button className="icon-btn" onClick={exportExpenseReport}><Download size={18} /> Export PDF</button>
           <button className="icon-btn" onClick={() => setShowBudgetModal(true)}><PieChart size={18} /> Budget Report</button>
           <button className="primary-btn" onClick={() => setShowModal(true)}>
@@ -241,7 +241,7 @@ const Expenses = () => {
               {expenses.map(exp => (
                 <tr key={exp._id}>
                   <td className="td-secondary">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <div className="inline-cluster">
                       <Calendar size={14}/> {new Date(exp.expenseDate || exp.createdAt).toLocaleDateString()}
                     </div>
                   </td>
@@ -389,7 +389,7 @@ const Expenses = () => {
                     {budget.sortedExpenses.slice(0, 5).map((expense) => (
                       <tr key={expense._id}>
                         <td className="font-medium">{expense.description}</td>
-                        <td style={{ textTransform: 'capitalize' }}>{expense.category}</td>
+                        <td className="text-capitalize">{expense.category}</td>
                         <td>{new Date(expense.expenseDate || expense.createdAt).toLocaleDateString()}</td>
                         <td className="text-right">KES {Number(expense.amount || 0).toLocaleString()}</td>
                       </tr>

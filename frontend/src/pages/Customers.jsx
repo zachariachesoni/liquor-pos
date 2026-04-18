@@ -167,7 +167,7 @@ const Customers = () => {
   return (
     <div className="page-container animate-fade-in">
       <div className="page-header">
-        <div>
+        <div className="page-header-copy">
           <h1 className="page-title">Customers</h1>
           <p className="page-subtitle">Manage customer profiles and purchase history.</p>
         </div>
@@ -207,17 +207,19 @@ const Customers = () => {
                 {filtered.map((c) => (
                   <tr key={c._id}>
                     <td className="font-medium">
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                        <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: 'var(--primary-bg)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>
+                      <div className="inline-cluster">
+                        <div className="avatar-badge">
                           {c.name?.charAt(0) || 'U'}
                         </div>
                         {c.name}
-                        {c.customer_type === 'wholesale' && <span className="badge" style={{ background: 'var(--warning-bg)', color: 'var(--warning)', fontSize: '0.7rem' }}>Wholesale</span>}
+                        {c.customer_type === 'wholesale' && <span className="badge badge-warning">Wholesale</span>}
                       </div>
                     </td>
                     <td className="td-secondary">
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}><Phone size={12} /> {c.phone || 'N/A'}</div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', marginTop: '4px' }}><Mail size={12} /> {c.email || 'N/A'}</div>
+                      <div className="contact-stack">
+                        <div className="inline-cluster tight"><Phone size={12} /> {c.phone || 'N/A'}</div>
+                        <div className="inline-cluster tight"><Mail size={12} /> {c.email || 'N/A'}</div>
+                      </div>
                     </td>
                     <td>{c.totalPurchases || 0} orders</td>
                     <td className="font-medium">{c.totalSpent?.toLocaleString() || 0}</td>
@@ -323,8 +325,8 @@ const Customers = () => {
                           <div className="td-secondary">{new Date(sale.createdAt).toLocaleString()}</div>
                         </div>
                         <div className="text-right">
-                          <div className="badge" style={{ textTransform: 'capitalize' }}>{sale.sale_type || 'retail'}</div>
-                          <div className="td-secondary" style={{ marginTop: '0.35rem', textTransform: 'capitalize' }}>{sale.payment_method}</div>
+                          <div className="badge text-capitalize">{sale.sale_type || 'retail'}</div>
+                          <div className="td-secondary text-capitalize">{sale.payment_method}</div>
                         </div>
                       </div>
 
@@ -347,7 +349,7 @@ const Customers = () => {
                                   {item.size} {item.wholesale_applied ? '- Wholesale price applied' : ''}
                                 </div>
                               </td>
-                              <td style={{ textTransform: 'capitalize' }}>{item.category}</td>
+                              <td className="text-capitalize">{item.category}</td>
                               <td>{item.quantity}</td>
                               <td>KES {item.unit_price?.toLocaleString() || 0}</td>
                               <td className="text-right">KES {item.subtotal?.toLocaleString() || 0}</td>

@@ -187,7 +187,10 @@
 }
 
 .page-content {
-  padding: 2rem;
+  width: 100%;
+  max-width: 1680px;
+  margin: 0 auto;
+  padding: clamp(1.25rem, 2vw, 2rem);
   flex: 1;
 }
 
@@ -207,6 +210,10 @@
 
   .mobile-header {
     display: flex;
+  }
+
+  .page-content {
+    max-width: 100%;
   }
 
   .sidebar-overlay {

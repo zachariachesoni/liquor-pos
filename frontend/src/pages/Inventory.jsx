@@ -56,12 +56,12 @@ const Inventory = () => {
   return (
     <div className="page-container animate-fade-in">
       <div className="page-header">
-        <div>
+        <div className="page-header-copy">
           <h1 className="page-title">Inventory Control</h1>
           <p className="page-subtitle">Monitor stock levels and record adjustments.</p>
         </div>
-        <div style={{ display: 'flex', gap: '1rem' }}>
-          <button className="icon-btn" style={{ background: 'var(--warning-bg)', color: 'var(--warning)', borderColor: 'transparent' }}>
+        <div className="page-header-actions">
+          <button className="icon-btn icon-btn-warning">
              <AlertTriangle size={18} /> Low Stock ({lowStockCount})
           </button>
           <button className="primary-btn" onClick={() => setShowModal(true)}>
@@ -100,10 +100,10 @@ const Inventory = () => {
                   </td>
                   <td className="td-secondary">{new Date(item.updatedAt).toLocaleDateString()}</td>
                   <td className="text-right">
-                    <button className="action-icon" style={{color: 'var(--success)'}} title="Stock In" onClick={() => { setFormData({...formData, variantId: item._id, type: 'in'}); setShowModal(true); }}>
+                    <button className="action-icon action-icon-success" title="Stock In" onClick={() => { setFormData({...formData, variantId: item._id, type: 'in'}); setShowModal(true); }}>
                       <ArrowUpRight size={16} />
                     </button>
-                    <button className="action-icon" style={{color: 'var(--danger)'}} title="Stock Out" onClick={() => { setFormData({...formData, variantId: item._id, type: 'out'}); setShowModal(true); }}>
+                    <button className="action-icon action-icon-danger" title="Stock Out" onClick={() => { setFormData({...formData, variantId: item._id, type: 'out'}); setShowModal(true); }}>
                       <ArrowDownRight size={16} />
                     </button>
                   </td>

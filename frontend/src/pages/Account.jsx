@@ -56,7 +56,7 @@ const Account = () => {
   return (
     <div className="page-container animate-fade-in admin-shell">
       <div className="page-header">
-        <div>
+        <div className="page-header-copy">
           <h1 className="page-title">My Account</h1>
           <p className="page-subtitle">Review your sign-in details and update your password securely.</p>
         </div>
@@ -71,8 +71,8 @@ const Account = () => {
       <div className="admin-page-grid account-page-grid">
         <div className="glass-panel main-panel admin-section-card">
           <div className="detail-header admin-section-header">
-            <div>
-              <h2 style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+            <div className="page-header-copy">
+              <h2 className="section-heading">
                 <User size={20} /> Profile
               </h2>
               <p className="page-subtitle">Your current access and identity inside the POS.</p>
@@ -97,8 +97,8 @@ const Account = () => {
 
         <div className="glass-panel main-panel admin-section-card">
           <div className="detail-header admin-section-header">
-            <div>
-              <h2 style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+            <div className="page-header-copy">
+              <h2 className="section-heading">
                 <KeyRound size={20} /> Change Password
               </h2>
               <p className="page-subtitle">Use your current password, then choose a new one with at least 6 characters.</p>

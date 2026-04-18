@@ -147,12 +147,12 @@ const Sales = () => {
     <>
       <div className="page-container animate-fade-in">
         <div className="page-header">
-          <div>
+          <div className="page-header-copy">
             <h1 className="page-title">Sales History</h1>
             <p className="page-subtitle">View and filter transaction logs by period or invoice number.</p>
           </div>
-          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-            <div className="search-box" style={{ width: '260px' }}>
+          <div className="page-header-actions">
+            <div className="search-box toolbar-search">
               <Search size={18} className="search-icon" />
               <input
                 type="text"
@@ -161,15 +161,18 @@ const Sales = () => {
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
-            <select
-              style={{ padding: '0.5rem 1rem', background: 'var(--input-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '8px' }}
-              value={period}
-              onChange={(e) => setPeriod(e.target.value)}
-            >
-              <option value="All">All Time</option>
-              <option value="Today">Today</option>
-              <option value="Month">This Month</option>
-            </select>
+            <div className="toolbar-control compact">
+              <label>Period</label>
+              <select
+                className="field-select"
+                value={period}
+                onChange={(e) => setPeriod(e.target.value)}
+              >
+                <option value="All">All Time</option>
+                <option value="Today">Today</option>
+                <option value="Month">This Month</option>
+              </select>
+            </div>
           </div>
         </div>
 
@@ -192,9 +195,9 @@ const Sales = () => {
                 </thead>
                 <tbody>
                   {sales.map((sale) => (
-                    <tr key={sale._id} style={{ cursor: 'pointer' }} onClick={() => openSaleDetails(sale)}>
+                    <tr key={sale._id} className="table-clickable" onClick={() => openSaleDetails(sale)}>
                       <td className="font-medium text-primary">
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <div className="inline-cluster">
                           <ReceiptText size={16} /> {sale.invoice_number}
                         </div>
                       </td>
@@ -244,9 +247,9 @@ const Sales = () => {
                   <div><strong>Date:</strong> {new Date(saleDetails.createdAt).toLocaleString()}</div>
                   <div><strong>Sales Person:</strong> {saleDetails.user_id?.username || 'Unknown'}</div>
                   <div><strong>Customer:</strong> {saleDetails.customer_id?.name || 'Walk-in Customer'}</div>
-                  <div><strong>Payment:</strong> <span style={{ textTransform: 'capitalize' }}>{saleDetails.payment_method}</span></div>
+                  <div><strong>Payment:</strong> <span className="text-capitalize">{saleDetails.payment_method}</span></div>
                   <div><strong>Customer Phone:</strong> {saleDetails.customer_id?.phone || 'N/A'}</div>
-                  <div><strong>Type:</strong> <span style={{ textTransform: 'capitalize' }}>{saleDetails.sale_type}</span></div>
+                  <div><strong>Type:</strong> <span className="text-capitalize">{saleDetails.sale_type}</span></div>
                 </div>
 
                 <table className="data-table">
@@ -268,7 +271,7 @@ const Sales = () => {
                             {item.productBrand || ''} {item.variantSize || ''}
                           </div>
                         </td>
-                        <td style={{ textTransform: 'capitalize' }}>{item.productCategory}</td>
+                        <td className="text-capitalize">{item.productCategory}</td>
                         <td>{item.quantity}</td>
                         <td>KES {item.unit_price?.toLocaleString() || 0}</td>
                         <td className="text-right">KES {item.subtotal?.toLocaleString() || 0}</td>
