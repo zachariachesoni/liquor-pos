@@ -3,6 +3,7 @@ import { UserPlus, Search, Phone, Mail, History, X, Download } from 'lucide-reac
 import api from '../utils/api';
 import { useSystemSettings } from '../hooks/useSystemSettings';
 import './Products.css';
+import './Customers.css';
 
 const Customers = () => {
   const [customers, setCustomers] = useState([]);
@@ -240,37 +241,40 @@ const Customers = () => {
 
       {showModal && (
         <div className="modal-overlay">
-          <div className="glass-panel modal-card">
-            <button onClick={() => setShowModal(false)} style={{ position: 'absolute', right: '1rem', top: '1rem', background: 'transparent', border: 'none', color: 'var(--text-color)', cursor: 'pointer' }}>
+          <div className="glass-panel modal-card customer-modal">
+            <button className="customer-modal-close" onClick={() => setShowModal(false)}>
               <X size={20} />
             </button>
-            <h2 style={{ marginBottom: '1.5rem' }}>Add New Customer</h2>
-            <form onSubmit={handleAddCustomer} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <div>
+            <h2 className="customer-modal-title">Add New Customer</h2>
+            <form onSubmit={handleAddCustomer} className="customer-form">
+              <div className="customer-form-field customer-form-field-full">
                 <label>Customer Name</label>
-                <input required type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} style={{ width: '100%', padding: '0.5rem', background: 'var(--input-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '4px' }} />
+                <input required type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} />
               </div>
-              <div style={{ display: 'flex', gap: '1rem' }}>
-                <div style={{ flex: 1 }}>
+              <div className="customer-form-field">
                   <label>Phone Number</label>
-                  <input required type="text" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} style={{ width: '100%', padding: '0.5rem', background: 'var(--input-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '4px' }} />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <label>Email Address</label>
-                  <input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} style={{ width: '100%', padding: '0.5rem', background: 'var(--input-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '4px' }} />
-                </div>
+                  <input required type="text" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} />
               </div>
-              <div style={{ marginTop: '0.5rem' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+              <div className="customer-form-field">
+                  <label>Email Address</label>
+                  <input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} />
+              </div>
+              <div className="customer-form-field customer-form-field-full">
+                <label className="customer-checkbox-row">
                   <input
                     type="checkbox"
                     checked={formData.customer_type === 'wholesale'}
                     onChange={(e) => setFormData({ ...formData, customer_type: e.target.checked ? 'wholesale' : 'retail' })}
                   />
-                  <span>This is a Wholesale Partner Account</span>
+                  <div>
+                    <span>This is a Wholesale Partner Account</span>
+                    <small>Use this for customers who should access wholesale pricing.</small>
+                  </div>
                 </label>
               </div>
-              <button type="submit" className="primary-btn" style={{ marginTop: '1rem' }}>Save & Add Customer</button>
+              <div className="customer-form-actions customer-form-field-full">
+                <button type="submit" className="primary-btn">Save & Add Customer</button>
+              </div>
             </form>
           </div>
         </div>

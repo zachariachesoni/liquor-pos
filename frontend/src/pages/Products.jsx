@@ -290,20 +290,19 @@ const Products = () => {
       {showModal && (
         <div className="modal-overlay">
           <div className="glass-panel modal-card">
-            <button onClick={() => setShowModal(false)} style={{ position: 'absolute', right: '1rem', top: '1rem', background: 'transparent', border: 'none', color: 'var(--text-color)', cursor: 'pointer' }}>
+            <button className="modal-close-btn" onClick={() => setShowModal(false)}>
               <X size={20} />
             </button>
-            <h2 style={{ marginBottom: '1.5rem' }}>Add New Product</h2>
-            <form onSubmit={handleAddProduct} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-
-              <div style={{ display: 'flex', gap: '1rem' }}>
-                <div style={{ flex: 1 }}>
+            <h2 className="modal-title">Add New Product</h2>
+            <form onSubmit={handleAddProduct} className="modal-form">
+              <div className="modal-form-grid">
+                <div className="modal-form-field">
                   <label>Product Name</label>
-                  <input required type="text" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} style={{ width: '100%', padding: '0.5rem', background: 'var(--input-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '4px' }} />
+                  <input required type="text" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
                 </div>
-                <div style={{ flex: 1 }}>
+                <div className="modal-form-field">
                   <label>Category</label>
-                  <select value={formData.category} onChange={e => setFormData({ ...formData, category: e.target.value })} style={{ width: '100%', padding: '0.5rem', background: 'var(--input-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '4px' }}>
+                  <select value={formData.category} onChange={e => setFormData({ ...formData, category: e.target.value })}>
                     <option value="whisky">Whisky</option>
                     <option value="vodka">Vodka</option>
                     <option value="gin">Gin</option>
@@ -317,42 +316,34 @@ const Products = () => {
                     <option value="other">Other</option>
                   </select>
                 </div>
-              </div>
-
-              <div style={{ display: 'flex', gap: '1rem' }}>
-                <div style={{ flex: 1 }}>
+                <div className="modal-form-field">
                   <label>Variant (e.g. 750ml)</label>
-                  <input required type="text" value={formData.size} onChange={e => setFormData({ ...formData, size: e.target.value })} style={{ width: '100%', padding: '0.5rem', background: 'var(--input-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '4px' }} />
+                  <input required type="text" value={formData.size} onChange={e => setFormData({ ...formData, size: e.target.value })} />
                 </div>
-                <div style={{ flex: 1 }}>
+                <div className="modal-form-field">
                   <label>Starting Stock</label>
-                  <input required type="number" value={formData.current_stock} onChange={e => setFormData({ ...formData, current_stock: e.target.value })} style={{ width: '100%', padding: '0.5rem', background: 'var(--input-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '4px' }} />
+                  <input required type="number" value={formData.current_stock} onChange={e => setFormData({ ...formData, current_stock: e.target.value })} />
                 </div>
-              </div>
-
-              <div style={{ display: 'flex', gap: '1rem' }}>
-                <div style={{ flex: 1 }}>
+                <div className="modal-form-field">
                   <label>Buying Price (BP)</label>
-                  <input required type="number" value={formData.buying_price} onChange={e => setFormData({ ...formData, buying_price: e.target.value })} style={{ width: '100%', padding: '0.5rem', background: 'var(--input-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '4px' }} />
+                  <input required type="number" value={formData.buying_price} onChange={e => setFormData({ ...formData, buying_price: e.target.value })} />
                 </div>
-                <div style={{ flex: 1 }}>
+                <div className="modal-form-field">
                   <label>Low-Stock Threshold</label>
-                  <input required type="number" min="0" value={formData.min_stock_level} onChange={e => setFormData({ ...formData, min_stock_level: e.target.value })} style={{ width: '100%', padding: '0.5rem', background: 'var(--input-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '4px' }} />
+                  <input required type="number" min="0" value={formData.min_stock_level} onChange={e => setFormData({ ...formData, min_stock_level: e.target.value })} />
                 </div>
-              </div>
-
-              <div style={{ display: 'flex', gap: '1rem' }}>
-                <div style={{ flex: 1 }}>
+                <div className="modal-form-field">
                   <label>Retail Price</label>
-                  <input required type="number" value={formData.retail_price} onChange={e => setFormData({ ...formData, retail_price: e.target.value })} style={{ width: '100%', padding: '0.5rem', background: 'var(--input-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '4px' }} />
+                  <input required type="number" value={formData.retail_price} onChange={e => setFormData({ ...formData, retail_price: e.target.value })} />
                 </div>
-                <div style={{ flex: 1 }}>
+                <div className="modal-form-field">
                   <label>Wholesale Price</label>
-                  <input required type="number" value={formData.wholesale_price} onChange={e => setFormData({ ...formData, wholesale_price: e.target.value })} style={{ width: '100%', padding: '0.5rem', background: 'var(--input-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '4px' }} />
+                  <input required type="number" value={formData.wholesale_price} onChange={e => setFormData({ ...formData, wholesale_price: e.target.value })} />
                 </div>
               </div>
-
-              <button type="submit" className="primary-btn" style={{ marginTop: '1rem' }}>Save & Register Product</button>
+              <div className="modal-actions">
+                <button type="submit" className="primary-btn">Save & Register Product</button>
+              </div>
             </form>
           </div>
         </div>
@@ -361,20 +352,19 @@ const Products = () => {
       {showEditModal && editData && (
         <div className="modal-overlay">
           <div className="glass-panel modal-card">
-            <button onClick={() => setShowEditModal(false)} style={{ position: 'absolute', right: '1rem', top: '1rem', background: 'transparent', border: 'none', color: 'var(--text-color)', cursor: 'pointer' }}>
+            <button className="modal-close-btn" onClick={() => setShowEditModal(false)}>
               <X size={20} />
             </button>
-            <h2 style={{ marginBottom: '1.5rem' }}>Edit Product Data</h2>
-            <form onSubmit={handleEditSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-
-              <div style={{ display: 'flex', gap: '1rem' }}>
-                <div style={{ flex: 1 }}>
+            <h2 className="modal-title">Edit Product Data</h2>
+            <form onSubmit={handleEditSubmit} className="modal-form">
+              <div className="modal-form-grid">
+                <div className="modal-form-field">
                   <label>Product Name</label>
-                  <input required type="text" value={editData.name} onChange={e => setEditData({ ...editData, name: e.target.value })} style={{ width: '100%', padding: '0.5rem', background: 'var(--input-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '4px' }} />
+                  <input required type="text" value={editData.name} onChange={e => setEditData({ ...editData, name: e.target.value })} />
                 </div>
-                <div style={{ flex: 1 }}>
+                <div className="modal-form-field">
                   <label>Category</label>
-                  <select value={editData.type} onChange={e => setEditData({ ...editData, type: e.target.value })} style={{ width: '100%', padding: '0.5rem', background: 'var(--input-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '4px' }}>
+                  <select value={editData.type} onChange={e => setEditData({ ...editData, type: e.target.value })}>
                     <option value="whisky">Whisky</option>
                     <option value="vodka">Vodka</option>
                     <option value="gin">Gin</option>
@@ -388,42 +378,34 @@ const Products = () => {
                     <option value="other">Other</option>
                   </select>
                 </div>
-              </div>
-
-              <div style={{ display: 'flex', gap: '1rem' }}>
-                <div style={{ flex: 1 }}>
+                <div className="modal-form-field">
                   <label>Variant</label>
-                  <input required type="text" value={editData.variant} onChange={e => setEditData({ ...editData, variant: e.target.value })} style={{ width: '100%', padding: '0.5rem', background: 'var(--input-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '4px' }} />
+                  <input required type="text" value={editData.variant} onChange={e => setEditData({ ...editData, variant: e.target.value })} />
                 </div>
-                <div style={{ flex: 1 }}>
+                <div className="modal-form-field">
                   <label>Current Stock</label>
-                  <input required type="number" value={editData.stock} onChange={e => setEditData({ ...editData, stock: e.target.value })} style={{ width: '100%', padding: '0.5rem', background: 'var(--input-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '4px' }} />
+                  <input required type="number" value={editData.stock} onChange={e => setEditData({ ...editData, stock: e.target.value })} />
                 </div>
-              </div>
-
-              <div style={{ display: 'flex', gap: '1rem' }}>
-                <div style={{ flex: 1 }}>
+                <div className="modal-form-field">
                   <label>Buying Price (BP)</label>
-                  <input required type="number" value={editData.bp} onChange={e => setEditData({ ...editData, bp: e.target.value })} style={{ width: '100%', padding: '0.5rem', background: 'var(--input-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '4px' }} />
+                  <input required type="number" value={editData.bp} onChange={e => setEditData({ ...editData, bp: e.target.value })} />
                 </div>
-                <div style={{ flex: 1 }}>
+                <div className="modal-form-field">
                   <label>Low-Stock Threshold</label>
-                  <input required type="number" min="0" value={editData.minStockLevel} onChange={e => setEditData({ ...editData, minStockLevel: e.target.value })} style={{ width: '100%', padding: '0.5rem', background: 'var(--input-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '4px' }} />
+                  <input required type="number" min="0" value={editData.minStockLevel} onChange={e => setEditData({ ...editData, minStockLevel: e.target.value })} />
                 </div>
-              </div>
-
-              <div style={{ display: 'flex', gap: '1rem' }}>
-                <div style={{ flex: 1 }}>
+                <div className="modal-form-field">
                   <label>Retail Price</label>
-                  <input required type="number" value={editData.price} onChange={e => setEditData({ ...editData, price: e.target.value })} style={{ width: '100%', padding: '0.5rem', background: 'var(--input-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '4px' }} />
+                  <input required type="number" value={editData.price} onChange={e => setEditData({ ...editData, price: e.target.value })} />
                 </div>
-                <div style={{ flex: 1 }}>
+                <div className="modal-form-field">
                   <label>Wholesale Price</label>
-                  <input required type="number" value={editData.bulk_price} onChange={e => setEditData({ ...editData, bulk_price: e.target.value })} style={{ width: '100%', padding: '0.5rem', background: 'var(--input-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '4px' }} />
+                  <input required type="number" value={editData.bulk_price} onChange={e => setEditData({ ...editData, bulk_price: e.target.value })} />
                 </div>
               </div>
-
-              <button type="submit" className="primary-btn" style={{ marginTop: '1rem' }}>Save Changes</button>
+              <div className="modal-actions">
+                <button type="submit" className="primary-btn">Save Changes</button>
+              </div>
             </form>
           </div>
         </div>

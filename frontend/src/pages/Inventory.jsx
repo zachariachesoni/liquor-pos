@@ -123,37 +123,35 @@ const Inventory = () => {
       {showModal && (
         <div className="modal-overlay">
           <div className="glass-panel modal-card">
-            <button onClick={() => setShowModal(false)} style={{ position: 'absolute', right: '1rem', top: '1rem', background: 'transparent', border: 'none', color: 'var(--text-color)', cursor: 'pointer'}}>
+            <button className="modal-close-btn" onClick={() => setShowModal(false)}>
               <X size={20} />
             </button>
-            <h2 style={{ marginBottom: '1.5rem' }}>Adjust Stock</h2>
-            <form onSubmit={handleAdjustStock} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <div>
+            <h2 className="modal-title">Adjust Stock</h2>
+            <form onSubmit={handleAdjustStock} className="modal-form">
+              <div className="modal-form-field">
                 <label>Inventory Item</label>
-                <select required value={formData.variantId} onChange={e => setFormData({...formData, variantId: e.target.value})} style={{ width: '100%', padding: '0.5rem', background: 'var(--input-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '4px' }}>
+                <select required value={formData.variantId} onChange={e => setFormData({...formData, variantId: e.target.value})}>
                    <option value="" disabled>Select Item</option>
                    {inventory.map(item => (
                      <option key={item._id} value={item._id}>{item.product_id?.name} {item.size}</option>
                    ))}
                 </select>
               </div>
-              <div style={{ display: 'flex', gap: '1rem' }}>
-                <div style={{ flex: 1 }}>
+              <div className="modal-form-grid">
+                <div className="modal-form-field">
                   <label>Quantity</label>
-                  <input required type="number" min="1" value={formData.quantity} onChange={e => setFormData({...formData, quantity: e.target.value})} style={{ width: '100%', padding: '0.5rem', background: 'var(--input-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '4px' }}/>
+                  <input required type="number" min="1" value={formData.quantity} onChange={e => setFormData({...formData, quantity: e.target.value})} />
                 </div>
-                <div style={{ flex: 1 }}>
+                <div className="modal-form-field">
                   <label>Adjustment Type</label>
-                  <select value={formData.type} onChange={e => setFormData({...formData, type: e.target.value})} style={{ width: '100%', padding: '0.5rem', background: 'var(--input-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '4px' }}>
+                  <select value={formData.type} onChange={e => setFormData({...formData, type: e.target.value})}>
                      <option value="in">Stock In (Add)</option>
                      <option value="out">Stock Out (Subtract)</option>
                   </select>
                 </div>
-              </div>
-              <div style={{ display: 'flex', gap: '1rem' }}>
-                <div style={{ flex: 1 }}>
+                <div className="modal-form-field modal-form-field-full">
                   <label>Reason</label>
-                  <select value={formData.reason} onChange={e => setFormData({...formData, reason: e.target.value})} style={{ width: '100%', padding: '0.5rem', background: 'var(--input-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '4px' }}>
+                  <select value={formData.reason} onChange={e => setFormData({...formData, reason: e.target.value})}>
                      <option value="restocking">Restocking</option>
                      <option value="damaged">Damage / Spillage</option>
                      <option value="other">Inventory Correction / Other</option>
@@ -161,7 +159,9 @@ const Inventory = () => {
                   </select>
                 </div>
               </div>
-              <button type="submit" className="primary-btn" style={{ marginTop: '1rem' }}>Confirm Adjustment</button>
+              <div className="modal-actions">
+                <button type="submit" className="primary-btn">Confirm Adjustment</button>
+              </div>
             </form>
           </div>
         </div>

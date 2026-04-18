@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Plus, Receipt, Calendar, PieChart, X, Download } from 'lucide-react';
 import api from '../utils/api';
 import { useSystemSettings } from '../hooks/useSystemSettings';
 import './Products.css';
+import './Expenses.css';
 
 const Expenses = () => {
   const [expenses, setExpenses] = useState([]);
@@ -12,6 +13,7 @@ const Expenses = () => {
   const [errorMessage, setErrorMessage] = useState('');
   const [formData, setFormData] = useState({ amount: '', category: 'other', description: '', expenseDate: new Date().toISOString().split('T')[0] });
   const { settings } = useSystemSettings();
+  const budget = useMemo(() => calculateBudget(), [expenses]);
 
   const calculateBudget = () => {
     const categories = {};
@@ -69,7 +71,7 @@ const Expenses = () => {
     const reportWindow = window.open('', '_blank', 'width=1100,height=900');
     if (!reportWindow) return;
 
-    const { categories, monthly, total, sortedExpenses } = calculateBudget();
+    const { categories, monthly, total, sortedExpenses } = budget;
     const categoryRows = Object.entries(categories)
       .sort((a, b) => b[1] - a[1])
       .map(([category, amount]) => `
@@ -264,33 +266,32 @@ const Expenses = () => {
       {showModal && (
         <div className="modal-overlay">
           <div className="glass-panel modal-card">
-            <button onClick={() => setShowModal(false)} style={{ position: 'absolute', right: '1rem', top: '1rem', background: 'transparent', border: 'none', color: 'var(--text-color)', cursor: 'pointer'}}>
+            <button className="modal-close-btn" onClick={() => setShowModal(false)}>
               <X size={20} />
             </button>
-            <h2 style={{ marginBottom: '1.5rem' }}>Record Expense</h2>
+            <h2 className="modal-title">Record Expense</h2>
             {errorMessage && (
               <div style={{ marginBottom: '1rem', padding: '0.75rem 1rem', borderRadius: '8px', background: 'var(--danger-bg)', color: 'var(--danger)' }}>
                 {errorMessage}
               </div>
             )}
-            <form onSubmit={handleRecordExpense} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <div>
+            <form onSubmit={handleRecordExpense} className="modal-form">
+              <div className="modal-form-field">
                 <label>Description</label>
-                <input required type="text" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} placeholder="e.g. Electricity bill" style={{ width: '100%', padding: '0.5rem', background: 'var(--input-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '4px' }}/>
+                <input required type="text" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} placeholder="e.g. Electricity bill" />
               </div>
-              <div style={{ display: 'flex', gap: '1rem' }}>
-                <div style={{ flex: 1 }}>
+              <div className="modal-form-grid">
+                <div className="modal-form-field">
                   <label>Amount (KES)</label>
-                  <input required type="number" min="0" value={formData.amount} onChange={e => setFormData({...formData, amount: e.target.value})} style={{ width: '100%', padding: '0.5rem', background: 'var(--input-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '4px' }}/>
+                  <input required type="number" min="0" value={formData.amount} onChange={e => setFormData({...formData, amount: e.target.value})} />
                 </div>
-                <div style={{ flex: 1 }}>
+                <div className="modal-form-field">
                   <label>Date</label>
-                  <input required type="date" value={formData.expenseDate} onChange={e => setFormData({...formData, expenseDate: e.target.value})} style={{ width: '100%', padding: '0.5rem', background: 'var(--input-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '4px' }}/>
+                  <input required type="date" value={formData.expenseDate} onChange={e => setFormData({...formData, expenseDate: e.target.value})} />
                 </div>
-              </div>
-              <div>
+                <div className="modal-form-field modal-form-field-full">
                 <label>Category</label>
-                <select value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} style={{ width: '100%', padding: '0.5rem', background: 'var(--input-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '4px' }}>
+                <select value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>
                    <option value="rent">Rent</option>
                    <option value="salaries">Salaries</option>
                    <option value="transport">Transport</option>
@@ -300,7 +301,10 @@ const Expenses = () => {
                    <option value="other">Other</option>
                 </select>
               </div>
-              <button type="submit" className="primary-btn" style={{ marginTop: '1rem' }}>Save Expense</button>
+              </div>
+              <div className="modal-actions">
+                <button type="submit" className="primary-btn">Save Expense</button>
+              </div>
             </form>
           </div>
         </div>
@@ -308,65 +312,58 @@ const Expenses = () => {
 
       {showBudgetModal && (
         <div className="modal-overlay">
-          <div className="glass-panel modal-card modal-card-wide">
-            <button onClick={() => setShowBudgetModal(false)} style={{ position: 'absolute', right: '1rem', top: '1rem', background: 'transparent', border: 'none', color: 'var(--text-color)', cursor: 'pointer'}}>
+          <div className="glass-panel modal-card modal-card-wide expense-budget-modal">
+            <button className="expense-modal-close" onClick={() => setShowBudgetModal(false)}>
               <X size={20} />
             </button>
-            <h2 style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <h2 className="expense-budget-title">
               <PieChart className="text-primary"/> Detailed Budget Report
             </h2>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
-              {(() => {
-                const { total, categories, sortedExpenses } = calculateBudget();
-                return (
-                  <>
-                    <div className="glass-panel" style={{ padding: '1rem', borderRadius: '14px' }}>
-                      <div className="td-secondary">Total Spend</div>
-                      <div className="font-medium" style={{ fontSize: '1.3rem', marginTop: '0.4rem' }}>KES {total.toLocaleString()}</div>
-                    </div>
-                    <div className="glass-panel" style={{ padding: '1rem', borderRadius: '14px' }}>
-                      <div className="td-secondary">Tracked Categories</div>
-                      <div className="font-medium" style={{ fontSize: '1.3rem', marginTop: '0.4rem' }}>{Object.keys(categories).length}</div>
-                    </div>
-                    <div className="glass-panel" style={{ padding: '1rem', borderRadius: '14px' }}>
-                      <div className="td-secondary">Largest Expense</div>
-                      <div className="font-medium" style={{ fontSize: '1.3rem', marginTop: '0.4rem' }}>KES {Number(sortedExpenses[0]?.amount || 0).toLocaleString()}</div>
-                    </div>
-                  </>
-                );
-              })()}
+            <div className="expense-budget-summary">
+              <div className="glass-panel expense-budget-stat">
+                <div className="td-secondary">Total Spend</div>
+                <div className="font-medium expense-budget-stat-value">KES {budget.total.toLocaleString()}</div>
+              </div>
+              <div className="glass-panel expense-budget-stat">
+                <div className="td-secondary">Tracked Categories</div>
+                <div className="font-medium expense-budget-stat-value">{Object.keys(budget.categories).length}</div>
+              </div>
+              <div className="glass-panel expense-budget-stat">
+                <div className="td-secondary">Largest Expense</div>
+                <div className="font-medium expense-budget-stat-value">KES {Number(budget.sortedExpenses[0]?.amount || 0).toLocaleString()}</div>
+              </div>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.9fr', gap: '1rem' }}>
-              <div className="glass-panel" style={{ padding: '1rem', borderRadius: '14px' }}>
-                <h3 style={{ marginBottom: '1rem' }}>Category Breakdown</h3>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              {(() => {
-                const { categories, total } = calculateBudget();
-                if (total === 0) return <p>No expenses recorded yet.</p>;
-                return Object.entries(categories).sort((a,b) => b[1]-a[1]).map(([cat, amt]) => {
-                   const pct = ((amt / total) * 100).toFixed(1);
-                   return (
-                     <div key={cat} style={{ width: '100%' }}>
-                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem', fontSize: '0.9rem' }}>
-                          <span style={{ textTransform: 'capitalize' }}>{cat}</span>
-                          <span>KES {amt.toLocaleString()} ({pct}%)</span>
-                       </div>
-                       <div style={{ width: '100%', height: '8px', background: 'var(--border-color)', borderRadius: '4px', overflow: 'hidden' }}>
-                          <div style={{ width: `${pct}%`, height: '100%', background: 'var(--danger)', borderRadius: '4px' }}></div>
-                       </div>
-                     </div>
-                   );
-                });
-              })()}
+            <div className="expense-budget-grid">
+              <div className="glass-panel expense-budget-panel">
+                <h3 className="expense-budget-panel-title">Category Breakdown</h3>
+                <div className="expense-budget-breakdown">
+                  {budget.total === 0 ? (
+                    <p className="expense-budget-empty">No expenses recorded yet.</p>
+                  ) : (
+                    Object.entries(budget.categories).sort((a, b) => b[1] - a[1]).map(([cat, amt]) => {
+                      const pct = ((amt / budget.total) * 100).toFixed(1);
+                      return (
+                        <div key={cat} className="expense-budget-breakdown-row">
+                          <div className="expense-budget-breakdown-meta">
+                            <span className="expense-budget-breakdown-name">{cat}</span>
+                            <span className="expense-budget-breakdown-value">KES {amt.toLocaleString()} ({pct}%)</span>
+                          </div>
+                          <div className="expense-budget-breakdown-track">
+                            <div className="expense-budget-breakdown-fill" style={{ width: `${pct}%` }} />
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
                 </div>
               </div>
-              <div className="glass-panel" style={{ padding: '1rem', borderRadius: '14px' }}>
-                <h3 style={{ marginBottom: '1rem' }}>Monthly Spend Trend</h3>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                  {Object.entries(calculateBudget().monthly).length === 0 ? (
-                    <p>No monthly data yet.</p>
-                  ) : Object.entries(calculateBudget().monthly).map(([month, amount]) => (
-                    <div key={month} style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.6rem' }}>
+              <div className="glass-panel expense-budget-panel">
+                <h3 className="expense-budget-panel-title">Monthly Spend Trend</h3>
+                <div className="expense-budget-monthly">
+                  {Object.entries(budget.monthly).length === 0 ? (
+                    <p className="expense-budget-empty">No monthly data yet.</p>
+                  ) : Object.entries(budget.monthly).map(([month, amount]) => (
+                    <div key={month} className="expense-budget-month-row">
                       <span>{month}</span>
                       <strong>KES {Number(amount).toLocaleString()}</strong>
                     </div>
@@ -374,8 +371,8 @@ const Expenses = () => {
                 </div>
               </div>
             </div>
-            <div className="glass-panel" style={{ padding: '1rem', borderRadius: '14px', marginTop: '1rem' }}>
-              <h3 style={{ marginBottom: '1rem' }}>Highest Individual Expenses</h3>
+            <div className="glass-panel expense-budget-panel expense-budget-table-panel">
+              <h3 className="expense-budget-panel-title">Highest Individual Expenses</h3>
               <div className="table-container">
                 <table className="data-table">
                   <thead>
@@ -387,7 +384,7 @@ const Expenses = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {calculateBudget().sortedExpenses.slice(0, 5).map((expense) => (
+                    {budget.sortedExpenses.slice(0, 5).map((expense) => (
                       <tr key={expense._id}>
                         <td className="font-medium">{expense.description}</td>
                         <td style={{ textTransform: 'capitalize' }}>{expense.category}</td>
@@ -395,7 +392,7 @@ const Expenses = () => {
                         <td className="text-right">KES {Number(expense.amount || 0).toLocaleString()}</td>
                       </tr>
                     ))}
-                    {calculateBudget().sortedExpenses.length === 0 && (
+                    {budget.sortedExpenses.length === 0 && (
                       <tr>
                         <td colSpan="4" className="empty-state">No expenses recorded yet.</td>
                       </tr>

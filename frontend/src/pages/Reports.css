@@ -151,6 +151,8 @@
 
 .report-export-sheet {
   display: none;
+  background: #ffffff;
+  color: #111827;
 }
 
 .report-detail-panel {
@@ -263,6 +265,7 @@
   justify-content: space-between;
   gap: 2rem;
   margin-bottom: 2rem;
+  color: #111827;
 }
 
 .report-branding {
@@ -283,10 +286,16 @@
 .report-export-header h1 {
   font-size: 1.8rem;
   margin-bottom: 0.4rem;
+  color: #111827;
+  font-weight: 800;
+  line-height: 1.15;
 }
 
 .report-export-header p {
-  color: var(--text-muted);
+  color: #374151;
+  font-size: 1.02rem;
+  line-height: 1.45;
+  max-width: 680px;
 }
 
 .report-export-meta {
@@ -294,7 +303,12 @@
   flex-direction: column;
   gap: 0.4rem;
   font-size: 0.95rem;
-  color: var(--text-secondary);
+  color: #1f2937;
+  line-height: 1.45;
+}
+
+.report-export-meta strong {
+  color: #111827;
 }
 
 .report-export-summary {
@@ -305,21 +319,22 @@
 }
 
 .report-export-card {
-  border: 1px solid var(--border-color);
+  border: 1px solid #d1d5db;
   border-radius: 12px;
   padding: 1rem;
-  background: rgba(255, 255, 255, 0.03);
+  background: #f8fafc;
 }
 
 .report-export-card span {
   display: block;
   margin-bottom: 0.35rem;
-  color: var(--text-muted);
+  color: #4b5563;
   font-size: 0.85rem;
 }
 
 .report-export-card strong {
   font-size: 1.1rem;
+  color: #111827;
 }
 
 .report-export-table {
@@ -331,26 +346,28 @@
 .report-export-table th,
 .report-export-table td {
   padding: 0.9rem 0.75rem;
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid #d1d5db;
+  color: #111827;
 }
 
 .report-export-table th {
   text-align: left;
-  color: var(--text-muted);
+  color: #374151;
   font-size: 0.85rem;
   text-transform: uppercase;
+  background: #f8fafc;
 }
 
 .report-export-total td {
   font-weight: 700;
-  border-top: 2px solid var(--primary);
+  border-top: 2px solid #111827;
 }
 
 .report-export-footer {
   display: flex;
   justify-content: space-between;
   font-weight: 600;
-  color: var(--text-secondary);
+  color: #111827;
 }
 
 @media print {
@@ -368,6 +385,9 @@
   }
   .report-export-sheet {
     display: block !important;
+    padding: 2.25rem 2.5rem !important;
+    background: white !important;
+    color: #111827 !important;
   }
   .reports-wrapper {
     padding: 0 !important;
@@ -386,7 +406,26 @@
   .report-export-header p,
   .report-export-meta,
   .report-export-card span {
-    color: #444 !important;
+    color: #374151 !important;
+  }
+  .report-export-header h1,
+  .report-export-card strong,
+  .report-export-table td,
+  .report-export-footer,
+  .report-export-meta strong {
+    color: #111827 !important;
+  }
+  .report-export-table th {
+    color: #374151 !important;
+    background: #f8fafc !important;
+  }
+  .report-export-card {
+    background: #f8fafc !important;
+    border-color: #d1d5db !important;
+  }
+  .report-export-table th,
+  .report-export-table td {
+    border-bottom-color: #d1d5db !important;
   }
   .page-container {
     padding: 0 !important;

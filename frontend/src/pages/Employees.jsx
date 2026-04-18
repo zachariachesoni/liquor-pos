@@ -178,33 +178,32 @@ const Employees = () => {
       {showModal && (
         <div className="modal-overlay">
           <div className="glass-panel modal-card">
-            <button onClick={() => setShowModal(false)} style={{ position: 'absolute', right: '1rem', top: '1rem', background: 'transparent', border: 'none', color: 'var(--text-color)', cursor: 'pointer'}}>
+            <button className="modal-close-btn" onClick={() => setShowModal(false)}>
               <X size={20} />
             </button>
-            <h2 style={{ marginBottom: '1.5rem' }}>Invite New Employee</h2>
-            <form onSubmit={handleCreateEmployee} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <div style={{ display: 'flex', gap: '1rem' }}>
-                <div style={{ flex: 1 }}>
+            <h2 className="modal-title">Invite New Employee</h2>
+            <form onSubmit={handleCreateEmployee} className="modal-form">
+              <div className="modal-form-grid">
+                <div className="modal-form-field">
                   <label>Username</label>
-                  <input required type="text" value={formData.username} onChange={e => setFormData({...formData, username: e.target.value})} style={{ width: '100%', padding: '0.5rem', background: 'var(--input-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '4px' }}/>
+                  <input required type="text" value={formData.username} onChange={e => setFormData({...formData, username: e.target.value})} />
                 </div>
-                <div style={{ flex: 1 }}>
+                <div className="modal-form-field">
                   <label>Email Address</label>
-                  <input required type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} style={{ width: '100%', padding: '0.5rem', background: 'var(--input-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '4px' }}/>
+                  <input required type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
                 </div>
-              </div>
-
-              <div style={{ display: 'flex', gap: '1rem' }}>
-                <div style={{ flex: 1 }}>
+                <div className="modal-form-field modal-form-field-full">
                   <label>Role</label>
-                  <select value={formData.role} onChange={e => setFormData({...formData, role: e.target.value})} style={{ width: '100%', padding: '0.5rem', background: 'var(--input-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '4px' }}>
+                  <select value={formData.role} onChange={e => setFormData({...formData, role: e.target.value})}>
                      <option value="manager">Manager</option>
                      <option value="cashier">Cashier</option>
                   </select>
                 </div>
               </div>
-              <p className="td-secondary">A secure temporary password will be generated automatically when the account is created.</p>
-              <button type="submit" className="primary-btn" style={{ marginTop: '1rem' }}><Send size={18} /> Provision & Dispatch Invite</button>
+              <p className="modal-note">A secure temporary password will be generated automatically when the account is created.</p>
+              <div className="modal-actions">
+                <button type="submit" className="primary-btn"><Send size={18} /> Provision & Dispatch Invite</button>
+              </div>
             </form>
           </div>
         </div>

@@ -592,21 +592,20 @@
   inset: 0;
   z-index: 1000;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: center;
-  padding: clamp(4rem, 8vh, 6rem) 1.5rem 1.5rem;
+  padding: clamp(1.5rem, 4vh, 3rem) 1.25rem;
   background: rgba(0, 0, 0, 0.55);
   overflow-y: auto;
 }
 
 .modal-card {
-  width: min(540px, 100%);
-  max-height: min(90vh, 760px);
+  width: min(540px, calc(100vw - 2.5rem));
   padding: 2rem;
   position: relative;
   background: var(--bg-secondary);
   border-radius: var(--radius-lg);
-  overflow-y: auto;
+  overflow: visible;
 }
 
 .text-primary {
