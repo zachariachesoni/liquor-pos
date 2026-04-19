@@ -1,8 +1,9 @@
 .reports-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
   gap: 1.5rem;
   margin-bottom: 2rem;
+  min-width: 0;
 }
 
 .report-toolbar-wrap {
@@ -110,6 +111,7 @@
   display: flex;
   align-items: center;
   gap: 1rem;
+  min-width: 0;
 }
 
 .report-stat-icon {
@@ -258,6 +260,7 @@
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+  min-width: 0;
 }
 
 .detail-header {
@@ -282,12 +285,14 @@
   display: flex;
   flex-direction: column;
   gap: 1rem;
+  min-width: 0;
 }
 
 .supplier-report-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.95fr);
   gap: 1.5rem;
+  min-width: 0;
 }
 
 .report-record-card {
@@ -298,6 +303,7 @@
     linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.015)),
     rgba(15, 23, 42, 0.22);
   box-shadow: 0 18px 32px rgba(15, 23, 42, 0.1);
+  min-width: 0;
 }
 
 .report-record-top,
@@ -325,6 +331,7 @@
 .report-table {
   width: 100%;
   border-collapse: collapse;
+  min-width: 640px;
 }
 
 .report-table th,
@@ -587,6 +594,11 @@
 }
 
 @media (max-width: 768px) {
+  .reports-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
   .report-actions,
   .report-filter-row,
   .detail-header,
@@ -615,7 +627,9 @@
   }
 
   .reports-grid .stat-card {
-    align-items: flex-start;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
   }
 
   .report-filter-row label {

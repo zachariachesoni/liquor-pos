@@ -15,6 +15,11 @@
   align-items: start;
 }
 
+.suppliers-grid > *,
+.supplier-detail-grid > * {
+  min-width: 0;
+}
+
 .supplier-receiving-panel,
 .supplier-side-panel,
 .supplier-detail-modal {
@@ -176,6 +181,7 @@
 .supplier-detail-modal .modal-detail-panel,
 .supplier-detail-modal .main-panel {
   padding: 1.2rem;
+  min-width: 0;
 }
 
 @media (max-width: 1024px) {
@@ -191,6 +197,10 @@
 }
 
 @media (max-width: 768px) {
+  .supplier-detail-modal {
+    padding: 1rem;
+  }
+
   .supplier-receiving-actions {
     align-items: stretch;
   }
