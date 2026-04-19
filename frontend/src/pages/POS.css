@@ -752,6 +752,12 @@
   align-items: flex-start;
   gap: 1rem;
   flex-wrap: wrap;
+  padding-right: 3.25rem;
+}
+
+.receipt-header > :first-child {
+  min-width: 0;
+  flex: 1 1 320px;
 }
 
 .receipt-header .modal-title {

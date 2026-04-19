@@ -427,6 +427,7 @@
   align-items: flex-start;
   gap: 1rem;
   flex-wrap: wrap;
+  padding-right: 3.25rem;
 }
 
 .modal-detail-intro {
