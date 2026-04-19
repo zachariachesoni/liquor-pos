@@ -114,7 +114,7 @@ const ReportStatCard = ({ icon: Icon, tone, title, value, note, valueClassName =
     <div className="report-stat-copy">
       <h3>{title}</h3>
       <p className={`stat-number ${valueClassName}`.trim()}>{value}</p>
-      {note ? <span className="text-secondary text-xs">{note}</span> : null}
+      {note ? <span className="report-stat-note">{note}</span> : null}
     </div>
   </div>
 );
@@ -1013,7 +1013,8 @@ const Reports = () => {
     );
   };
 
-  const exportTitle = `${settings.business_name} ${reportLabels[reportType] || 'Report'}`;
+  const exportLabel = reportLabels[reportType] || 'Report';
+  const exportTitle = exportLabel;
 
   return (
     <div className="page-container animate-fade-in reports-wrapper">
@@ -1120,7 +1121,15 @@ const Reports = () => {
       <section className="report-export-sheet">
         <div className="report-export-header">
           <div className="report-branding">
+            {settings.business_logo_url ? (
+              <img src={settings.business_logo_url} alt={settings.business_name} />
+            ) : (
+              <div className="report-brand-fallback">
+                {(settings.business_name || 'B').trim().charAt(0).toUpperCase() || 'B'}
+              </div>
+            )}
             <div>
+              <span className="report-kicker">{settings.business_name}</span>
               <h1>{exportTitle}</h1>
               <p>Generated from live system data for the selected reporting period.</p>
             </div>

@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Package, Plus, Search, Edit2, Trash2, SlidersHorizontal, ArrowLeftRight, AlertTriangle, X } from 'lucide-react';
+import { Package, Plus, Search, Edit2, Trash2, SlidersHorizontal, ArrowLeftRight, X } from 'lucide-react';
 import api from '../utils/api';
-import { useSystemSettings } from '../hooks/useSystemSettings';
 import './Products.css';
 import './Reports.css';
 
@@ -36,8 +35,6 @@ const Products = () => {
   const [showComparisonModal, setShowComparisonModal] = useState(false);
   const [comparisonData, setComparisonData] = useState(null);
   const [comparisonLoading, setComparisonLoading] = useState(false);
-  const { settings } = useSystemSettings();
-
   // Form State
   const [formData, setFormData] = useState({ ...initialFormData });
 
@@ -91,13 +88,6 @@ const Products = () => {
     const margin = ((revenue - cost) / revenue) * 100;
     return margin.toFixed(1);
   };
-
-  const getMarginValue = (revenue, cost) => {
-    if (!revenue) return 0;
-    return ((revenue - cost) / revenue) * 100;
-  };
-
-  const marginThreshold = Number(settings.minimum_margin_threshold || 15);
 
   const handleOpenComparison = async (product) => {
     try {
@@ -334,22 +324,12 @@ const Products = () => {
                       <div className="text-success text-xs font-semibold" style={{ fontSize: '0.75rem' }}>
                         {calcMargin(product.price, product.bp)}% Margin
                       </div>
-                      {getMarginValue(product.price, product.bp) < marginThreshold && (
-                        <div className="product-margin-flag">
-                          <AlertTriangle size={12} /> Below {marginThreshold}% threshold
-                        </div>
-                      )}
                     </td>
                     <td>
                       <div className="font-medium text-warning">KES {product.bulk_price?.toLocaleString() || 0}</div>
                       <div className="text-success text-xs font-semibold" style={{ fontSize: '0.75rem' }}>
                         {calcMargin(product.bulk_price, product.bp)}% Margin
                       </div>
-                      {getMarginValue(product.bulk_price, product.bp) < marginThreshold && (
-                        <div className="product-margin-flag">
-                          <AlertTriangle size={12} /> Below {marginThreshold}% threshold
-                        </div>
-                      )}
                     </td>
                     <td>
                       <span className={`status-dot ${product.stock > product.effectiveLowStockLevel ? 'green' : 'red'}`}></span>

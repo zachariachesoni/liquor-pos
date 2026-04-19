@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Download, ReceiptText, ChevronRight, X, Search } from 'lucide-react';
 import api from '../utils/api';
 import { useSystemSettings } from '../hooks/useSystemSettings';
+import { getPrintBaseStyles, getPrintBrandMarkup } from '../utils/printBranding';
 import './Products.css';
 
 const Sales = () => {
@@ -87,54 +88,55 @@ const Sales = () => {
         <head>
           <title>Invoice ${sale.invoice_number}</title>
           <style>
-            body { font-family: Arial, sans-serif; padding: 28px; color: #111; }
-            .header { display:flex; justify-content:space-between; gap:24px; margin-bottom:24px; }
-            .meta { margin: 18px 0; line-height: 1.8; font-size: 14px; }
-            table { width:100%; border-collapse:collapse; margin-top:16px; }
-            th { text-align:left; font-size:12px; text-transform:uppercase; color:#666; padding:10px 8px; border-bottom:2px solid #ccc; }
+            ${getPrintBaseStyles(`
+              body { padding: 28px; color: #111827; }
+              .meta { margin: 18px 0; line-height: 1.8; font-size: 14px; }
+              th { padding:10px 8px; border-bottom:2px solid #ccc; }
+              .totals { margin-top:20px; margin-left:auto; width:320px; }
+            `)}
             .totals { margin-top:20px; margin-left:auto; width:320px; }
             .totals div { display:flex; justify-content:space-between; padding:6px 0; }
             .total-line { border-top:2px solid #222; margin-top:8px; padding-top:10px !important; font-weight:700; }
           </style>
         </head>
         <body>
-          <div class="header">
-            <div>
-              <div>
-                <h1 style="margin:0 0 8px 0;">${settings.business_name} Invoice</h1>
-                <div>${sale.invoice_number}</div>
-              </div>
+          <div class="print-page">
+            ${getPrintBrandMarkup({
+              businessName: settings.business_name,
+              businessLogoUrl: settings.business_logo_url,
+              documentTitle: 'Sales Invoice',
+              subtitle: sale.invoice_number,
+              metaRows: [
+                `<strong>Date:</strong> ${new Date(sale.createdAt).toLocaleString()}`,
+                `<strong>Sales Person:</strong> ${sale.user_id?.username || 'Unknown'}`,
+                `<strong>Payment:</strong> ${sale.payment_method}`,
+                `<strong>Type:</strong> ${sale.sale_type}`
+              ]
+            })}
+            <div class="meta">
+              <div><strong>Customer:</strong> ${sale.customer_id?.name || 'Walk-in Customer'}</div>
+              <div><strong>Phone:</strong> ${sale.customer_id?.phone || 'N/A'}</div>
+              <div><strong>Email:</strong> ${sale.customer_id?.email || 'N/A'}</div>
             </div>
-            <div style="text-align:right;">
-              <div><strong>Date:</strong> ${new Date(sale.createdAt).toLocaleString()}</div>
-              <div><strong>Sales Person:</strong> ${sale.user_id?.username || 'Unknown'}</div>
-              <div><strong>Payment:</strong> ${sale.payment_method}</div>
-              <div><strong>Type:</strong> ${sale.sale_type}</div>
+            <table>
+              <thead>
+                <tr>
+                  <th>Product</th>
+                  <th>Category</th>
+                  <th style="text-align:center;">Qty</th>
+                  <th style="text-align:right;">Sell Price</th>
+                  <th style="text-align:right;">Line Total</th>
+                </tr>
+              </thead>
+              <tbody>${rows}</tbody>
+            </table>
+            <div class="totals">
+              <div><span>Subtotal</span><strong>KES ${(sale.subtotal || sale.total_amount || 0).toLocaleString()}</strong></div>
+              <div><span>Total</span><strong>KES ${(sale.total_amount || 0).toLocaleString()}</strong></div>
+              <div class="total-line"><span>Recorded By</span><strong>${sale.user_id?.username || 'Unknown'}</strong></div>
             </div>
+            <p class="print-footer">${settings.receipt_footer || ''}</p>
           </div>
-          <div class="meta">
-            <div><strong>Customer:</strong> ${sale.customer_id?.name || 'Walk-in Customer'}</div>
-            <div><strong>Phone:</strong> ${sale.customer_id?.phone || 'N/A'}</div>
-            <div><strong>Email:</strong> ${sale.customer_id?.email || 'N/A'}</div>
-          </div>
-          <table>
-            <thead>
-              <tr>
-                <th>Product</th>
-                <th>Category</th>
-                <th style="text-align:center;">Qty</th>
-                <th style="text-align:right;">Sell Price</th>
-                <th style="text-align:right;">Line Total</th>
-              </tr>
-            </thead>
-            <tbody>${rows}</tbody>
-          </table>
-          <div class="totals">
-            <div><span>Subtotal</span><strong>KES ${(sale.subtotal || sale.total_amount || 0).toLocaleString()}</strong></div>
-            <div><span>Total</span><strong>KES ${(sale.total_amount || 0).toLocaleString()}</strong></div>
-            <div class="total-line"><span>Recorded By</span><strong>${sale.user_id?.username || 'Unknown'}</strong></div>
-          </div>
-          <p style="margin-top:20px;color:#666;font-size:12px;">${settings.receipt_footer || ''}</p>
         </body>
       </html>
     `);

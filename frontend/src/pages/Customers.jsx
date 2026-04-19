@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { UserPlus, Search, Phone, Mail, History, X, Download, BadgePercent } from 'lucide-react';
 import api from '../utils/api';
 import { useSystemSettings } from '../hooks/useSystemSettings';
+import { getPrintBaseStyles, getPrintBrandMarkup } from '../utils/printBranding';
 import './Products.css';
 import './Customers.css';
 
@@ -138,26 +139,31 @@ const Customers = () => {
         <head>
           <title>${historyCustomer.name} Report</title>
           <style>
-            body { font-family: Arial, sans-serif; padding: 28px; color: #111827; }
-            .header { display:flex; justify-content:space-between; gap:20px; flex-wrap:wrap; margin-bottom:28px; }
+            ${getPrintBaseStyles(`
+              body { padding: 28px; color: #111827; }
+              .customer-meta { line-height:1.7; color:#374151; }
+              .sales-count { margin-bottom:18px; font-weight:600; }
+            `)}
             .customer-meta { line-height:1.7; color:#374151; }
           </style>
         </head>
         <body>
-          <div class="header">
-            <div>
-              <h1 style="margin:0 0 8px 0;">${settings.business_name} Customer Report</h1>
-              <div>${historyCustomer.name}</div>
-            </div>
-            <div class="customer-meta">
-              <div><strong>Phone:</strong> ${historyCustomer.phone || 'N/A'}</div>
-              <div><strong>Email:</strong> ${historyCustomer.email || 'N/A'}</div>
-              <div><strong>Type:</strong> ${historyCustomer.customer_type || 'retail'}</div>
-            </div>
+          <div class="print-page">
+            ${getPrintBrandMarkup({
+              businessName: settings.business_name,
+              businessLogoUrl: settings.business_logo_url,
+              documentTitle: 'Customer Report',
+              subtitle: historyCustomer.name,
+              metaRows: [
+                `<strong>Phone:</strong> ${historyCustomer.phone || 'N/A'}`,
+                `<strong>Email:</strong> ${historyCustomer.email || 'N/A'}`,
+                `<strong>Type:</strong> ${historyCustomer.customer_type || 'retail'}`
+              ]
+            })}
+            <div class="sales-count">Extracted invoices: ${filteredHistory.length}</div>
+            ${saleBlocks || '<p>No purchase history matched the current search.</p>'}
+            <p class="print-footer">${settings.receipt_footer || ''}</p>
           </div>
-          <div style="margin-bottom:18px;font-weight:600;">Extracted invoices: ${filteredHistory.length}</div>
-          ${saleBlocks || '<p>No purchase history matched the current search.</p>'}
-          <p style="margin-top:24px;color:#6b7280;font-size:12px;">${settings.receipt_footer || ''}</p>
         </body>
       </html>
     `);

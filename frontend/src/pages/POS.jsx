@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Search, ShoppingCart, Minus, Plus, Trash2, CreditCard, Banknote, UserPlus, Printer, X } from 'lucide-react';
 import api from '../utils/api';
 import { useSystemSettings } from '../hooks/useSystemSettings';
+import { getPrintBaseStyles, getPrintBrandMarkup } from '../utils/printBranding';
 import './POS.css';
 
 const POS = () => {
@@ -182,44 +183,54 @@ const POS = () => {
         <head>
           <title>Receipt ${receipt.invoiceNumber}</title>
           <style>
-            body { font-family: Arial, sans-serif; padding: 24px; color: #111; }
-            h1, h2, p { margin: 0; }
-            .header { text-align: center; margin-bottom: 20px; }
-            .meta { margin: 16px 0; font-size: 14px; line-height: 1.6; }
-            table { width: 100%; border-collapse: collapse; margin-top: 12px; }
-            thead th { text-align: left; font-size: 12px; border-bottom: 1px solid #ccc; padding-bottom: 8px; }
-            .totals { margin-top: 16px; border-top: 1px solid #ccc; padding-top: 12px; font-size: 14px; }
+            ${getPrintBaseStyles(`
+              body { padding: 24px; color: #111827; }
+              .print-page { max-width: 420px; }
+              .print-title { font-size: 24px; }
+              .print-subtitle { font-size: 13px; }
+              .meta { margin: 16px 0; font-size: 14px; line-height: 1.6; }
+              table { margin-top: 12px; }
+              thead th { text-align: left; border-bottom: 1px solid #d1d5db; padding-bottom: 8px; }
+              .totals { margin-top: 16px; border-top: 1px solid #d1d5db; padding-top: 12px; font-size: 14px; }
+            `)}
             .totals div { display: flex; justify-content: space-between; margin-bottom: 6px; }
           </style>
         </head>
         <body>
-          <div class="header">
-            <h1>${receipt.businessName} Receipt</h1>
-            <p>${receipt.invoiceNumber}</p>
+          <div class="print-page">
+            ${getPrintBrandMarkup({
+              businessName: receipt.businessName,
+              businessLogoUrl: receipt.businessLogoUrl,
+              documentTitle: 'Sales Receipt',
+              subtitle: receipt.invoiceNumber,
+              metaRows: [
+                `<strong>Date:</strong> ${receipt.createdAt}`,
+                `<strong>Customer:</strong> ${receipt.customerName}`,
+                `<strong>Payment:</strong> ${receipt.paymentMethod}`,
+                `<strong>Price List:</strong> ${receipt.saleType}`
+              ]
+            })}
+            <div class="meta">
+              <div><strong>Invoice:</strong> ${receipt.invoiceNumber}</div>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th>Item</th>
+                  <th style="text-align:center;">Qty</th>
+                  <th style="text-align:right;">Price</th>
+                  <th style="text-align:right;">Total</th>
+                </tr>
+              </thead>
+              <tbody>${rows}</tbody>
+            </table>
+            <div class="totals">
+              <div><span>Subtotal</span><strong>KES ${receipt.subtotal.toLocaleString()}</strong></div>
+              <div><span>Amount Paid</span><strong>KES ${receipt.amountPaid.toLocaleString()}</strong></div>
+              <div><span>Change</span><strong>KES ${receipt.changeDue.toLocaleString()}</strong></div>
+            </div>
+            <p class="print-footer">${receipt.receiptFooter || ''}</p>
           </div>
-          <div class="meta">
-            <div><strong>Date:</strong> ${receipt.createdAt}</div>
-            <div><strong>Customer:</strong> ${receipt.customerName}</div>
-            <div><strong>Payment:</strong> ${receipt.paymentMethod}</div>
-            <div><strong>Price List:</strong> ${receipt.saleType}</div>
-          </div>
-          <table>
-            <thead>
-              <tr>
-                <th>Item</th>
-                <th style="text-align:center;">Qty</th>
-                <th style="text-align:right;">Price</th>
-                <th style="text-align:right;">Total</th>
-              </tr>
-            </thead>
-            <tbody>${rows}</tbody>
-          </table>
-          <div class="totals">
-            <div><span>Subtotal</span><strong>KES ${receipt.subtotal.toLocaleString()}</strong></div>
-            <div><span>Amount Paid</span><strong>KES ${receipt.amountPaid.toLocaleString()}</strong></div>
-            <div><span>Change</span><strong>KES ${receipt.changeDue.toLocaleString()}</strong></div>
-          </div>
-          <p style="margin-top:16px;text-align:center;color:#666;font-size:12px;">${receipt.receiptFooter || ''}</p>
         </body>
       </html>
     `);
@@ -271,6 +282,7 @@ const POS = () => {
 
       setReceiptData({
         businessName: resolvedSettings.business_name || 'Business',
+        businessLogoUrl: resolvedSettings.business_logo_url || '',
         receiptFooter: resolvedSettings.receipt_footer || '',
         invoiceNumber: sale.invoice_number,
         createdAt: new Date(sale.createdAt || Date.now()).toLocaleString(),

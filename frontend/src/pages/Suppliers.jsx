@@ -18,6 +18,8 @@ import {
   X
 } from 'lucide-react';
 import api from '../utils/api';
+import { useSystemSettings } from '../hooks/useSystemSettings';
+import { getPrintBaseStyles, getPrintBrandMarkup } from '../utils/printBranding';
 import './Products.css';
 import './Reports.css';
 import './Suppliers.css';
@@ -86,12 +88,13 @@ const ReportStatCard = ({ icon: Icon, tone, title, value, note }) => (
     <div className="report-stat-copy">
       <h3>{title}</h3>
       <p className="stat-number">{value}</p>
-      {note ? <span className="text-secondary text-xs">{note}</span> : null}
+      {note ? <span className="report-stat-note">{note}</span> : null}
     </div>
   </div>
 );
 
 const Suppliers = () => {
+  const { settings } = useSystemSettings();
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('directory');
   const [suppliers, setSuppliers] = useState([]);
@@ -461,44 +464,53 @@ const Suppliers = () => {
         <head>
           <title>GRN ${purchaseOrder.po_number}</title>
           <style>
-            body { font-family: Arial, sans-serif; padding: 32px; color: #0f172a; }
-            .header { display:flex; justify-content:space-between; gap:24px; flex-wrap:wrap; margin-bottom:24px; }
+            ${getPrintBaseStyles(`
+              body { padding: 32px; color: #0f172a; }
+              .print-title { font-size: 30px; }
+              .panel { border:1px solid #e2e8f0; border-radius:16px; padding:16px; background:#f8fafc; }
+              table { margin-top:16px; }
+              th { padding:10px; background:#f8fafc; border-bottom:2px solid #cbd5e1; }
+            `)}
             .panel { border:1px solid #e2e8f0; border-radius:16px; padding:16px; }
-            table { width:100%; border-collapse:collapse; margin-top:16px; }
-            th { text-align:left; padding:10px; background:#f8fafc; border-bottom:2px solid #cbd5e1; text-transform:uppercase; font-size:12px; letter-spacing:0.05em; }
             .summary { margin-top:20px; text-align:right; font-weight:700; }
           </style>
         </head>
         <body>
-          <div class="header">
-            <div>
-              <h1 style="margin:0 0 8px;">Goods Received Note</h1>
-              <div><strong>PO / GRN:</strong> ${purchaseOrder.po_number}</div>
-              <div><strong>Supplier:</strong> ${purchaseOrder.supplier?.name || 'Unknown supplier'}</div>
-              <div><strong>Ordered:</strong> ${purchaseOrder.ordered_at ? new Date(purchaseOrder.ordered_at).toLocaleDateString() : 'N/A'}</div>
-              <div><strong>Received:</strong> ${purchaseOrder.received_at ? new Date(purchaseOrder.received_at).toLocaleDateString() : 'Pending'}</div>
-            </div>
+          <div class="print-page">
+            ${getPrintBrandMarkup({
+              businessName: settings.business_name,
+              businessLogoUrl: settings.business_logo_url,
+              documentTitle: 'Goods Received Note',
+              subtitle: 'Received supplier stock and liability summary',
+              metaRows: [
+                `<strong>PO / GRN:</strong> ${purchaseOrder.po_number}`,
+                `<strong>Supplier:</strong> ${purchaseOrder.supplier?.name || 'Unknown supplier'}`,
+                `<strong>Ordered:</strong> ${purchaseOrder.ordered_at ? new Date(purchaseOrder.ordered_at).toLocaleDateString() : 'N/A'}`,
+                `<strong>Received:</strong> ${purchaseOrder.received_at ? new Date(purchaseOrder.received_at).toLocaleDateString() : 'Pending'}`
+              ]
+            })}
             <div class="panel">
               <div><strong>Status:</strong> ${purchaseOrder.status}</div>
               <div><strong>Payment:</strong> ${purchaseOrder.payment_status}</div>
               <div><strong>Invoice Ref:</strong> ${purchaseOrder.invoice_reference || 'N/A'}</div>
               <div><strong>Total:</strong> KES ${Number(purchaseOrder.total_amount || 0).toLocaleString()}</div>
             </div>
+            <table>
+              <thead>
+                <tr>
+                  <th>Item</th>
+                  <th>Qty Ordered</th>
+                  <th>Qty Received</th>
+                  <th>Unit Cost</th>
+                  <th>Line Total</th>
+                </tr>
+              </thead>
+              <tbody>${rows}</tbody>
+            </table>
+            <div class="summary">Outstanding Balance: KES ${Number(purchaseOrder.balance_outstanding || 0).toLocaleString()}</div>
+            <p style="margin-top:24px;color:#64748b;">${purchaseOrder.notes || ''}</p>
+            <p class="print-footer">${settings.receipt_footer || ''}</p>
           </div>
-          <table>
-            <thead>
-              <tr>
-                <th>Item</th>
-                <th>Qty Ordered</th>
-                <th>Qty Received</th>
-                <th>Unit Cost</th>
-                <th>Line Total</th>
-              </tr>
-            </thead>
-            <tbody>${rows}</tbody>
-          </table>
-          <div class="summary">Outstanding Balance: KES ${Number(purchaseOrder.balance_outstanding || 0).toLocaleString()}</div>
-          <p style="margin-top:24px;color:#64748b;">${purchaseOrder.notes || ''}</p>
         </body>
       </html>
     `);
@@ -984,20 +996,33 @@ const Suppliers = () => {
             </div>
             <div className="report-card-list">
               {recentGrns.map((purchaseOrder) => (
-                <div key={purchaseOrder._id} className="report-record-card">
-                  <div className="report-record-top">
+                <div key={purchaseOrder._id} className="report-record-card supplier-history-card">
+                  <div className="report-record-top supplier-history-header">
                     <div>
                       <strong>{purchaseOrder.po_number}</strong>
                       <div className="td-secondary">{purchaseOrder.supplier?.name || 'Unknown supplier'}</div>
                     </div>
-                    <span className="badge text-capitalize">{purchaseOrder.status}</span>
+                    <div className="supplier-history-status">
+                      <span className="badge text-capitalize">{purchaseOrder.status}</span>
+                    </div>
                   </div>
-                  <div className="suppliers-record-meta">
-                    <span>Received {purchaseOrder.received_at ? new Date(purchaseOrder.received_at).toLocaleDateString() : 'Pending'}</span>
-                    <span>{formatCurrency(purchaseOrder.total_amount)}</span>
+                  <div className="supplier-history-metrics">
+                    <div className="supplier-history-metric">
+                      <span className="supplier-history-label">Received</span>
+                      <strong className="supplier-history-value">
+                        {purchaseOrder.received_at ? new Date(purchaseOrder.received_at).toLocaleDateString() : 'Pending'}
+                      </strong>
+                    </div>
+                    <div className="supplier-history-metric">
+                      <span className="supplier-history-label">Line Total</span>
+                      <strong className="supplier-history-value">{formatCurrency(purchaseOrder.total_amount)}</strong>
+                    </div>
+                    <div className="supplier-history-metric">
+                      <span className="supplier-history-label">Balance</span>
+                      <strong className="supplier-history-value">{formatCurrency(purchaseOrder.balance_outstanding)}</strong>
+                    </div>
                   </div>
                   <div className="report-record-footer">
-                    <span className="td-secondary">Balance {formatCurrency(purchaseOrder.balance_outstanding)}</span>
                     <button className="icon-btn" onClick={() => printGrn(purchaseOrder)}>
                       <Printer size={16} /> Print
                     </button>
@@ -1317,17 +1342,31 @@ const Suppliers = () => {
                     </div>
                     <div className="report-card-list">
                       {(selectedSupplierDetail.purchase_orders || []).slice(0, 6).map((purchaseOrder) => (
-                        <div key={purchaseOrder._id} className="report-record-card">
-                          <div className="report-record-top">
+                        <div key={purchaseOrder._id} className="report-record-card supplier-history-card">
+                          <div className="report-record-top supplier-history-header">
                             <div>
                               <strong>{purchaseOrder.po_number}</strong>
                               <div className="td-secondary">{new Date(purchaseOrder.ordered_at || purchaseOrder.createdAt).toLocaleDateString()}</div>
                             </div>
-                            <span className="badge text-capitalize">{purchaseOrder.status}</span>
+                            <div className="supplier-history-status">
+                              <span className="badge text-capitalize">{purchaseOrder.status}</span>
+                            </div>
                           </div>
-                          <div className="suppliers-record-meta">
-                            <span>Total {formatCurrency(purchaseOrder.total_amount)}</span>
-                            <span>Balance {formatCurrency(purchaseOrder.balance_outstanding)}</span>
+                          <div className="supplier-history-metrics">
+                            <div className="supplier-history-metric">
+                              <span className="supplier-history-label">Ordered</span>
+                              <strong className="supplier-history-value">
+                                {new Date(purchaseOrder.ordered_at || purchaseOrder.createdAt).toLocaleDateString()}
+                              </strong>
+                            </div>
+                            <div className="supplier-history-metric">
+                              <span className="supplier-history-label">Line Total</span>
+                              <strong className="supplier-history-value">{formatCurrency(purchaseOrder.total_amount)}</strong>
+                            </div>
+                            <div className="supplier-history-metric">
+                              <span className="supplier-history-label">Balance</span>
+                              <strong className="supplier-history-value">{formatCurrency(purchaseOrder.balance_outstanding)}</strong>
+                            </div>
                           </div>
                         </div>
                       ))}

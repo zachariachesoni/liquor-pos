@@ -224,3 +224,26 @@
     z-index: 35;
   }
 }
+
+@media print {
+  .layout-container {
+    display: block;
+    background: #ffffff !important;
+  }
+
+  .sidebar,
+  .mobile-header,
+  .sidebar-overlay {
+    display: none !important;
+  }
+
+  .main-content {
+    margin-left: 0 !important;
+    display: block;
+  }
+
+  .page-content {
+    max-width: none !important;
+    padding: 0 !important;
+  }
+}
