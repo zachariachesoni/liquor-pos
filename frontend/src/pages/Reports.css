@@ -257,6 +257,12 @@
   gap: 1rem;
 }
 
+.supplier-report-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.95fr);
+  gap: 1.5rem;
+}
+
 .report-record-card {
   border: 1px solid var(--border-color);
   border-radius: 18px;
@@ -416,6 +422,10 @@
   margin-bottom: 1rem;
 }
 
+.report-export-table + .report-export-table {
+  margin-top: 1.5rem;
+}
+
 .report-export-table th,
 .report-export-table td {
   padding: 0.9rem 0.75rem;
@@ -523,6 +533,11 @@
   .report-record-footer {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .supplier-report-grid {
+    display: grid;
+    grid-template-columns: 1fr;
   }
 
   .report-toolbar-wrap {

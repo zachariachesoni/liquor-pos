@@ -1,12 +1,19 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
+  AlertTriangle,
+  Building2,
+  Clock3,
+  CreditCard,
   Download,
   DollarSign,
   Package,
+  ReceiptText,
   ShoppingCart,
+  Truck,
   TrendingDown,
   TrendingUp,
-  User
+  User,
+  Wallet
 } from 'lucide-react';
 import api from '../utils/api';
 import { useSystemSettings } from '../hooks/useSystemSettings';
@@ -20,6 +27,45 @@ const defaultPnLData = {
   total_expenses: 0,
   net_profit: 0,
   expenses: []
+};
+
+const defaultSupplierStatement = {
+  supplier: null,
+  summary: null,
+  purchase_orders: [],
+  payments: []
+};
+
+const defaultPayableAging = {
+  summary: null,
+  rows: []
+};
+
+const defaultPurchaseHistory = {
+  variants: [],
+  summary: null,
+  rows: []
+};
+
+const defaultMarginReport = {
+  threshold: 15,
+  rows: []
+};
+
+const defaultTopSuppliersReport = {
+  summary: null,
+  rows: []
+};
+
+const reportLabels = {
+  pnl: 'Financial Report',
+  customer: 'Customer Sales Report',
+  product: 'Product Sales Report',
+  supplier: 'Supplier Statement',
+  aging: 'Accounts Payable Aging',
+  purchases: 'Purchase History Report',
+  margin: 'Margin Erosion Report',
+  'top-suppliers': 'Top Suppliers Report'
 };
 
 const getPeriodParams = (period) => {
@@ -79,27 +125,37 @@ const Reports = () => {
   const [loading, setLoading] = useState(true);
   const [customers, setCustomers] = useState([]);
   const [products, setProducts] = useState([]);
+  const [suppliers, setSuppliers] = useState([]);
   const [selectedCustomer, setSelectedCustomer] = useState('');
   const [selectedProduct, setSelectedProduct] = useState('');
   const [selectedVariant, setSelectedVariant] = useState('');
+  const [selectedSupplier, setSelectedSupplier] = useState('');
   const [pnlData, setPnLData] = useState(defaultPnLData);
   const [customerReport, setCustomerReport] = useState({ customer: null, summary: null, sales: [] });
   const [productReport, setProductReport] = useState({ product: null, summary: null, sales: [] });
+  const [supplierStatement, setSupplierStatement] = useState(defaultSupplierStatement);
+  const [payableAging, setPayableAging] = useState(defaultPayableAging);
+  const [purchaseHistory, setPurchaseHistory] = useState(defaultPurchaseHistory);
+  const [marginReport, setMarginReport] = useState(defaultMarginReport);
+  const [topSuppliersReport, setTopSuppliersReport] = useState(defaultTopSuppliersReport);
   const { settings } = useSystemSettings();
 
   useEffect(() => {
     const fetchLookups = async () => {
       try {
-        const [customersRes, productsRes] = await Promise.all([
+        const [customersRes, productsRes, suppliersRes] = await Promise.all([
           api.get('/customers'),
-          api.get('/products')
+          api.get('/products'),
+          api.get('/suppliers')
         ]);
 
         const customerRows = customersRes.data.data || [];
         const productRows = productsRes.data.data || [];
+        const supplierRows = suppliersRes.data.data || [];
 
         setCustomers(customerRows);
         setProducts(productRows);
+        setSuppliers(supplierRows);
 
         if (!selectedCustomer && customerRows.length > 0) {
           setSelectedCustomer(customerRows[0]._id);
@@ -107,6 +163,10 @@ const Reports = () => {
 
         if (!selectedProduct && productRows.length > 0) {
           setSelectedProduct(productRows[0]._id);
+        }
+
+        if (!selectedSupplier && supplierRows.length > 0) {
+          setSelectedSupplier(supplierRows[0]._id);
         }
       } catch (err) {
         console.error('Failed to load report lookups', err);
@@ -124,6 +184,11 @@ const Reports = () => {
   const selectedCustomerRecord = useMemo(
     () => customers.find((customer) => customer._id === selectedCustomer) || null,
     [customers, selectedCustomer]
+  );
+
+  const selectedSupplierRecord = useMemo(
+    () => suppliers.find((supplier) => supplier._id === selectedSupplier) || null,
+    [selectedSupplier, suppliers]
   );
 
   useEffect(() => {
@@ -168,39 +233,96 @@ const Reports = () => {
           return;
         }
 
-        if (!selectedProduct) {
-          setProductReport({ product: null, summary: null, sales: [] });
+        if (reportType === 'product') {
+          if (!selectedProduct) {
+            setProductReport({ product: null, summary: null, sales: [] });
+            return;
+          }
+
+          const res = await api.get('/reports/product-sales', {
+            params: {
+              ...params,
+              product_id: selectedProduct,
+              ...(selectedVariant ? { variant_id: selectedVariant } : {})
+            }
+          });
+          setProductReport(res.data.data || { product: null, summary: null, sales: [] });
           return;
         }
 
-        const res = await api.get('/reports/product-sales', {
-          params: {
-            ...params,
-            product_id: selectedProduct,
-            ...(selectedVariant ? { variant_id: selectedVariant } : {})
+        if (reportType === 'supplier') {
+          if (!selectedSupplier) {
+            setSupplierStatement(defaultSupplierStatement);
+            return;
           }
-        });
-        setProductReport(res.data.data || { product: null, summary: null, sales: [] });
+
+          const res = await api.get('/reports/supplier-statement', {
+            params: {
+              ...params,
+              supplier_id: selectedSupplier
+            }
+          });
+          setSupplierStatement(res.data.data || defaultSupplierStatement);
+          return;
+        }
+
+        if (reportType === 'aging') {
+          const res = await api.get('/reports/accounts-payable-aging', { params });
+          setPayableAging(res.data.data || defaultPayableAging);
+          return;
+        }
+
+        if (reportType === 'purchases') {
+          if (!selectedProduct) {
+            setPurchaseHistory(defaultPurchaseHistory);
+            return;
+          }
+
+          const res = await api.get('/reports/purchase-history', {
+            params: {
+              ...params,
+              product_id: selectedProduct,
+              ...(selectedVariant ? { variant_id: selectedVariant } : {})
+            }
+          });
+          setPurchaseHistory(res.data.data || defaultPurchaseHistory);
+          return;
+        }
+
+        if (reportType === 'margin') {
+          const res = await api.get('/reports/margin-erosion', { params });
+          setMarginReport(res.data.data || defaultMarginReport);
+          return;
+        }
+
+        const res = await api.get('/reports/top-suppliers', { params });
+        setTopSuppliersReport(res.data.data || defaultTopSuppliersReport);
       } catch (err) {
         console.error('Failed to load report', err);
         if (reportType === 'pnl') setPnLData(defaultPnLData);
         if (reportType === 'customer') setCustomerReport({ customer: null, summary: null, sales: [] });
         if (reportType === 'product') setProductReport({ product: null, summary: null, sales: [] });
+        if (reportType === 'supplier') setSupplierStatement(defaultSupplierStatement);
+        if (reportType === 'aging') setPayableAging(defaultPayableAging);
+        if (reportType === 'purchases') setPurchaseHistory(defaultPurchaseHistory);
+        if (reportType === 'margin') setMarginReport(defaultMarginReport);
+        if (reportType === 'top-suppliers') setTopSuppliersReport(defaultTopSuppliersReport);
       } finally {
         setLoading(false);
       }
     };
 
     fetchReport();
-  }, [period, reportType, selectedCustomer, selectedProduct, selectedVariant]);
+  }, [period, reportType, selectedCustomer, selectedProduct, selectedVariant, selectedSupplier]);
 
   const handleExport = () => {
-    const label = reportType === 'pnl' ? 'Financial Report' : reportType === 'customer' ? 'Customer Sales Report' : 'Product Sales Report';
+    const label = reportLabels[reportType] || 'Report';
     document.title = `${settings.business_name} ${label} - ${period}`;
     window.print();
   };
 
   const generatedAt = new Date().toLocaleString();
+  const isProductScopedReport = reportType === 'product' || reportType === 'purchases';
   const pnlGrossMargin = calcMargin(pnlData.gross_profit, pnlData.gross_revenue);
   const pnlNetMargin = calcMargin(pnlData.net_profit, pnlData.gross_revenue);
   const customerMargin = calcMargin(customerReport.summary?.total_profit, customerReport.summary?.total_revenue);
@@ -532,18 +654,373 @@ const Reports = () => {
     );
   };
 
-  const exportTitle = reportType === 'pnl'
-    ? `${settings.business_name} Financial Report`
-    : reportType === 'customer'
-      ? `${settings.business_name} Customer Sales Report`
-      : `${settings.business_name} Product Sales Report`;
+  const renderSupplierStatementView = () => {
+    const summary = supplierStatement.summary || {
+      purchase_volume: 0,
+      payments_total: 0,
+      outstanding_balance: 0,
+      order_count: 0
+    };
+    const supplier = supplierStatement.supplier || selectedSupplierRecord;
+
+    return (
+      <>
+        <div className="reports-grid">
+          <ReportStatCard icon={Truck} tone="tone-primary" title="Purchase Volume" value={formatCurrency(summary.purchase_volume)} />
+          <ReportStatCard icon={CreditCard} tone="tone-success" title="Payments" value={formatCurrency(summary.payments_total)} />
+          <ReportStatCard icon={DollarSign} tone="tone-danger" title="Outstanding" value={formatCurrency(summary.outstanding_balance)} />
+          <ReportStatCard icon={ReceiptText} tone="tone-warning" title="GRNs" value={summary.order_count || 0} />
+        </div>
+
+        <div className="supplier-report-grid">
+          <div className="glass-panel main-panel report-detail-panel">
+            <div className="detail-header">
+              <div>
+                <h2>{supplier?.name || 'Supplier statement'}</h2>
+                <p className="page-subtitle">
+                  {supplier?.contact_name || 'No contact'} {supplier?.phone ? `| ${supplier.phone}` : ''} {supplier?.payment_terms_label ? `| ${supplier.payment_terms_label}` : ''}
+                </p>
+              </div>
+              <div className="report-meta-chip">GRNs: {summary.order_count || 0}</div>
+            </div>
+
+            {supplierStatement.purchase_orders?.length ? (
+              <div className="report-card-list">
+                {supplierStatement.purchase_orders.map((purchaseOrder) => (
+                  <div key={purchaseOrder._id} className="report-record-card">
+                    <div className="report-record-top">
+                      <div>
+                        <strong>{purchaseOrder.po_number}</strong>
+                        <div className="td-secondary">{new Date(purchaseOrder.received_at || purchaseOrder.ordered_at || purchaseOrder.createdAt).toLocaleDateString()}</div>
+                      </div>
+                      <span className="badge text-capitalize">{purchaseOrder.status}</span>
+                    </div>
+                    <table className="report-table">
+                      <thead>
+                        <tr>
+                          <th>Item</th>
+                          <th>Qty Ordered</th>
+                          <th>Qty Received</th>
+                          <th>Unit Cost</th>
+                          <th className="text-right">Line Total</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(purchaseOrder.items || []).map((item) => (
+                          <tr key={item._id}>
+                            <td>
+                              <div className="font-medium">{item.variant?.product?.name || 'Unknown item'}</div>
+                              <div className="td-secondary">{item.variant?.size || ''}</div>
+                            </td>
+                            <td>{item.qty_ordered}</td>
+                            <td>{item.qty_received}</td>
+                            <td>{formatCurrency(item.unit_cost)}</td>
+                            <td className="text-right">{formatCurrency(item.line_total)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    <div className="report-record-footer">
+                      <span className="td-secondary">Invoice Ref: {purchaseOrder.invoice_reference || 'N/A'}</span>
+                      <strong>{formatCurrency(purchaseOrder.total_amount)}</strong>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="empty-state">No GRNs found for this supplier in the selected period.</div>
+            )}
+          </div>
+
+          <div className="glass-panel main-panel report-detail-panel">
+            <div className="detail-header">
+              <div>
+                <h2>Payment Timeline</h2>
+                <p className="page-subtitle">Payments recorded against supplier GRNs in the same period.</p>
+              </div>
+            </div>
+
+            {supplierStatement.payments?.length ? (
+              <div className="table-container">
+                <table className="report-table">
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>GRN</th>
+                      <th>Recorded By</th>
+                      <th className="text-right">Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {supplierStatement.payments.map((payment) => (
+                      <tr key={payment._id}>
+                        <td>{new Date(payment.paid_at || payment.createdAt).toLocaleDateString()}</td>
+                        <td>{payment.po_id?.po_number || 'N/A'}</td>
+                        <td>{payment.recorded_by?.username || 'Unknown'}</td>
+                        <td className="text-right">{formatCurrency(payment.amount)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="empty-state">No payments recorded in the selected period.</div>
+            )}
+          </div>
+        </div>
+      </>
+    );
+  };
+
+  const renderPayableAgingView = () => {
+    const summary = payableAging.summary || {
+      total_owed: 0,
+      current: 0,
+      due_0_7: 0,
+      due_8_14: 0,
+      due_15_30: 0,
+      due_30_plus: 0
+    };
+
+    return (
+      <>
+        <div className="reports-grid">
+          <ReportStatCard icon={DollarSign} tone="tone-danger" title="Total Owed" value={formatCurrency(summary.total_owed)} />
+          <ReportStatCard icon={Clock3} tone="tone-primary" title="Current" value={formatCurrency(summary.current)} />
+          <ReportStatCard icon={TrendingDown} tone="tone-warning" title="8-14 Days" value={formatCurrency(summary.due_8_14)} />
+          <ReportStatCard icon={AlertTriangle} tone="tone-danger" title="30+ Days" value={formatCurrency(summary.due_30_plus)} />
+        </div>
+
+        <div className="glass-panel main-panel report-detail-panel">
+          <div className="detail-header">
+            <div>
+              <h2>Accounts Payable Aging</h2>
+              <p className="page-subtitle">Outstanding GRNs grouped by how far they have moved past supplier payment terms.</p>
+            </div>
+          </div>
+          <div className="table-container">
+            <table className="report-table">
+              <thead>
+                <tr>
+                  <th>GRN</th>
+                  <th>Supplier</th>
+                  <th>Due Date</th>
+                  <th>Bucket</th>
+                  <th className="text-right">Balance</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(payableAging.rows || []).map((row) => (
+                  <tr key={row._id}>
+                    <td>{row.po_number}</td>
+                    <td>{row.supplier?.name || 'Unknown supplier'}</td>
+                    <td>{row.payment_due_date ? new Date(row.payment_due_date).toLocaleDateString() : 'Not set'}</td>
+                    <td>{row.bucket === 'current' ? 'Current' : `${row.days_past_due} days overdue`}</td>
+                    <td className="text-right">{formatCurrency(row.balance_outstanding)}</td>
+                  </tr>
+                ))}
+                {(payableAging.rows || []).length === 0 && (
+                  <tr>
+                    <td colSpan="5" className="empty-state">No outstanding balances found for the selected period.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </>
+    );
+  };
+
+  const renderPurchaseHistoryView = () => {
+    const summary = purchaseHistory.summary || {
+      total_qty_ordered: 0,
+      total_qty_received: 0,
+      total_spend: 0,
+      supplier_count: 0
+    };
+
+    return (
+      <>
+        <div className="reports-grid">
+          <ReportStatCard icon={Package} tone="tone-primary" title="Qty Ordered" value={summary.total_qty_ordered || 0} />
+          <ReportStatCard icon={Truck} tone="tone-success" title="Qty Received" value={summary.total_qty_received || 0} />
+          <ReportStatCard icon={DollarSign} tone="tone-warning" title="Purchase Spend" value={formatCurrency(summary.total_spend)} />
+          <ReportStatCard icon={Building2} tone="tone-danger" title="Suppliers" value={summary.supplier_count || 0} />
+        </div>
+
+        <div className="glass-panel main-panel report-detail-panel">
+          <div className="detail-header">
+            <div>
+              <h2>Purchase History by SKU</h2>
+              <p className="page-subtitle">See supplier, quantity, and cost changes over time for the selected product or variant.</p>
+            </div>
+          </div>
+          <div className="table-container">
+            <table className="report-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Supplier</th>
+                  <th>SKU</th>
+                  <th>Qty Ordered</th>
+                  <th>Qty Received</th>
+                  <th>Unit Cost</th>
+                  <th className="text-right">Line Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(purchaseHistory.rows || []).map((row) => (
+                  <tr key={row._id}>
+                    <td>{new Date(row.received_at || row.ordered_at).toLocaleDateString()}</td>
+                    <td>{row.supplier?.name || 'Unknown supplier'}</td>
+                    <td>
+                      <div className="font-medium">{row.variant?.product?.name || 'Unknown item'}</div>
+                      <div className="td-secondary">{row.variant?.size || ''}</div>
+                    </td>
+                    <td>{row.qty_ordered}</td>
+                    <td>{row.qty_received}</td>
+                    <td>{formatCurrency(row.unit_cost)}</td>
+                    <td className="text-right">{formatCurrency(row.line_total)}</td>
+                  </tr>
+                ))}
+                {(purchaseHistory.rows || []).length === 0 && (
+                  <tr>
+                    <td colSpan="7" className="empty-state">No purchase history found for the selected SKU.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </>
+    );
+  };
+
+  const renderMarginErosionView = () => (
+    <>
+      <div className="reports-grid">
+        <ReportStatCard icon={AlertTriangle} tone="tone-warning" title="Threshold" value={`${marginReport.threshold || 0}%`} />
+        <ReportStatCard icon={Package} tone="tone-primary" title="Affected SKUs" value={marginReport.rows?.length || 0} />
+        <ReportStatCard icon={TrendingDown} tone="tone-danger" title="Lowest Retail Margin" value={`${Number(marginReport.rows?.[0]?.retail_margin_pct || 0).toFixed(1)}%`} />
+        <ReportStatCard icon={DollarSign} tone="tone-success" title="Highest Cost Increase" value={formatCurrency(Math.max(...(marginReport.rows || []).map((row) => Number(row.cost_change || 0)), 0))} />
+      </div>
+
+      <div className="glass-panel main-panel report-detail-panel">
+        <div className="detail-header">
+          <div>
+            <h2>Margin Erosion</h2>
+            <p className="page-subtitle">SKUs where supplier cost has risen or retail/wholesale margin has dropped below the configured threshold.</p>
+          </div>
+        </div>
+        <div className="table-container">
+          <table className="report-table">
+            <thead>
+              <tr>
+                <th>SKU</th>
+                <th>Previous Cost</th>
+                <th>Current Cost</th>
+                <th>Retail Margin</th>
+                <th>Wholesale Margin</th>
+                <th className="text-right">Cost Change</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(marginReport.rows || []).map((row) => (
+                <tr key={row.variant_id}>
+                  <td>
+                    <div className="font-medium">{row.product?.name || 'Unknown item'}</div>
+                    <div className="td-secondary">{row.size} {row.product?.brand ? `| ${row.product.brand}` : ''}</div>
+                  </td>
+                  <td>{formatCurrency(row.previous_cost)}</td>
+                  <td>{formatCurrency(row.current_cost)}</td>
+                  <td className={row.retail_margin_pct < row.threshold ? 'text-danger' : ''}>{Number(row.retail_margin_pct || 0).toFixed(1)}%</td>
+                  <td className={row.wholesale_margin_pct < row.threshold ? 'text-danger' : ''}>{Number(row.wholesale_margin_pct || 0).toFixed(1)}%</td>
+                  <td className="text-right">{formatCurrency(row.cost_change)}</td>
+                </tr>
+              ))}
+              {(marginReport.rows || []).length === 0 && (
+                <tr>
+                  <td colSpan="6" className="empty-state">No margin erosion risks found for the selected period.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </>
+  );
+
+  const renderTopSuppliersView = () => {
+    const summary = topSuppliersReport.summary || {
+      purchase_volume: 0,
+      outstanding_balance: 0,
+      orders_count: 0
+    };
+
+    return (
+      <>
+        <div className="reports-grid">
+          <ReportStatCard icon={Building2} tone="tone-primary" title="Suppliers" value={topSuppliersReport.rows?.length || 0} />
+          <ReportStatCard icon={DollarSign} tone="tone-success" title="Purchase Volume" value={formatCurrency(summary.purchase_volume)} />
+          <ReportStatCard icon={ReceiptText} tone="tone-warning" title="GRNs" value={summary.orders_count || 0} />
+          <ReportStatCard icon={Wallet} tone="tone-danger" title="Outstanding" value={formatCurrency(summary.outstanding_balance)} />
+        </div>
+
+        <div className="glass-panel main-panel report-detail-panel">
+          <div className="detail-header">
+            <div>
+              <h2>Top Suppliers by Purchase Volume</h2>
+              <p className="page-subtitle">Rank suppliers by total received purchase value within the selected period.</p>
+            </div>
+          </div>
+          <div className="table-container">
+            <table className="report-table">
+              <thead>
+                <tr>
+                  <th>Supplier</th>
+                  <th>Payment Terms</th>
+                  <th>Orders</th>
+                  <th>Paid</th>
+                  <th>Outstanding</th>
+                  <th className="text-right">Purchase Volume</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(topSuppliersReport.rows || []).map((row) => (
+                  <tr key={row.supplier_id}>
+                    <td>
+                      <div className="font-medium">{row.supplier_name}</div>
+                      <div className="td-secondary">{row.phone || 'No phone'}</div>
+                    </td>
+                    <td>{row.payment_terms_label}</td>
+                    <td>{row.orders_count}</td>
+                    <td>{formatCurrency(row.amount_paid)}</td>
+                    <td>{formatCurrency(row.outstanding_balance)}</td>
+                    <td className="text-right">{formatCurrency(row.purchase_volume)}</td>
+                  </tr>
+                ))}
+                {(topSuppliersReport.rows || []).length === 0 && (
+                  <tr>
+                    <td colSpan="6" className="empty-state">No supplier purchase activity found for the selected period.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </>
+    );
+  };
+
+  const exportTitle = `${settings.business_name} ${reportLabels[reportType] || 'Report'}`;
 
   return (
     <div className="page-container animate-fade-in reports-wrapper">
       <div className="page-header report-toolbar-wrap">
         <div className="page-header-copy">
           <h1 className="page-title">Reports</h1>
-          <p className="page-subtitle">Review financial performance and generate individual sales reports.</p>
+          <p className="page-subtitle">Track sales, supplier liabilities, purchase costs, and margin health from one reporting workspace.</p>
         </div>
         <div className="page-header-actions report-actions">
           <div className="toolbar-control compact report-period-control">
@@ -566,6 +1043,11 @@ const Reports = () => {
           <button className={reportType === 'pnl' ? 'active' : ''} onClick={() => setReportType('pnl')}>P&L</button>
           <button className={reportType === 'customer' ? 'active' : ''} onClick={() => setReportType('customer')}>Customer Sales</button>
           <button className={reportType === 'product' ? 'active' : ''} onClick={() => setReportType('product')}>Product Sales</button>
+          <button className={reportType === 'supplier' ? 'active' : ''} onClick={() => setReportType('supplier')}>Supplier Statement</button>
+          <button className={reportType === 'aging' ? 'active' : ''} onClick={() => setReportType('aging')}>AP Aging</button>
+          <button className={reportType === 'purchases' ? 'active' : ''} onClick={() => setReportType('purchases')}>Purchase History</button>
+          <button className={reportType === 'margin' ? 'active' : ''} onClick={() => setReportType('margin')}>Margin Erosion</button>
+          <button className={reportType === 'top-suppliers' ? 'active' : ''} onClick={() => setReportType('top-suppliers')}>Top Suppliers</button>
         </div>
 
         {reportType === 'customer' && (
@@ -573,6 +1055,7 @@ const Reports = () => {
             <label>
               <span><User size={16} /> Customer</span>
               <select className="filter-select" value={selectedCustomer} onChange={(e) => setSelectedCustomer(e.target.value)}>
+                {customers.length === 0 && <option value="">No customers available</option>}
                 {customers.map((customer) => (
                   <option key={customer._id} value={customer._id}>{customer.name}</option>
                 ))}
@@ -581,11 +1064,26 @@ const Reports = () => {
           </div>
         )}
 
-        {reportType === 'product' && (
+        {reportType === 'supplier' && (
+          <div className="report-filter-row">
+            <label>
+              <span><Building2 size={16} /> Supplier</span>
+              <select className="filter-select" value={selectedSupplier} onChange={(e) => setSelectedSupplier(e.target.value)}>
+                {suppliers.length === 0 && <option value="">No suppliers available</option>}
+                {suppliers.map((supplier) => (
+                  <option key={supplier._id} value={supplier._id}>{supplier.name}</option>
+                ))}
+              </select>
+            </label>
+          </div>
+        )}
+
+        {isProductScopedReport && (
           <div className="report-filter-row">
             <label>
               <span><Package size={16} /> Product</span>
               <select className="filter-select" value={selectedProduct} onChange={(e) => setSelectedProduct(e.target.value)}>
+                {products.length === 0 && <option value="">No products available</option>}
                 {products.map((product) => (
                   <option key={product._id} value={product._id}>{product.name}</option>
                 ))}
@@ -611,6 +1109,11 @@ const Reports = () => {
           {reportType === 'pnl' && renderPnLView()}
           {reportType === 'customer' && renderCustomerView()}
           {reportType === 'product' && renderProductView()}
+          {reportType === 'supplier' && renderSupplierStatementView()}
+          {reportType === 'aging' && renderPayableAgingView()}
+          {reportType === 'purchases' && renderPurchaseHistoryView()}
+          {reportType === 'margin' && renderMarginErosionView()}
+          {reportType === 'top-suppliers' && renderTopSuppliersView()}
         </>
       )}
 
@@ -787,6 +1290,235 @@ const Reports = () => {
               <span>Transactions: {productReport.summary?.total_transactions || 0}</span>
               <span>Margin: {productMargin}%</span>
             </div>
+          </>
+        )}
+
+        {reportType === 'supplier' && (
+          <>
+            <div className="report-export-summary">
+              <div className="report-export-card"><span>Supplier</span><strong>{(supplierStatement.supplier || selectedSupplierRecord)?.name || 'N/A'}</strong></div>
+              <div className="report-export-card"><span>Purchase Volume</span><strong>{formatCurrency(supplierStatement.summary?.purchase_volume)}</strong></div>
+              <div className="report-export-card"><span>Payments</span><strong>{formatCurrency(supplierStatement.summary?.payments_total)}</strong></div>
+              <div className="report-export-card"><span>Outstanding</span><strong>{formatCurrency(supplierStatement.summary?.outstanding_balance)}</strong></div>
+            </div>
+
+            <table className="report-export-table">
+              <thead>
+                <tr>
+                  <th>GRN</th>
+                  <th>Date</th>
+                  <th>Status</th>
+                  <th>Invoice Ref</th>
+                  <th className="text-right">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(supplierStatement.purchase_orders || []).map((purchaseOrder) => (
+                  <tr key={purchaseOrder._id}>
+                    <td>{purchaseOrder.po_number}</td>
+                    <td>{new Date(purchaseOrder.received_at || purchaseOrder.ordered_at || purchaseOrder.createdAt).toLocaleDateString()}</td>
+                    <td>{purchaseOrder.status}</td>
+                    <td>{purchaseOrder.invoice_reference || 'N/A'}</td>
+                    <td className="text-right">{Number(purchaseOrder.total_amount || 0).toLocaleString()}</td>
+                  </tr>
+                ))}
+                {(supplierStatement.purchase_orders || []).length === 0 && (
+                  <tr>
+                    <td colSpan="5" className="text-right">No GRNs found for this supplier in the selected period.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+
+            <table className="report-export-table">
+              <thead>
+                <tr>
+                  <th>Payment Date</th>
+                  <th>GRN</th>
+                  <th>Recorded By</th>
+                  <th className="text-right">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(supplierStatement.payments || []).map((payment) => (
+                  <tr key={payment._id}>
+                    <td>{new Date(payment.paid_at || payment.createdAt).toLocaleDateString()}</td>
+                    <td>{payment.po_id?.po_number || 'N/A'}</td>
+                    <td>{payment.recorded_by?.username || 'Unknown'}</td>
+                    <td className="text-right">{Number(payment.amount || 0).toLocaleString()}</td>
+                  </tr>
+                ))}
+                {(supplierStatement.payments || []).length === 0 && (
+                  <tr>
+                    <td colSpan="4" className="text-right">No payments recorded in the selected period.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </>
+        )}
+
+        {reportType === 'aging' && (
+          <>
+            <div className="report-export-summary">
+              <div className="report-export-card"><span>Total Owed</span><strong>{formatCurrency(payableAging.summary?.total_owed)}</strong></div>
+              <div className="report-export-card"><span>Current</span><strong>{formatCurrency(payableAging.summary?.current)}</strong></div>
+              <div className="report-export-card"><span>0-7 Days</span><strong>{formatCurrency(payableAging.summary?.due_0_7)}</strong></div>
+              <div className="report-export-card"><span>30+ Days</span><strong>{formatCurrency(payableAging.summary?.due_30_plus)}</strong></div>
+            </div>
+
+            <table className="report-export-table">
+              <thead>
+                <tr>
+                  <th>GRN</th>
+                  <th>Supplier</th>
+                  <th>Due Date</th>
+                  <th>Bucket</th>
+                  <th className="text-right">Balance</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(payableAging.rows || []).map((row) => (
+                  <tr key={row._id}>
+                    <td>{row.po_number}</td>
+                    <td>{row.supplier?.name || 'Unknown supplier'}</td>
+                    <td>{row.payment_due_date ? new Date(row.payment_due_date).toLocaleDateString() : 'Not set'}</td>
+                    <td>{row.bucket === 'current' ? 'Current' : `${row.days_past_due} days overdue`}</td>
+                    <td className="text-right">{Number(row.balance_outstanding || 0).toLocaleString()}</td>
+                  </tr>
+                ))}
+                {(payableAging.rows || []).length === 0 && (
+                  <tr>
+                    <td colSpan="5" className="text-right">No outstanding balances found for the selected period.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </>
+        )}
+
+        {reportType === 'purchases' && (
+          <>
+            <div className="report-export-summary">
+              <div className="report-export-card"><span>Product</span><strong>{selectedProductRecord?.name || 'N/A'}</strong></div>
+              <div className="report-export-card"><span>Qty Ordered</span><strong>{purchaseHistory.summary?.total_qty_ordered || 0}</strong></div>
+              <div className="report-export-card"><span>Qty Received</span><strong>{purchaseHistory.summary?.total_qty_received || 0}</strong></div>
+              <div className="report-export-card"><span>Spend</span><strong>{formatCurrency(purchaseHistory.summary?.total_spend)}</strong></div>
+            </div>
+
+            <table className="report-export-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Supplier</th>
+                  <th>SKU</th>
+                  <th>Qty Ordered</th>
+                  <th>Qty Received</th>
+                  <th>Unit Cost</th>
+                  <th className="text-right">Line Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(purchaseHistory.rows || []).map((row) => (
+                  <tr key={row._id}>
+                    <td>{new Date(row.received_at || row.ordered_at).toLocaleDateString()}</td>
+                    <td>{row.supplier?.name || 'Unknown supplier'}</td>
+                    <td>{row.variant?.product?.name || 'Unknown item'} {row.variant?.size ? `(${row.variant.size})` : ''}</td>
+                    <td>{row.qty_ordered}</td>
+                    <td>{row.qty_received}</td>
+                    <td>{Number(row.unit_cost || 0).toLocaleString()}</td>
+                    <td className="text-right">{Number(row.line_total || 0).toLocaleString()}</td>
+                  </tr>
+                ))}
+                {(purchaseHistory.rows || []).length === 0 && (
+                  <tr>
+                    <td colSpan="7" className="text-right">No purchase history found for the selected SKU.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </>
+        )}
+
+        {reportType === 'margin' && (
+          <>
+            <div className="report-export-summary">
+              <div className="report-export-card"><span>Threshold</span><strong>{marginReport.threshold || 0}%</strong></div>
+              <div className="report-export-card"><span>Affected SKUs</span><strong>{marginReport.rows?.length || 0}</strong></div>
+              <div className="report-export-card"><span>Lowest Retail Margin</span><strong>{Number(marginReport.rows?.[0]?.retail_margin_pct || 0).toFixed(1)}%</strong></div>
+              <div className="report-export-card"><span>Largest Cost Increase</span><strong>{formatCurrency(Math.max(...(marginReport.rows || []).map((row) => Number(row.cost_change || 0)), 0))}</strong></div>
+            </div>
+
+            <table className="report-export-table">
+              <thead>
+                <tr>
+                  <th>SKU</th>
+                  <th>Previous Cost</th>
+                  <th>Current Cost</th>
+                  <th>Retail Margin</th>
+                  <th>Wholesale Margin</th>
+                  <th className="text-right">Cost Change</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(marginReport.rows || []).map((row) => (
+                  <tr key={row.variant_id}>
+                    <td>{row.product?.name || 'Unknown item'} {row.size ? `(${row.size})` : ''}</td>
+                    <td>{Number(row.previous_cost || 0).toLocaleString()}</td>
+                    <td>{Number(row.current_cost || 0).toLocaleString()}</td>
+                    <td>{Number(row.retail_margin_pct || 0).toFixed(1)}%</td>
+                    <td>{Number(row.wholesale_margin_pct || 0).toFixed(1)}%</td>
+                    <td className="text-right">{Number(row.cost_change || 0).toLocaleString()}</td>
+                  </tr>
+                ))}
+                {(marginReport.rows || []).length === 0 && (
+                  <tr>
+                    <td colSpan="6" className="text-right">No margin erosion risks found for the selected period.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </>
+        )}
+
+        {reportType === 'top-suppliers' && (
+          <>
+            <div className="report-export-summary">
+              <div className="report-export-card"><span>Suppliers</span><strong>{topSuppliersReport.rows?.length || 0}</strong></div>
+              <div className="report-export-card"><span>Purchase Volume</span><strong>{formatCurrency(topSuppliersReport.summary?.purchase_volume)}</strong></div>
+              <div className="report-export-card"><span>GRNs</span><strong>{topSuppliersReport.summary?.orders_count || 0}</strong></div>
+              <div className="report-export-card"><span>Outstanding</span><strong>{formatCurrency(topSuppliersReport.summary?.outstanding_balance)}</strong></div>
+            </div>
+
+            <table className="report-export-table">
+              <thead>
+                <tr>
+                  <th>Supplier</th>
+                  <th>Payment Terms</th>
+                  <th>Orders</th>
+                  <th>Paid</th>
+                  <th>Outstanding</th>
+                  <th className="text-right">Purchase Volume</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(topSuppliersReport.rows || []).map((row) => (
+                  <tr key={row.supplier_id}>
+                    <td>{row.supplier_name}</td>
+                    <td>{row.payment_terms_label}</td>
+                    <td>{row.orders_count}</td>
+                    <td>{Number(row.amount_paid || 0).toLocaleString()}</td>
+                    <td>{Number(row.outstanding_balance || 0).toLocaleString()}</td>
+                    <td className="text-right">{Number(row.purchase_volume || 0).toLocaleString()}</td>
+                  </tr>
+                ))}
+                {(topSuppliersReport.rows || []).length === 0 && (
+                  <tr>
+                    <td colSpan="6" className="text-right">No supplier purchase activity found for the selected period.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </>
         )}
         <p className="report-export-note">{settings.receipt_footer}</p>

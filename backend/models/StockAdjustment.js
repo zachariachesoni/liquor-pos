@@ -27,6 +27,11 @@ const stockAdjustmentSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true
+  },
+  purchase_order_id: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'PurchaseOrder',
+    default: null
   }
 }, {
   timestamps: true

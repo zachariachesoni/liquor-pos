@@ -12,6 +12,7 @@ const defaultSettings = {
   default_low_stock_level: 5,
   high_value_price_threshold: 10000,
   high_value_low_stock_level: 2,
+  minimum_margin_threshold: 15,
 };
 
 const defaultInvite = {
@@ -114,12 +115,13 @@ const AdminPanel = () => {
     e.preventDefault();
     try {
       setSavingSettings(true);
-      const payload = {
-        ...settings,
-        default_low_stock_level: Number(settings.default_low_stock_level),
-        high_value_price_threshold: Number(settings.high_value_price_threshold),
-        high_value_low_stock_level: Number(settings.high_value_low_stock_level),
-      };
+        const payload = {
+          ...settings,
+          default_low_stock_level: Number(settings.default_low_stock_level),
+          high_value_price_threshold: Number(settings.high_value_price_threshold),
+          high_value_low_stock_level: Number(settings.high_value_low_stock_level),
+          minimum_margin_threshold: Number(settings.minimum_margin_threshold),
+        };
       const response = await api.put('/settings', payload);
       const nextSettings = { ...defaultSettings, ...(response.data.data || {}) };
       setSettings(nextSettings);
@@ -318,6 +320,10 @@ const AdminPanel = () => {
                   <label>High-Value Low-Stock Threshold</label>
                   <input type="number" min="0" value={settings.high_value_low_stock_level} onChange={(e) => setSettings((prev) => ({ ...prev, high_value_low_stock_level: e.target.value }))} />
                 </div>
+                <div className="form-field">
+                  <label>Minimum Margin Alert (%)</label>
+                  <input type="number" min="0" value={settings.minimum_margin_threshold} onChange={(e) => setSettings((prev) => ({ ...prev, minimum_margin_threshold: e.target.value }))} />
+                </div>
                 <div className="form-field form-field-full admin-inline-grid">
                   <div className="glass-panel admin-preview-card">
                     <div className="admin-card-title">
@@ -346,6 +352,9 @@ const AdminPanel = () => {
                       <div className="report-meta-chip">Default: {settings.default_low_stock_level} units</div>
                       <div className="report-meta-chip">
                         High-value items at KES {Number(settings.high_value_price_threshold || 0).toLocaleString()} use {settings.high_value_low_stock_level} units
+                      </div>
+                      <div className="report-meta-chip">
+                        Margin warnings trigger below {Number(settings.minimum_margin_threshold || 0).toLocaleString()}%
                       </div>
                     </div>
                   </div>

@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Package, Plus, Search, Edit2, Trash2, SlidersHorizontal, X } from 'lucide-react';
+import { Package, Plus, Search, Edit2, Trash2, SlidersHorizontal, ArrowLeftRight, AlertTriangle, X } from 'lucide-react';
 import api from '../utils/api';
+import { useSystemSettings } from '../hooks/useSystemSettings';
 import './Products.css';
+import './Reports.css';
 
 const Products = () => {
   const [products, setProducts] = useState([]);
@@ -13,6 +15,10 @@ const Products = () => {
   const [showModal, setShowModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editData, setEditData] = useState(null);
+  const [showComparisonModal, setShowComparisonModal] = useState(false);
+  const [comparisonData, setComparisonData] = useState(null);
+  const [comparisonLoading, setComparisonLoading] = useState(false);
+  const { settings } = useSystemSettings();
 
   // Form State
   const [formData, setFormData] = useState({
@@ -35,23 +41,28 @@ const Products = () => {
       res.data.data.forEach(prod => {
         if (prod.variants && prod.variants.length > 0) {
           prod.variants.forEach(variant => {
-            flatList.push({
-              id: variant._id,
-              productId: prod._id,
-              name: prod.name,
-              brand: prod.brand,
+              flatList.push({
+                id: variant._id,
+                productId: prod._id,
+                name: prod.name,
+                brand: prod.brand,
               variant: variant.size,
               type: prod.category,
               bp: variant.buying_price,
               price: variant.retail_price,
-              bulk_price: variant.wholesale_price,
-              stock: variant.current_stock,
-              minStockLevel: variant.min_stock_level,
-              effectiveLowStockLevel: variant.effective_low_stock_level || variant.min_stock_level,
-              isActive: prod.is_active !== false && variant.is_active !== false
+                bulk_price: variant.wholesale_price,
+                stock: variant.current_stock,
+                minStockLevel: variant.min_stock_level,
+                effectiveLowStockLevel: variant.effective_low_stock_level || variant.min_stock_level,
+                isActive: prod.is_active !== false && variant.is_active !== false,
+                preferredSupplierName: variant.supplier_summary?.preferred_supplier_name || '',
+                preferredSupplierCost: variant.supplier_summary?.preferred_unit_cost ?? null,
+                cheapestSupplierName: variant.supplier_summary?.cheapest_supplier_name || '',
+                cheapestSupplierCost: variant.supplier_summary?.cheapest_unit_cost ?? null,
+                supplierCount: variant.supplier_summary?.supplier_count || 0
+              });
             });
-          });
-        }
+          }
       });
       setProducts(flatList);
     } catch (err) {
@@ -65,6 +76,29 @@ const Products = () => {
     if (!revenue) return 0;
     const margin = ((revenue - cost) / revenue) * 100;
     return margin.toFixed(1);
+  };
+
+  const getMarginValue = (revenue, cost) => {
+    if (!revenue) return 0;
+    return ((revenue - cost) / revenue) * 100;
+  };
+
+  const marginThreshold = Number(settings.minimum_margin_threshold || 15);
+
+  const handleOpenComparison = async (product) => {
+    try {
+      setComparisonLoading(true);
+      setShowComparisonModal(true);
+      const response = await api.get(`/suppliers/price-comparison/${product.id}`);
+      setComparisonData(response.data.data || null);
+    } catch (err) {
+      console.error('Failed to load supplier comparison', err);
+      alert(err.response?.data?.message || 'Failed to load supplier comparison');
+      setShowComparisonModal(false);
+      setComparisonData(null);
+    } finally {
+      setComparisonLoading(false);
+    }
   };
 
   const handleAddProduct = async (e) => {
@@ -247,7 +281,10 @@ const Products = () => {
                   <tr key={product.id}>
                     <td>
                       <div className="td-primary">{product.name}</div>
-                      <div className="td-secondary">{product.variant}</div>
+                      <div className="td-secondary">
+                        {product.variant}
+                        {product.preferredSupplierName ? ` | Preferred: ${product.preferredSupplierName}` : ''}
+                      </div>
                     </td>
                     <td><span className="badge">{product.type}</span></td>
                     <td className="font-medium text-danger">KES {product.bp?.toLocaleString() || 0}</td>
@@ -256,18 +293,31 @@ const Products = () => {
                       <div className="text-success text-xs font-semibold" style={{ fontSize: '0.75rem' }}>
                         {calcMargin(product.price, product.bp)}% Margin
                       </div>
+                      {getMarginValue(product.price, product.bp) < marginThreshold && (
+                        <div className="product-margin-flag">
+                          <AlertTriangle size={12} /> Below {marginThreshold}% threshold
+                        </div>
+                      )}
                     </td>
                     <td>
                       <div className="font-medium text-warning">KES {product.bulk_price?.toLocaleString() || 0}</div>
                       <div className="text-success text-xs font-semibold" style={{ fontSize: '0.75rem' }}>
                         {calcMargin(product.bulk_price, product.bp)}% Margin
                       </div>
+                      {getMarginValue(product.bulk_price, product.bp) < marginThreshold && (
+                        <div className="product-margin-flag">
+                          <AlertTriangle size={12} /> Below {marginThreshold}% threshold
+                        </div>
+                      )}
                     </td>
                     <td>
                       <span className={`status-dot ${product.stock > product.effectiveLowStockLevel ? 'green' : 'red'}`}></span>
                       {product.stock} units
                     </td>
                     <td className="text-right">
+                      <button className="action-icon" onClick={() => handleOpenComparison(product)} title="Compare suppliers">
+                        <ArrowLeftRight size={16} />
+                      </button>
                       <button className="action-icon" onClick={() => {
                         setEditData({ ...product });
                         setShowEditModal(true);
@@ -407,6 +457,87 @@ const Products = () => {
                 <button type="submit" className="primary-btn">Save Changes</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {showComparisonModal && (
+        <div className="modal-overlay">
+          <div className="glass-panel modal-card modal-card-wide modal-detail-card">
+            <button className="modal-close-btn" onClick={() => { setShowComparisonModal(false); setComparisonData(null); }}>
+              <X size={20} />
+            </button>
+            {comparisonLoading || !comparisonData ? (
+              <div className="loading-panel">
+                <div className="loading-spinner" />
+                <p>Loading supplier comparison...</p>
+              </div>
+            ) : (
+              <>
+                <div className="modal-detail-header">
+                  <div className="modal-detail-intro">
+                    <h2 className="modal-title">{comparisonData.variant?.product?.name} {comparisonData.variant?.size}</h2>
+                    <p className="modal-detail-subtitle">
+                      Compare supplier costs, lead times, and six-month price movements for this SKU.
+                    </p>
+                  </div>
+                  <div className="report-meta-chip">Current BP KES {Number(comparisonData.variant?.buying_price || 0).toLocaleString()}</div>
+                </div>
+
+                <div className="table-container">
+                  <table className="report-table">
+                    <thead>
+                      <tr>
+                        <th>Supplier</th>
+                        <th>Unit Cost</th>
+                        <th>MOQ</th>
+                        <th>Lead Time</th>
+                        <th>Flags</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(comparisonData.suppliers || []).map((supplierLink) => (
+                        <tr key={supplierLink._id}>
+                          <td>
+                            <div className="font-medium">{supplierLink.supplier?.name || 'Unknown supplier'}</div>
+                            <div className="td-secondary">{supplierLink.supplier?.phone || 'No phone'}</div>
+                          </td>
+                          <td>{`KES ${Number(supplierLink.unit_cost || 0).toLocaleString()}`}</td>
+                          <td>{supplierLink.min_order_qty}</td>
+                          <td>{supplierLink.lead_time_days} days</td>
+                          <td>
+                            <div className="chip-stack">
+                              {supplierLink.is_preferred && <span className="badge badge-active">Preferred</span>}
+                              {supplierLink.is_cheapest && <span className="badge badge-warning">Cheapest</span>}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="supplier-trend-grid">
+                  {(comparisonData.suppliers || []).map((supplierLink) => (
+                    <div key={`${supplierLink._id}-trend`} className="glass-panel supplier-trend-card">
+                      <div className="font-medium">{supplierLink.supplier?.name || 'Unknown supplier'}</div>
+                      <div className="td-secondary">Current cost KES {Number(supplierLink.unit_cost || 0).toLocaleString()}</div>
+                      <div className="supplier-trend-list">
+                        {(supplierLink.trend || []).slice(0, 4).map((entry) => (
+                          <div key={entry._id} className="supplier-trend-row">
+                            <span>{new Date(entry.changed_at).toLocaleDateString()}</span>
+                            <span>KES {Number(entry.old_cost || 0).toLocaleString()} to KES {Number(entry.new_cost || 0).toLocaleString()}</span>
+                          </div>
+                        ))}
+                        {(supplierLink.trend || []).length === 0 && (
+                          <div className="td-secondary">No recorded price changes in the last 6 months.</div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

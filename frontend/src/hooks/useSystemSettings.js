@@ -11,6 +11,7 @@ const defaultSettings = {
   default_low_stock_level: 5,
   high_value_price_threshold: 10000,
   high_value_low_stock_level: 2,
+  minimum_margin_threshold: 15,
 };
 
 export const getCacheableSettings = (settings) => {

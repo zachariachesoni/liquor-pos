@@ -30,6 +30,11 @@ const systemSettingsSchema = new mongoose.Schema({
     type: Number,
     default: 2,
     min: 0
+  },
+  minimum_margin_threshold: {
+    type: Number,
+    default: 15,
+    min: 0
   }
 }, {
   timestamps: true

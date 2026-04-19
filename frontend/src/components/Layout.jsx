@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { LayoutDashboard, ShoppingCart, Package, ClipboardList, FileBarChart, Users, Receipt, PieChart, LogOut, Menu, X, Shield, User } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, Package, ClipboardList, FileBarChart, Users, Receipt, PieChart, LogOut, Menu, X, Shield, User, Truck } from 'lucide-react';
 import { useSystemSettings } from '../hooks/useSystemSettings';
 import './Layout.css';
 
@@ -21,6 +21,7 @@ const Layout = ({ children }) => {
     { name: 'POS', path: '/pos', icon: <ShoppingCart size={20} />, roles: ['admin', 'manager', 'cashier'] },
     { name: 'Products', path: '/products', icon: <Package size={20} />, roles: ['admin', 'manager'] },
     { name: 'Inventory', path: '/inventory', icon: <ClipboardList size={20} />, roles: ['admin', 'manager'] },
+    { name: 'Suppliers', path: '/suppliers', icon: <Truck size={20} />, roles: ['admin', 'manager'] },
     { name: 'Reports', path: '/reports', icon: <PieChart size={20} />, roles: ['admin', 'manager'] },
     { name: 'Sales', path: '/sales', icon: <FileBarChart size={20} />, roles: ['admin', 'manager'] },
     { name: 'Customers', path: '/customers', icon: <Users size={20} />, roles: ['admin', 'manager', 'cashier'] },

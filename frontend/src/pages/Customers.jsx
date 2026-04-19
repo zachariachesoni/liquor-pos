@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { UserPlus, Search, Phone, Mail, History, X, Download } from 'lucide-react';
+import { UserPlus, Search, Phone, Mail, History, X, Download, BadgePercent } from 'lucide-react';
 import api from '../utils/api';
 import { useSystemSettings } from '../hooks/useSystemSettings';
 import './Products.css';
@@ -84,6 +84,8 @@ const Customers = () => {
       );
     });
   }, [historySearch, purchaseHistory]);
+
+  const isWholesaleAccount = formData.customer_type === 'wholesale';
 
   const exportCustomerHistory = () => {
     if (!historyCustomer) return;
@@ -263,15 +265,27 @@ const Customers = () => {
                   <input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} />
                 </div>
                 <div className="modal-form-field modal-form-field-full">
-                  <label className="customer-checkbox-row">
+                  <label className={`customer-checkbox-row ${isWholesaleAccount ? 'is-active' : ''}`}>
                     <input
+                      className="customer-checkbox-input"
                       type="checkbox"
-                      checked={formData.customer_type === 'wholesale'}
+                      checked={isWholesaleAccount}
                       onChange={(e) => setFormData({ ...formData, customer_type: e.target.checked ? 'wholesale' : 'retail' })}
                     />
-                    <div>
-                      <span>This is a Wholesale Partner Account</span>
-                      <small>Use this for customers who should access wholesale pricing.</small>
+                    <div className="customer-checkbox-icon" aria-hidden="true">
+                      <BadgePercent size={18} />
+                    </div>
+                    <div className="customer-checkbox-copy">
+                      <div className="customer-checkbox-title-row">
+                        <span className="customer-checkbox-title">Wholesale Partner Account</span>
+                        <span className="customer-checkbox-state">{isWholesaleAccount ? 'Enabled' : 'Optional'}</span>
+                      </div>
+                      <small className="customer-checkbox-description">
+                        Use this for customers who should unlock wholesale pricing at checkout.
+                      </small>
+                    </div>
+                    <div className="customer-checkbox-switch" aria-hidden="true">
+                      <span className="customer-checkbox-switch-thumb" />
                     </div>
                   </label>
                 </div>

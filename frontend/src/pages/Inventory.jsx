@@ -1,12 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { ClipboardList, ArrowUpRight, ArrowDownRight, AlertTriangle, Plus, X } from 'lucide-react';
+import { ClipboardList, ArrowUpRight, ArrowDownRight, AlertTriangle, Plus, Truck, X } from 'lucide-react';
 import api from '../utils/api';
-import './Products.css'; // Re-use common page level CSS
+import './Products.css';
+import './Reports.css';
+import './Inventory.css';
 
 const Inventory = () => {
   const [inventory, setInventory] = useState([]);
+  const [reorderSuggestions, setReorderSuggestions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [creatingDraftFor, setCreatingDraftFor] = useState('');
+  const [feedback, setFeedback] = useState({ message: '', error: '' });
   const [formData, setFormData] = useState({ variantId: '', quantity: 0, type: 'in', reason: 'restocking', notes: '' });
 
   useEffect(() => {
@@ -16,10 +22,15 @@ const Inventory = () => {
   const fetchInventory = async () => {
     try {
       setLoading(true);
-      const res = await api.get('/inventory/stock-levels');
-      setInventory(res.data.data || res.data); // handles wrapper if present
+      const [inventoryRes, reorderRes] = await Promise.all([
+        api.get('/inventory/stock-levels'),
+        api.get('/inventory/reorder-suggestions')
+      ]);
+      setInventory(inventoryRes.data.data || inventoryRes.data);
+      setReorderSuggestions(reorderRes.data.data || reorderRes.data || []);
     } catch (err) {
       console.error('Failed to load inventory', err);
+      setFeedback({ message: '', error: 'Failed to load inventory insights' });
     } finally {
       setLoading(false);
     }
@@ -39,9 +50,46 @@ const Inventory = () => {
       setShowModal(false);
       fetchInventory();
       setFormData({ variantId: '', quantity: 0, type: 'in', reason: 'restocking', notes: '' });
+      setFeedback({ message: 'Inventory adjustment saved successfully.', error: '' });
     } catch (err) {
-      alert('Error adjusting stock');
       console.error(err);
+      setFeedback({ message: '', error: err.response?.data?.message || 'Error adjusting stock' });
+    }
+  };
+
+  const handleCreateDraftPO = async (suggestion) => {
+    if (!suggestion.preferred_supplier?._id) {
+      setFeedback({ message: '', error: 'Link a preferred supplier before creating a draft PO.' });
+      return;
+    }
+
+    try {
+      setCreatingDraftFor(suggestion.variant_id);
+      await api.post('/purchase-orders', {
+        supplier_id: suggestion.preferred_supplier._id,
+        status: 'draft',
+        notes: `Auto-created from reorder suggestion for ${suggestion.product_name} ${suggestion.size}.`,
+        items: [{
+          variant_id: suggestion.variant_id,
+          qty_ordered: Number(suggestion.suggested_qty || 1),
+          qty_received: 0,
+          unit_cost: Number(
+            suggestion.preferred_supplier.unit_cost
+              ?? suggestion.last_purchase?.last_unit_cost
+              ?? 0
+          ),
+          min_order_qty: Number(suggestion.preferred_supplier.min_order_qty || 1),
+          lead_time_days: Number(suggestion.preferred_supplier.lead_time_days || 0),
+          is_preferred: true
+        }]
+      });
+      setFeedback({ message: `Draft PO created for ${suggestion.product_name} ${suggestion.size}.`, error: '' });
+      await fetchInventory();
+    } catch (err) {
+      console.error('Failed to create draft purchase order', err);
+      setFeedback({ message: '', error: err.response?.data?.message || 'Failed to create draft purchase order' });
+    } finally {
+      setCreatingDraftFor('');
     }
   };
 
@@ -61,14 +109,72 @@ const Inventory = () => {
           <p className="page-subtitle">Monitor stock levels and record adjustments.</p>
         </div>
         <div className="page-header-actions">
-          <button className="icon-btn icon-btn-warning">
-             <AlertTriangle size={18} /> Low Stock ({lowStockCount})
+          <button className="icon-btn icon-btn-warning" onClick={() => setShowSuggestions((prev) => !prev)}>
+             <AlertTriangle size={18} /> Reorder ({reorderSuggestions.length || lowStockCount})
           </button>
           <button className="primary-btn" onClick={() => setShowModal(true)}>
             <Plus size={18} /> Stock Adjustment
           </button>
         </div>
       </div>
+
+      {(feedback.message || feedback.error) && (
+        <div className={`feedback-banner ${feedback.error ? 'error' : 'success'}`}>
+          {feedback.error || feedback.message}
+        </div>
+      )}
+
+      {showSuggestions && (
+        <div className="glass-panel main-panel reorder-suggestions-panel">
+          <div className="detail-header">
+            <div>
+              <h2>Reorder Suggestions</h2>
+              <p className="page-subtitle">Preferred supplier, last buy price, lead time, and one-tap draft PO creation for low-stock SKUs.</p>
+            </div>
+            <div className="report-meta-chip">Suggestions: {reorderSuggestions.length}</div>
+          </div>
+
+          <div className="reorder-suggestion-grid">
+            {reorderSuggestions.map((suggestion) => (
+              <div key={suggestion.variant_id} className="glass-panel reorder-suggestion-card">
+                <div className="report-record-top">
+                  <div>
+                    <strong>{suggestion.product_name}</strong>
+                    <div className="td-secondary">{suggestion.size} {suggestion.product_brand ? `| ${suggestion.product_brand}` : ''}</div>
+                  </div>
+                  <span className="badge">Stock {suggestion.current_stock}</span>
+                </div>
+
+                <div className="reorder-suggestion-copy">
+                  <div><strong>Preferred Supplier:</strong> {suggestion.preferred_supplier?.name || 'Link supplier first'}</div>
+                  <div><strong>Suggested Qty:</strong> {suggestion.suggested_qty}</div>
+                  <div><strong>Last Cost:</strong> {suggestion.last_purchase?.last_unit_cost ? `KES ${Number(suggestion.last_purchase.last_unit_cost).toLocaleString()}` : 'N/A'}</div>
+                  <div><strong>Lead Time:</strong> {suggestion.preferred_supplier ? `${suggestion.preferred_supplier.lead_time_days} days` : 'N/A'}</div>
+                </div>
+
+                <div className="reorder-suggestion-actions">
+                  <div className="td-secondary">
+                    {suggestion.open_purchase_orders?.length
+                      ? `${suggestion.open_purchase_orders.length} open PO(s) already reference this SKU`
+                      : 'No draft purchase order yet'}
+                  </div>
+                  <button
+                    className="primary-btn"
+                    onClick={() => handleCreateDraftPO(suggestion)}
+                    disabled={!suggestion.preferred_supplier?._id || creatingDraftFor === suggestion.variant_id}
+                  >
+                    <Truck size={16} /> {creatingDraftFor === suggestion.variant_id ? 'Creating...' : 'Create Draft PO'}
+                  </button>
+                </div>
+              </div>
+            ))}
+
+            {reorderSuggestions.length === 0 && (
+              <div className="empty-state">No reorder suggestions right now.</div>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="glass-panel main-panel">
         <div className="table-container">

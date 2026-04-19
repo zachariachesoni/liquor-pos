@@ -31,12 +31,13 @@ export const updateSettings = async (req, res) => {
       'receipt_footer',
       'default_low_stock_level',
       'high_value_price_threshold',
-      'high_value_low_stock_level'
+      'high_value_low_stock_level',
+      'minimum_margin_threshold'
     ];
 
     fields.forEach((field) => {
       if (req.body[field] !== undefined) {
-        settings[field] = ['default_low_stock_level', 'high_value_price_threshold', 'high_value_low_stock_level'].includes(field)
+        settings[field] = ['default_low_stock_level', 'high_value_price_threshold', 'high_value_low_stock_level', 'minimum_margin_threshold'].includes(field)
           ? Number(req.body[field])
           : req.body[field];
       }

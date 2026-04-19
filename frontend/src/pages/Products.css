@@ -135,6 +135,21 @@
   color: var(--warning);
 }
 
+.badge-active {
+  background: rgba(16, 185, 129, 0.12);
+  color: var(--success);
+}
+
+.product-margin-flag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-top: 0.25rem;
+  color: var(--warning);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
 .text-capitalize {
   text-transform: capitalize;
 }
@@ -636,6 +651,38 @@ textarea {
   display: flex;
   flex-wrap: wrap;
   gap: 0.65rem;
+}
+
+.supplier-trend-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.supplier-trend-card {
+  padding: 1rem;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.supplier-trend-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.supplier-trend-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding-top: 0.55rem;
+  border-top: 1px dashed rgba(255, 255, 255, 0.08);
+  color: var(--text-secondary);
+  font-size: 0.85rem;
 }
 
 .icon-btn-warning {

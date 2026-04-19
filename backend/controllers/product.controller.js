@@ -1,6 +1,8 @@
 import Product from '../models/Product.js';
 import ProductVariant from '../models/ProductVariant.js';
+import SupplierProduct from '../models/SupplierProduct.js';
 import logger from '../utils/logger.js';
+import { calculateEffectiveLowStockLevel, getSystemSettings, serializeSystemSettings } from '../utils/systemSettings.js';
 
 const normalizeProductName = (name = '') => (
   typeof name === 'string' ? name.trim().replace(/\s+/g, ' ') : ''
@@ -40,13 +42,57 @@ export const getProducts = async (req, res) => {
     if (req.query.category) filters.category = req.query.category;
     if (req.query.is_active !== undefined) filters.is_active = req.query.is_active === 'true';
 
-    const products = await Product.find(filters);
+    const [settingsDoc, products] = await Promise.all([
+      getSystemSettings(),
+      Product.find(filters)
+    ]);
+    const settings = serializeSystemSettings(settingsDoc);
     
     // Fetch variants and map them inside the product objects
     const variants = await ProductVariant.find({ product_id: { $in: products.map(p => p._id) }});
+    const supplierLinks = variants.length
+      ? await SupplierProduct.find({ variant_id: { $in: variants.map((variant) => variant._id) } })
+          .populate('supplier_id', 'name')
+          .lean()
+      : [];
+
+    const supplierLinksByVariant = supplierLinks.reduce((map, link) => {
+      const key = String(link.variant_id);
+      if (!map.has(key)) {
+        map.set(key, []);
+      }
+      map.get(key).push(link);
+      return map;
+    }, new Map());
     
     const productsData = products.map(product => {
-      const pVariants = variants.filter(v => v.product_id.toString() === product._id.toString());
+      const pVariants = variants
+        .filter(v => v.product_id.toString() === product._id.toString())
+        .map((variant) => {
+          const variantObject = variant.toObject();
+          const variantSupplierLinks = supplierLinksByVariant.get(String(variant._id)) || [];
+          const preferredSupplier = variantSupplierLinks.find((link) => link.is_preferred) || null;
+          const cheapestSupplier = variantSupplierLinks.reduce((lowest, link) => {
+            if (!lowest || Number(link.unit_cost || 0) < Number(lowest.unit_cost || 0)) {
+              return link;
+            }
+            return lowest;
+          }, null);
+
+          return {
+            ...variantObject,
+            effective_low_stock_level: calculateEffectiveLowStockLevel(variantObject, settings),
+            supplier_summary: {
+              supplier_count: variantSupplierLinks.length,
+              preferred_supplier_name: preferredSupplier?.supplier_id?.name || null,
+              preferred_supplier_id: preferredSupplier?.supplier_id?._id || null,
+              preferred_unit_cost: preferredSupplier?.unit_cost ?? null,
+              cheapest_supplier_name: cheapestSupplier?.supplier_id?.name || null,
+              cheapest_supplier_id: cheapestSupplier?.supplier_id?._id || null,
+              cheapest_unit_cost: cheapestSupplier?.unit_cost ?? null
+            }
+          };
+        });
       return { ...product.toObject(), variants: pVariants };
     });
 
@@ -65,9 +111,53 @@ export const getProduct = async (req, res) => {
     if (!product) return res.status(404).json({ success: false, message: 'Product not found' });
     
     // fetch variants
-    const variants = await ProductVariant.find({ product_id: product._id });
+    const [settingsDoc, variants] = await Promise.all([
+      getSystemSettings(),
+      ProductVariant.find({ product_id: product._id })
+    ]);
+    const settings = serializeSystemSettings(settingsDoc);
+    const supplierLinks = variants.length
+      ? await SupplierProduct.find({ variant_id: { $in: variants.map((variant) => variant._id) } })
+          .populate('supplier_id', 'name')
+          .lean()
+      : [];
+
+    const supplierLinksByVariant = supplierLinks.reduce((map, link) => {
+      const key = String(link.variant_id);
+      if (!map.has(key)) {
+        map.set(key, []);
+      }
+      map.get(key).push(link);
+      return map;
+    }, new Map());
     
-    res.json({ success: true, data: { ...product.toObject(), variants } });
+    const variantsData = variants.map((variant) => {
+      const variantObject = variant.toObject();
+      const variantSupplierLinks = supplierLinksByVariant.get(String(variant._id)) || [];
+      const preferredSupplier = variantSupplierLinks.find((link) => link.is_preferred) || null;
+      const cheapestSupplier = variantSupplierLinks.reduce((lowest, link) => {
+        if (!lowest || Number(link.unit_cost || 0) < Number(lowest.unit_cost || 0)) {
+          return link;
+        }
+        return lowest;
+      }, null);
+
+      return {
+        ...variantObject,
+        effective_low_stock_level: calculateEffectiveLowStockLevel(variantObject, settings),
+        supplier_summary: {
+          supplier_count: variantSupplierLinks.length,
+          preferred_supplier_name: preferredSupplier?.supplier_id?.name || null,
+          preferred_supplier_id: preferredSupplier?.supplier_id?._id || null,
+          preferred_unit_cost: preferredSupplier?.unit_cost ?? null,
+          cheapest_supplier_name: cheapestSupplier?.supplier_id?.name || null,
+          cheapest_supplier_id: cheapestSupplier?.supplier_id?._id || null,
+          cheapest_unit_cost: cheapestSupplier?.unit_cost ?? null
+        }
+      };
+    });
+
+    res.json({ success: true, data: { ...product.toObject(), variants: variantsData } });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Server error' });
   }
