@@ -7,6 +7,9 @@ export const getStats = async (req, res) => {
   try {
     const settingsDoc = await getSystemSettings();
     const settings = serializeSystemSettings(settingsDoc);
+    const salesScope = req.user?.role === 'cashier'
+      ? { user_id: req.user._id || req.user.id }
+      : {};
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -18,7 +21,7 @@ export const getStats = async (req, res) => {
     revenueWindowStart.setDate(today.getDate() - 6);
 
     const pipe = (startDate) => [
-      { $match: { createdAt: { $gte: startDate } } },
+      { $match: { ...salesScope, createdAt: { $gte: startDate } } },
       { $group: { _id: null, totalSales: { $sum: '$total_amount' }, count: { $sum: 1 } } }
     ];
 
@@ -33,7 +36,7 @@ export const getStats = async (req, res) => {
     ).length;
 
     const revenueOverview = await Sale.aggregate([
-      { $match: { createdAt: { $gte: revenueWindowStart } } },
+      { $match: { ...salesScope, createdAt: { $gte: revenueWindowStart } } },
       {
         $group: {
           _id: {
@@ -63,7 +66,24 @@ export const getStats = async (req, res) => {
       };
     });
 
-    const categoryBreakdown = await SaleItem.aggregate([
+    const categoryBreakdownPipeline = [];
+
+    if (req.user?.role === 'cashier') {
+      categoryBreakdownPipeline.push(
+        {
+          $lookup: {
+            from: 'sales',
+            localField: 'sale_id',
+            foreignField: '_id',
+            as: 'sale'
+          }
+        },
+        { $unwind: '$sale' },
+        { $match: { 'sale.user_id': req.user._id || req.user.id } }
+      );
+    }
+
+    categoryBreakdownPipeline.push(
       {
         $lookup: {
           from: 'productvariants',
@@ -89,7 +109,9 @@ export const getStats = async (req, res) => {
         }
       },
       { $sort: { value: -1 } }
-    ]);
+    );
+
+    const categoryBreakdown = await SaleItem.aggregate(categoryBreakdownPipeline);
 
     const categoryData = categoryBreakdown.map((entry) => ({
       name: entry._id ? entry._id.charAt(0).toUpperCase() + entry._id.slice(1) : 'Other',

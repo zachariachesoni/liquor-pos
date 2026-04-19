@@ -14,6 +14,7 @@ import AdminPanel from './pages/AdminPanel';
 import Account from './pages/Account';
 import Suppliers from './pages/Suppliers';
 import Layout from './components/Layout';
+import { INVENTORY_ROUTE_ROLES, PRODUCTS_ROUTE_ROLES, SALES_ROUTE_ROLES } from './utils/accessControl';
 import './App.css';
 
 // Protected Route Component
@@ -61,7 +62,7 @@ function App() {
       <Route
         path="/products"
         element={
-          <ProtectedRoute allowedRoles={['admin', 'manager']}>
+          <ProtectedRoute allowedRoles={PRODUCTS_ROUTE_ROLES}>
             <Products />
           </ProtectedRoute>
         }
@@ -70,7 +71,7 @@ function App() {
       <Route
         path="/inventory"
         element={
-          <ProtectedRoute allowedRoles={['admin', 'manager']}>
+          <ProtectedRoute allowedRoles={INVENTORY_ROUTE_ROLES}>
             <Inventory />
           </ProtectedRoute>
         }
@@ -79,7 +80,7 @@ function App() {
       <Route
         path="/sales"
         element={
-          <ProtectedRoute allowedRoles={['admin', 'manager']}>
+          <ProtectedRoute allowedRoles={SALES_ROUTE_ROLES}>
             <Sales />
           </ProtectedRoute>
         }

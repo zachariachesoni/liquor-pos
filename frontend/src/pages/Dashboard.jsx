@@ -11,6 +11,7 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
   const navigate = useNavigate();
+  const isCashier = user?.role === 'cashier';
 
   useEffect(() => {
     fetchDashboardStats();
@@ -40,7 +41,11 @@ const Dashboard = () => {
       <div className="dashboard-header">
         <div>
           <h1 className="page-title">Welcome back, {user?.username}</h1>
-          <p className="page-subtitle">Here is what's happening with your store today.</p>
+          <p className="page-subtitle">
+            {isCashier
+              ? "Here is your sales and stock snapshot for today."
+              : "Here is what's happening with your store today."}
+          </p>
         </div>
         <button className="pos-quick-btn glass" onClick={() => navigate('/pos')}>
           <ShoppingBag size={18} />
@@ -60,7 +65,7 @@ const Dashboard = () => {
           </div>
           <div className="stat-card-body">
             <h3>KES {stats?.today?.revenue?.toLocaleString(undefined, {minimumFractionDigits: 2}) || '0.00'}</h3>
-            <p>Today's Revenue</p>
+            <p>{isCashier ? 'Your Sales Today' : "Today's Revenue"}</p>
           </div>
           <div className="stat-card-footer">
             <span>{stats?.today?.transactions || 0} total transactions</span>
@@ -75,7 +80,7 @@ const Dashboard = () => {
           </div>
           <div className="stat-card-body">
             <h3>KES {stats?.week?.revenue?.toLocaleString(undefined, {minimumFractionDigits: 2}) || '0.00'}</h3>
-            <p>This Week</p>
+            <p>{isCashier ? 'Your Sales This Week' : 'This Week'}</p>
           </div>
           <div className="stat-card-footer">
             <span>{stats?.week?.transactions || 0} total transactions</span>

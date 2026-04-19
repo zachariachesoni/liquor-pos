@@ -5,6 +5,12 @@ import logger from '../utils/logger.js';
 import { generateInvoiceNumber } from '../utils/helpers.js';
 import { mongoose } from '../config/database.js';
 
+const getSalesAccessFilter = (req) => (
+  req.user?.role === 'cashier'
+    ? { user_id: req.user._id || req.user.id }
+    : {}
+);
+
 // @desc    Process a sale (checkout)
 // @route   POST /api/sales
 export const createSale = async (req, res) => {
@@ -207,7 +213,7 @@ export const createSale = async (req, res) => {
 // @route   GET /api/sales
 export const getSales = async (req, res) => {
   try {
-    const filters = {};
+    const filters = { ...getSalesAccessFilter(req) };
     if (req.query.q) {
       filters.invoice_number = { $regex: req.query.q.trim(), $options: 'i' };
     }
@@ -227,7 +233,10 @@ export const getSales = async (req, res) => {
 // @route   GET /api/sales/:id
 export const getSaleDetails = async (req, res) => {
   try {
-    const sale = await Sale.findById(req.params.id)
+    const sale = await Sale.findOne({
+      _id: req.params.id,
+      ...getSalesAccessFilter(req)
+    })
       .populate('user_id', 'username')
       .populate('customer_id', 'name phone email');
     if (!sale) return res.status(404).json({ success: false, message: 'Sale not found' });

@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { ClipboardList, ArrowUpRight, ArrowDownRight, AlertTriangle, Plus, Truck, X } from 'lucide-react';
 import api from '../utils/api';
+import { useAuth } from '../context/AuthContext';
+import { canManageInventory as canManageInventoryAccess } from '../utils/accessControl';
 import './Products.css';
 import './Reports.css';
 import './Inventory.css';
 
 const Inventory = () => {
+  const { user } = useAuth();
   const [inventory, setInventory] = useState([]);
   const [reorderSuggestions, setReorderSuggestions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -14,6 +17,8 @@ const Inventory = () => {
   const [creatingDraftFor, setCreatingDraftFor] = useState('');
   const [feedback, setFeedback] = useState({ message: '', error: '' });
   const [formData, setFormData] = useState({ variantId: '', quantity: 0, type: 'in', reason: 'restocking', notes: '' });
+  const canManageInventory = canManageInventoryAccess(user?.role);
+  const inventoryColumnCount = canManageInventory ? 5 : 4;
 
   useEffect(() => {
     fetchInventory();
@@ -106,15 +111,22 @@ const Inventory = () => {
       <div className="page-header">
         <div className="page-header-copy">
           <h1 className="page-title">Inventory Control</h1>
-          <p className="page-subtitle">Monitor stock levels and record adjustments.</p>
+          <p className="page-subtitle">
+            {canManageInventory
+              ? 'Monitor stock levels, reorder needs, and record adjustments.'
+              : 'Monitor stock levels and low-stock reorder needs in a read-only view.'}
+          </p>
         </div>
         <div className="page-header-actions">
           <button className="icon-btn icon-btn-warning" onClick={() => setShowSuggestions((prev) => !prev)}>
              <AlertTriangle size={18} /> Reorder ({reorderSuggestions.length || lowStockCount})
           </button>
-          <button className="primary-btn" onClick={() => setShowModal(true)}>
-            <Plus size={18} /> Stock Adjustment
-          </button>
+          {!canManageInventory && <div className="report-meta-chip">Read-only access</div>}
+          {canManageInventory && (
+            <button className="primary-btn" onClick={() => setShowModal(true)}>
+              <Plus size={18} /> Stock Adjustment
+            </button>
+          )}
         </div>
       </div>
 
@@ -129,9 +141,15 @@ const Inventory = () => {
           <div className="detail-header">
             <div>
               <h2>Reorder Suggestions</h2>
-              <p className="page-subtitle">Preferred supplier, last buy price, lead time, and one-tap draft PO creation for low-stock SKUs.</p>
+              <p className="page-subtitle">
+                {canManageInventory
+                  ? 'Preferred supplier, last buy price, lead time, and one-tap draft PO creation for low-stock SKUs.'
+                  : 'A read-only view of the SKUs that need restocking attention.'}
+              </p>
             </div>
-            <div className="report-meta-chip">Suggestions: {reorderSuggestions.length}</div>
+            <div className="report-meta-chip">
+              {canManageInventory ? `Suggestions: ${reorderSuggestions.length}` : 'Manager action required'}
+            </div>
           </div>
 
           <div className="reorder-suggestion-grid">
@@ -146,10 +164,19 @@ const Inventory = () => {
                 </div>
 
                 <div className="reorder-suggestion-copy">
-                  <div><strong>Preferred Supplier:</strong> {suggestion.preferred_supplier?.name || 'Link supplier first'}</div>
                   <div><strong>Suggested Qty:</strong> {suggestion.suggested_qty}</div>
-                  <div><strong>Last Cost:</strong> {suggestion.last_purchase?.last_unit_cost ? `KES ${Number(suggestion.last_purchase.last_unit_cost).toLocaleString()}` : 'N/A'}</div>
-                  <div><strong>Lead Time:</strong> {suggestion.preferred_supplier ? `${suggestion.preferred_supplier.lead_time_days} days` : 'N/A'}</div>
+                  {canManageInventory ? (
+                    <>
+                      <div><strong>Preferred Supplier:</strong> {suggestion.preferred_supplier?.name || 'Link supplier first'}</div>
+                      <div><strong>Last Cost:</strong> {suggestion.last_purchase?.last_unit_cost ? `KES ${Number(suggestion.last_purchase.last_unit_cost).toLocaleString()}` : 'N/A'}</div>
+                      <div><strong>Lead Time:</strong> {suggestion.preferred_supplier ? `${suggestion.preferred_supplier.lead_time_days} days` : 'N/A'}</div>
+                    </>
+                  ) : (
+                    <>
+                      <div><strong>Status:</strong> Reorder attention needed</div>
+                      <div><strong>Manager Note:</strong> Raise this item for purchasing follow-up.</div>
+                    </>
+                  )}
                 </div>
 
                 <div className="reorder-suggestion-actions">
@@ -158,13 +185,17 @@ const Inventory = () => {
                       ? `${suggestion.open_purchase_orders.length} open PO(s) already reference this SKU`
                       : 'No draft purchase order yet'}
                   </div>
-                  <button
-                    className="primary-btn"
-                    onClick={() => handleCreateDraftPO(suggestion)}
-                    disabled={!suggestion.preferred_supplier?._id || creatingDraftFor === suggestion.variant_id}
-                  >
-                    <Truck size={16} /> {creatingDraftFor === suggestion.variant_id ? 'Creating...' : 'Create Draft PO'}
-                  </button>
+                  {canManageInventory ? (
+                    <button
+                      className="primary-btn"
+                      onClick={() => handleCreateDraftPO(suggestion)}
+                      disabled={!suggestion.preferred_supplier?._id || creatingDraftFor === suggestion.variant_id}
+                    >
+                      <Truck size={16} /> {creatingDraftFor === suggestion.variant_id ? 'Creating...' : 'Create Draft PO'}
+                    </button>
+                  ) : (
+                    <div className="td-secondary">Draft purchase orders are limited to managers and admins.</div>
+                  )}
                 </div>
               </div>
             ))}
@@ -188,7 +219,7 @@ const Inventory = () => {
                 <th>Stock Level</th>
                 <th>Status</th>
                 <th>Last Restock</th>
-                <th className="text-right">Actions</th>
+                {canManageInventory && <th className="text-right">Actions</th>}
               </tr>
             </thead>
             <tbody>
@@ -205,19 +236,21 @@ const Inventory = () => {
                     {status}
                   </td>
                   <td className="td-secondary">{new Date(item.updatedAt).toLocaleDateString()}</td>
-                  <td className="text-right">
-                    <button className="action-icon action-icon-success" title="Stock In" onClick={() => { setFormData({...formData, variantId: item._id, type: 'in'}); setShowModal(true); }}>
-                      <ArrowUpRight size={16} />
-                    </button>
-                    <button className="action-icon action-icon-danger" title="Stock Out" onClick={() => { setFormData({...formData, variantId: item._id, type: 'out'}); setShowModal(true); }}>
-                      <ArrowDownRight size={16} />
-                    </button>
-                  </td>
+                  {canManageInventory && (
+                    <td className="text-right">
+                      <button className="action-icon action-icon-success" title="Stock In" onClick={() => { setFormData({...formData, variantId: item._id, type: 'in'}); setShowModal(true); }}>
+                        <ArrowUpRight size={16} />
+                      </button>
+                      <button className="action-icon action-icon-danger" title="Stock Out" onClick={() => { setFormData({...formData, variantId: item._id, type: 'out'}); setShowModal(true); }}>
+                        <ArrowDownRight size={16} />
+                      </button>
+                    </td>
+                  )}
                 </tr>
               )})}
               {inventory.length === 0 && (
                 <tr>
-                  <td colSpan="5" className="empty-state">No inventory variants found.</td>
+                  <td colSpan={inventoryColumnCount} className="empty-state">No inventory variants found.</td>
                 </tr>
               )}
             </tbody>
@@ -226,7 +259,7 @@ const Inventory = () => {
         </div>
       </div>
 
-      {showModal && (
+      {canManageInventory && showModal && (
         <div className="modal-overlay">
           <div className="glass-panel modal-card">
             <button className="modal-close-btn" onClick={() => setShowModal(false)}>

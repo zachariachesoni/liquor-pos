@@ -3,6 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { LayoutDashboard, ShoppingCart, Package, ClipboardList, FileBarChart, Users, Receipt, PieChart, LogOut, Menu, X, Shield, User, Truck } from 'lucide-react';
 import { useSystemSettings } from '../hooks/useSystemSettings';
+import { INVENTORY_ROUTE_ROLES, PRODUCTS_ROUTE_ROLES, SALES_ROUTE_ROLES } from '../utils/accessControl';
 import './Layout.css';
 
 const Layout = ({ children }) => {
@@ -19,11 +20,11 @@ const Layout = ({ children }) => {
   const navItems = [
     { name: 'Dashboard', path: '/dashboard', icon: <LayoutDashboard size={20} />, roles: ['admin', 'manager', 'cashier'] },
     { name: 'POS', path: '/pos', icon: <ShoppingCart size={20} />, roles: ['admin', 'manager', 'cashier'] },
-    { name: 'Products', path: '/products', icon: <Package size={20} />, roles: ['admin', 'manager'] },
-    { name: 'Inventory', path: '/inventory', icon: <ClipboardList size={20} />, roles: ['admin', 'manager'] },
+    { name: 'Products', path: '/products', icon: <Package size={20} />, roles: PRODUCTS_ROUTE_ROLES },
+    { name: 'Inventory', path: '/inventory', icon: <ClipboardList size={20} />, roles: INVENTORY_ROUTE_ROLES },
     { name: 'Suppliers', path: '/suppliers', icon: <Truck size={20} />, roles: ['admin', 'manager'] },
     { name: 'Reports', path: '/reports', icon: <PieChart size={20} />, roles: ['admin', 'manager'] },
-    { name: 'Sales', path: '/sales', icon: <FileBarChart size={20} />, roles: ['admin', 'manager'] },
+    { name: 'Sales', path: '/sales', icon: <FileBarChart size={20} />, roles: SALES_ROUTE_ROLES },
     { name: 'Customers', path: '/customers', icon: <Users size={20} />, roles: ['admin', 'manager', 'cashier'] },
     { name: 'Account', path: '/account', icon: <User size={20} />, roles: ['admin', 'manager', 'cashier'] },
     { name: 'Admin', path: '/admin', icon: <Shield size={20} />, roles: ['admin'] },

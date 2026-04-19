@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Package, Plus, Search, Edit2, Trash2, SlidersHorizontal, ArrowLeftRight, X } from 'lucide-react';
 import api from '../utils/api';
+import { useAuth } from '../context/AuthContext';
+import { canManageCatalog, canSeeProductCosts } from '../utils/accessControl';
 import './Products.css';
 import './Reports.css';
 
@@ -23,6 +25,7 @@ const normalizeValue = (value = '') => (
 );
 
 const Products = () => {
+  const { user } = useAuth();
   const [products, setProducts] = useState([]);
   const [search, setSearch] = useState('');
   const [showFilters, setShowFilters] = useState(false);
@@ -37,6 +40,9 @@ const Products = () => {
   const [comparisonLoading, setComparisonLoading] = useState(false);
   // Form State
   const [formData, setFormData] = useState({ ...initialFormData });
+  const canManageProducts = canManageCatalog(user?.role);
+  const canViewProductCosts = canSeeProductCosts(user?.role);
+  const tableColumnCount = canManageProducts ? 7 : 5;
 
   useEffect(() => {
     fetchProducts();
@@ -219,11 +225,20 @@ const Products = () => {
       <div className="page-header">
         <div className="page-header-copy">
           <h1 className="page-title">Products catalog</h1>
-          <p className="page-subtitle">Manage your inventory items, costs, pricing margins, and size variants.</p>
+          <p className="page-subtitle">
+            {canManageProducts
+              ? 'Manage your inventory items, costs, pricing margins, and size variants.'
+              : 'Browse your live product catalog, prices, and stock levels in a read-only view.'}
+          </p>
         </div>
-        <button className="primary-btn" onClick={() => setShowModal(true)}>
-          <Plus size={18} /> Add Product / Variant
-        </button>
+        <div className="page-header-actions">
+          {!canManageProducts && <div className="report-meta-chip">Read-only access</div>}
+          {canManageProducts && (
+            <button className="primary-btn" onClick={() => setShowModal(true)}>
+              <Plus size={18} /> Add Product / Variant
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="glass-panel main-panel">
@@ -300,11 +315,11 @@ const Products = () => {
                 <tr>
                   <th>Product Info</th>
                   <th>Category</th>
-                  <th>Cost (BP)</th>
-                  <th>Retail Price (Margin)</th>
-                  <th>Wholesale (Margin)</th>
+                  {canViewProductCosts && <th>Cost (BP)</th>}
+                  <th>{canViewProductCosts ? 'Retail Price (Margin)' : 'Retail Price'}</th>
+                  <th>{canViewProductCosts ? 'Wholesale (Margin)' : 'Wholesale Price'}</th>
                   <th>Stock</th>
-                  <th className="text-right">Actions</th>
+                  {canManageProducts && <th className="text-right">Actions</th>}
                 </tr>
               </thead>
               <tbody>
@@ -314,42 +329,48 @@ const Products = () => {
                       <div className="td-primary">{product.name}</div>
                       <div className="td-secondary">
                         {product.variant}
-                        {product.preferredSupplierName ? ` | Preferred: ${product.preferredSupplierName}` : ''}
+                        {canManageProducts && product.preferredSupplierName ? ` | Preferred: ${product.preferredSupplierName}` : ''}
                       </div>
                     </td>
                     <td><span className="badge">{product.type}</span></td>
-                    <td className="font-medium text-danger">KES {product.bp?.toLocaleString() || 0}</td>
+                    {canViewProductCosts && <td className="font-medium text-danger">KES {product.bp?.toLocaleString() || 0}</td>}
                     <td>
                       <div className="font-medium">KES {product.price?.toLocaleString() || 0}</div>
-                      <div className="text-success text-xs font-semibold" style={{ fontSize: '0.75rem' }}>
-                        {calcMargin(product.price, product.bp)}% Margin
-                      </div>
+                      {canViewProductCosts && (
+                        <div className="text-success text-xs font-semibold" style={{ fontSize: '0.75rem' }}>
+                          {calcMargin(product.price, product.bp)}% Margin
+                        </div>
+                      )}
                     </td>
                     <td>
                       <div className="font-medium text-warning">KES {product.bulk_price?.toLocaleString() || 0}</div>
-                      <div className="text-success text-xs font-semibold" style={{ fontSize: '0.75rem' }}>
-                        {calcMargin(product.bulk_price, product.bp)}% Margin
-                      </div>
+                      {canViewProductCosts && (
+                        <div className="text-success text-xs font-semibold" style={{ fontSize: '0.75rem' }}>
+                          {calcMargin(product.bulk_price, product.bp)}% Margin
+                        </div>
+                      )}
                     </td>
                     <td>
                       <span className={`status-dot ${product.stock > product.effectiveLowStockLevel ? 'green' : 'red'}`}></span>
                       {product.stock} units
                     </td>
-                    <td className="text-right">
-                      <button className="action-icon" onClick={() => handleOpenComparison(product)} title="Compare suppliers">
-                        <ArrowLeftRight size={16} />
-                      </button>
-                      <button className="action-icon" onClick={() => {
-                        setEditData({ ...product });
-                        setShowEditModal(true);
-                      }}><Edit2 size={16} /></button>
-                      <button className="action-icon text-danger" onClick={() => handleDeleteProduct(product)}><Trash2 size={16} /></button>
-                    </td>
+                    {canManageProducts && (
+                      <td className="text-right">
+                        <button className="action-icon" onClick={() => handleOpenComparison(product)} title="Compare suppliers">
+                          <ArrowLeftRight size={16} />
+                        </button>
+                        <button className="action-icon" onClick={() => {
+                          setEditData({ ...product });
+                          setShowEditModal(true);
+                        }}><Edit2 size={16} /></button>
+                        <button className="action-icon text-danger" onClick={() => handleDeleteProduct(product)}><Trash2 size={16} /></button>
+                      </td>
+                    )}
                   </tr>
                 ))}
                 {filtered.length === 0 && (
                   <tr>
-                    <td colSpan="7" className="empty-state">No products found.</td>
+                    <td colSpan={tableColumnCount} className="empty-state">No products found.</td>
                   </tr>
                 )}
               </tbody>
@@ -358,7 +379,7 @@ const Products = () => {
         </div>
       </div>
 
-      {showModal && (
+      {canManageProducts && showModal && (
         <div className="modal-overlay">
           <div className="glass-panel modal-card">
             <button className="modal-close-btn" onClick={() => setShowModal(false)}>
@@ -421,7 +442,7 @@ const Products = () => {
         </div>
       )}
 
-      {showEditModal && editData && (
+      {canManageProducts && showEditModal && editData && (
         <div className="modal-overlay">
           <div className="glass-panel modal-card">
             <button className="modal-close-btn" onClick={() => setShowEditModal(false)}>
@@ -483,7 +504,7 @@ const Products = () => {
         </div>
       )}
 
-      {showComparisonModal && (
+      {canManageProducts && showComparisonModal && (
         <div className="modal-overlay">
           <div className="glass-panel modal-card modal-card-wide modal-detail-card">
             <button className="modal-close-btn" onClick={() => { setShowComparisonModal(false); setComparisonData(null); }}>

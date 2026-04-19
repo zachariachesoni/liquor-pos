@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Download, ReceiptText, ChevronRight, X, Search } from 'lucide-react';
 import api from '../utils/api';
+import { useAuth } from '../context/AuthContext';
 import { useSystemSettings } from '../hooks/useSystemSettings';
 import { getPrintBaseStyles, getPrintBrandMarkup } from '../utils/printBranding';
 import './Products.css';
@@ -13,7 +14,9 @@ const Sales = () => {
   const [selectedSale, setSelectedSale] = useState(null);
   const [saleDetails, setSaleDetails] = useState(null);
   const [detailsLoading, setDetailsLoading] = useState(false);
+  const { user } = useAuth();
   const { settings } = useSystemSettings();
+  const isCashier = user?.role === 'cashier';
 
   useEffect(() => {
     fetchSales();
@@ -151,9 +154,14 @@ const Sales = () => {
         <div className="page-header">
           <div className="page-header-copy">
             <h1 className="page-title">Sales History</h1>
-            <p className="page-subtitle">View and filter transaction logs by period or invoice number.</p>
+            <p className="page-subtitle">
+              {isCashier
+                ? 'Review and reprint the transactions you recorded.'
+                : 'View and filter transaction logs by period or invoice number.'}
+            </p>
           </div>
           <div className="page-header-actions">
+            {isCashier && <div className="report-meta-chip">Your transactions only</div>}
             <div className="search-box toolbar-search">
               <Search size={18} className="search-icon" />
               <input
