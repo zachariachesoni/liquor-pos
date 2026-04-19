@@ -8,6 +8,10 @@ const normalizeProductName = (name = '') => (
   typeof name === 'string' ? name.trim().replace(/\s+/g, ' ') : ''
 );
 
+const normalizeVariantSize = (size = '') => (
+  typeof size === 'string' ? size.trim().replace(/\s+/g, ' ') : ''
+);
+
 const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 const findExistingProductByName = async (name, excludeId = null) => {
@@ -31,6 +35,30 @@ const findExistingProductByName = async (name, excludeId = null) => {
   }
 
   return Product.findOne(query);
+};
+
+const findExistingVariantBySize = async (productId, size, excludeId = null) => {
+  const normalizedSize = normalizeVariantSize(size);
+
+  if (!normalizedSize) {
+    return null;
+  }
+
+  const pattern = normalizedSize
+    .split(' ')
+    .map(escapeRegex)
+    .join('\\s+');
+
+  const query = {
+    product_id: productId,
+    size: new RegExp(`^${pattern}$`, 'i')
+  };
+
+  if (excludeId) {
+    query._id = { $ne: excludeId };
+  }
+
+  return ProductVariant.findOne(query);
 };
 
 // @desc    Get all products
@@ -268,12 +296,35 @@ export const deleteProduct = async (req, res) => {
 // @route   POST /api/products/:productId/variants
 export const createVariant = async (req, res) => {
   try {
+    const product = await Product.findById(req.params.productId);
+    if (!product) {
+      return res.status(404).json({ success: false, message: 'Product not found' });
+    }
+
+    const normalizedSize = normalizeVariantSize(req.body.size);
+    if (!normalizedSize) {
+      return res.status(400).json({ success: false, message: 'Variant size is required' });
+    }
+
+    const existingVariant = await findExistingVariantBySize(req.params.productId, normalizedSize);
+    if (existingVariant) {
+      return res.status(409).json({
+        success: false,
+        message: 'This size already exists for the selected product. Edit the existing SKU instead.'
+      });
+    }
+
     const variant = await ProductVariant.create({
       ...req.body,
+      size: normalizedSize,
       product_id: req.params.productId
     });
     res.status(201).json({ success: true, data: variant });
   } catch (error) {
+    logger.error('Create variant error:', error);
+    if (error.code === 11000) {
+      return res.status(409).json({ success: false, message: 'Variant barcode or size already exists' });
+    }
     res.status(500).json({ success: false, message: 'Server error' });
   }
 };
@@ -282,9 +333,38 @@ export const createVariant = async (req, res) => {
 // @route   PUT /api/products/variants/:id
 export const updateVariant = async (req, res) => {
   try {
-    const variant = await ProductVariant.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const existingVariant = await ProductVariant.findById(req.params.id);
+    if (!existingVariant) {
+      return res.status(404).json({ success: false, message: 'Variant not found' });
+    }
+
+    const nextSize = req.body.size !== undefined
+      ? normalizeVariantSize(req.body.size)
+      : existingVariant.size;
+
+    if (!nextSize) {
+      return res.status(400).json({ success: false, message: 'Variant size is required' });
+    }
+
+    const duplicateVariant = await findExistingVariantBySize(existingVariant.product_id, nextSize, existingVariant._id);
+    if (duplicateVariant) {
+      return res.status(409).json({
+        success: false,
+        message: 'This size already exists for the selected product. Choose a different variant size.'
+      });
+    }
+
+    const variant = await ProductVariant.findByIdAndUpdate(
+      req.params.id,
+      { ...req.body, size: nextSize },
+      { new: true }
+    );
     res.json({ success: true, data: variant });
   } catch (error) {
+    logger.error('Update variant error:', error);
+    if (error.code === 11000) {
+      return res.status(409).json({ success: false, message: 'Variant barcode or size already exists' });
+    }
     res.status(500).json({ success: false, message: 'Server error' });
   }
 };

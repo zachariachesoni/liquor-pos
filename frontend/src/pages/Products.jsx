@@ -5,6 +5,24 @@ import { useSystemSettings } from '../hooks/useSystemSettings';
 import './Products.css';
 import './Reports.css';
 
+const initialFormData = {
+  name: '',
+  brand: '',
+  category: 'whisky',
+  size: '750ml',
+  size_in_ml: 750,
+  buying_price: 0,
+  retail_price: 0,
+  wholesale_price: 0,
+  wholesale_threshold: 12,
+  current_stock: 0,
+  min_stock_level: 5
+};
+
+const normalizeValue = (value = '') => (
+  String(value).trim().replace(/\s+/g, ' ').toLowerCase()
+);
+
 const Products = () => {
   const [products, setProducts] = useState([]);
   const [search, setSearch] = useState('');
@@ -21,12 +39,7 @@ const Products = () => {
   const { settings } = useSystemSettings();
 
   // Form State
-  const [formData, setFormData] = useState({
-    name: '', brand: '', category: 'whisky',
-    size: '750ml', size_in_ml: 750,
-    buying_price: 0, retail_price: 0, wholesale_price: 0,
-    wholesale_threshold: 12, current_stock: 0, min_stock_level: 5
-  });
+  const [formData, setFormData] = useState({ ...initialFormData });
 
   useEffect(() => {
     fetchProducts();
@@ -46,15 +59,16 @@ const Products = () => {
                 productId: prod._id,
                 name: prod.name,
                 brand: prod.brand,
-              variant: variant.size,
-              type: prod.category,
-              bp: variant.buying_price,
-              price: variant.retail_price,
+                variant: variant.size,
+                type: prod.category,
+                bp: variant.buying_price,
+                price: variant.retail_price,
                 bulk_price: variant.wholesale_price,
                 stock: variant.current_stock,
                 minStockLevel: variant.min_stock_level,
                 effectiveLowStockLevel: variant.effective_low_stock_level || variant.min_stock_level,
                 isActive: prod.is_active !== false && variant.is_active !== false,
+                variantCount: prod.variants.length,
                 preferredSupplierName: variant.supplier_summary?.preferred_supplier_name || '',
                 preferredSupplierCost: variant.supplier_summary?.preferred_unit_cost ?? null,
                 cheapestSupplierName: variant.supplier_summary?.cheapest_supplier_name || '',
@@ -104,37 +118,64 @@ const Products = () => {
   const handleAddProduct = async (e) => {
     e.preventDefault();
     try {
-      const payload = {
-        name: formData.name,
-        brand: formData.brand,
-        category: formData.category,
-        is_active: true,
-        variants: [{
-          size: formData.size,
-          size_in_ml: Number(formData.size_in_ml),
-          buying_price: Number(formData.buying_price),
-          retail_price: Number(formData.retail_price),
-          wholesale_price: Number(formData.wholesale_price),
-          wholesale_threshold: Number(formData.wholesale_threshold),
-          current_stock: Number(formData.current_stock),
-          min_stock_level: Number(formData.min_stock_level)
-        }]
+      const normalizedName = normalizeValue(formData.name);
+      const normalizedSize = normalizeValue(formData.size);
+      const matchingProducts = products.filter((product) => normalizeValue(product.name) === normalizedName);
+      const existingVariant = matchingProducts.find((product) => normalizeValue(product.variant) === normalizedSize);
+
+      if (existingVariant) {
+        alert(`${formData.name} ${formData.size} already exists. Edit the existing SKU instead.`);
+        return;
+      }
+
+      const variantPayload = {
+        size: formData.size.trim(),
+        size_in_ml: Number(formData.size_in_ml),
+        buying_price: Number(formData.buying_price),
+        retail_price: Number(formData.retail_price),
+        wholesale_price: Number(formData.wholesale_price),
+        wholesale_threshold: Number(formData.wholesale_threshold),
+        current_stock: Number(formData.current_stock),
+        min_stock_level: Number(formData.min_stock_level)
       };
-      await api.post('/products', payload);
+
+      const existingProduct = matchingProducts[0] || null;
+
+      if (existingProduct) {
+        await api.post(`/products/${existingProduct.productId}/variants`, variantPayload);
+      } else {
+        const payload = {
+          name: formData.name,
+          brand: formData.brand,
+          category: formData.category,
+          is_active: true,
+          variants: [variantPayload]
+        };
+        await api.post('/products', payload);
+      }
+
       setShowModal(false);
+      setFormData({ ...initialFormData });
       fetchProducts();
-      // Reset
-      setFormData({ ...formData, name: '', brand: '', buying_price: 0, retail_price: 0, wholesale_price: 0, current_stock: 0, size_in_ml: 750, size: '750ml', min_stock_level: 5 });
     } catch (err) {
       alert(err.response?.data?.message || 'Error creating product');
       console.error(err);
     }
   };
 
-  const handleDeleteProduct = async (productId) => {
-    if (window.confirm("Are you sure you want to delete this product?")) {
+  const handleDeleteProduct = async (product) => {
+    const isLastVariant = Number(product.variantCount || 0) <= 1;
+    const message = isLastVariant
+      ? `Are you sure you want to delete ${product.name}?`
+      : `Are you sure you want to delete the ${product.variant} variant from ${product.name}? Other variants will stay in the catalog.`;
+
+    if (window.confirm(message)) {
       try {
-        await api.delete(`/products/${productId}`);
+        if (isLastVariant) {
+          await api.delete(`/products/${product.productId}`);
+        } else {
+          await api.delete(`/products/variants/${product.id}`);
+        }
         fetchProducts();
       } catch (err) {
         alert("Error deleting product");
@@ -188,10 +229,10 @@ const Products = () => {
       <div className="page-header">
         <div className="page-header-copy">
           <h1 className="page-title">Products catalog</h1>
-          <p className="page-subtitle">Manage your inventory items, costs, and pricing margins.</p>
+          <p className="page-subtitle">Manage your inventory items, costs, pricing margins, and size variants.</p>
         </div>
         <button className="primary-btn" onClick={() => setShowModal(true)}>
-          <Plus size={18} /> Add Product
+          <Plus size={18} /> Add Product / Variant
         </button>
       </div>
 
@@ -322,7 +363,7 @@ const Products = () => {
                         setEditData({ ...product });
                         setShowEditModal(true);
                       }}><Edit2 size={16} /></button>
-                      <button className="action-icon text-danger" onClick={() => handleDeleteProduct(product.productId)}><Trash2 size={16} /></button>
+                      <button className="action-icon text-danger" onClick={() => handleDeleteProduct(product)}><Trash2 size={16} /></button>
                     </td>
                   </tr>
                 ))}
@@ -343,7 +384,8 @@ const Products = () => {
             <button className="modal-close-btn" onClick={() => setShowModal(false)}>
               <X size={20} />
             </button>
-            <h2 className="modal-title">Add New Product</h2>
+            <h2 className="modal-title">Add Product or Variant</h2>
+            <p className="page-subtitle">If the product name already exists, this will add the size as a new variant instead of blocking you.</p>
             <form onSubmit={handleAddProduct} className="modal-form">
               <div className="modal-form-grid">
                 <div className="modal-form-field">
@@ -392,7 +434,7 @@ const Products = () => {
                 </div>
               </div>
               <div className="modal-actions">
-                <button type="submit" className="primary-btn">Save & Register Product</button>
+                <button type="submit" className="primary-btn">Save Product / Variant</button>
               </div>
             </form>
           </div>
