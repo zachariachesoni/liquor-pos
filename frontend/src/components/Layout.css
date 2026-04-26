@@ -19,7 +19,7 @@
 }
 
 .sidebar-collapsed .sidebar {
-  width: 84px;
+  width: 96px;
 }
 
 .sidebar-header {
@@ -37,12 +37,14 @@
   align-items: center;
   gap: 0.75rem;
   min-width: 0;
+  overflow: hidden;
 }
 
 .brand-icon {
   background: linear-gradient(135deg, var(--primary), var(--secondary));
   width: 36px;
   height: 36px;
+  flex: 0 0 36px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -55,7 +57,8 @@
 .brand-icon img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
+  background: #ffffff;
 }
 
 .brand h2 {
@@ -69,6 +72,9 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  max-width: 160px;
+  opacity: 1;
+  transition: max-width 0.2s ease, opacity 0.16s ease;
 }
 
 .sidebar-collapse-toggle {
@@ -117,6 +123,10 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
+  max-width: 150px;
+  overflow: hidden;
+  opacity: 1;
+  transition: max-width 0.2s ease, opacity 0.16s ease;
 }
 
 .user-name {
@@ -149,7 +159,7 @@
   color: var(--text-secondary);
   text-decoration: none;
   border-radius: var(--radius-md);
-  transition: all 0.2s ease;
+  transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease, padding 0.2s ease, width 0.2s ease;
   font-weight: 500;
   min-height: 46px;
   white-space: nowrap;
@@ -159,15 +169,23 @@
   flex-shrink: 0;
 }
 
+.nav-item span,
+.logout-btn span {
+  max-width: 140px;
+  overflow: hidden;
+  opacity: 1;
+  transition: max-width 0.2s ease, opacity 0.16s ease;
+}
+
 .nav-item:hover {
   background: rgba(255, 255, 255, 0.05);
   color: var(--text-primary);
 }
 
 .nav-item.active {
-  background: linear-gradient(to right, rgba(99, 102, 241, 0.15), rgba(99, 102, 241, 0.05));
+  background: rgba(99, 102, 241, 0.16);
   color: var(--primary-light);
-  border-left: 3px solid var(--primary);
+  border-left: 3px solid rgba(129, 140, 248, 0.9);
 }
 
 .sidebar-footer {
@@ -203,26 +221,27 @@
 }
 
 .sidebar-collapsed .main-content {
-  margin-left: 84px;
+  margin-left: 96px;
 }
 
 @media (min-width: 1025px) {
   .sidebar-collapsed .modal-overlay {
-    left: 84px;
+    left: 96px;
   }
 
   .sidebar-collapsed .modal-card {
-    max-width: calc(100vw - 84px - 2.5rem);
+    max-width: calc(100vw - 96px - 2.5rem);
   }
 
   .sidebar-collapsed .modal-card-wide {
-    width: min(1100px, calc(100vw - 84px - 3rem));
-    max-width: calc(100vw - 84px - 3rem);
+    width: min(1100px, calc(100vw - 96px - 3rem));
+    max-width: calc(100vw - 96px - 3rem);
   }
 }
 
 .sidebar-collapsed .sidebar-header {
-  justify-content: center;
+  justify-content: space-between;
+  gap: 0.35rem;
   padding: 0 0.75rem;
 }
 
@@ -230,16 +249,13 @@
 .sidebar-collapsed .user-info,
 .sidebar-collapsed .nav-item span,
 .sidebar-collapsed .logout-btn span {
-  display: none;
-}
-
-.sidebar-collapsed .brand {
-  display: none;
+  max-width: 0;
+  opacity: 0;
 }
 
 .sidebar-collapsed .sidebar-collapse-toggle {
-  width: 44px;
-  height: 44px;
+  width: 38px;
+  height: 38px;
 }
 
 .sidebar-collapsed .user-profile {
@@ -267,7 +283,7 @@
 
 .sidebar-collapsed .nav-item.active {
   border-left: 0;
-  border-bottom: 3px solid var(--primary);
+  border-bottom: 3px solid rgba(129, 140, 248, 0.9);
 }
 
 .sidebar-collapsed .sidebar-footer {
@@ -293,10 +309,19 @@
   z-index: 30;
 }
 
-.mobile-toggle, .mobile-close {
+.mobile-toggle {
   background: transparent;
   color: var(--text-primary);
   display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem;
+}
+
+.mobile-close {
+  display: none;
+  background: transparent;
+  color: var(--text-primary);
   align-items: center;
   justify-content: center;
   padding: 0.5rem;
@@ -341,7 +366,8 @@
   .sidebar-collapsed .user-info,
   .sidebar-collapsed .nav-item span,
   .sidebar-collapsed .logout-btn span {
-    display: inline;
+    max-width: 160px;
+    opacity: 1;
   }
 
   .sidebar-collapsed .sidebar-header {
@@ -351,6 +377,10 @@
 
   .sidebar-collapse-toggle {
     display: none;
+  }
+
+  .mobile-close {
+    display: flex;
   }
 
   .sidebar-collapsed .user-profile {
@@ -373,7 +403,7 @@
   }
 
   .sidebar-collapsed .nav-item.active {
-    border-left: 3px solid var(--primary);
+    border-left: 3px solid rgba(129, 140, 248, 0.9);
     border-bottom: 0;
   }
 
