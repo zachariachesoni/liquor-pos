@@ -7,6 +7,18 @@ import logger from '../utils/logger.js';
 import { mongoose } from '../config/database.js';
 import { calculateEffectiveLowStockLevel, getSystemSettings, serializeSystemSettings } from '../utils/systemSettings.js';
 
+const calculateWeightedAverageCost = (currentStock, currentCost, incomingQuantity, incomingUnitCost) => {
+  const stock = Math.max(0, Number(currentStock || 0));
+  const quantity = Math.max(0, Number(incomingQuantity || 0));
+  const oldCost = Math.max(0, Number(currentCost || 0));
+  const newCost = Math.max(0, Number(incomingUnitCost || 0));
+
+  if (quantity <= 0) return oldCost;
+  if (stock <= 0) return newCost;
+
+  return ((stock * oldCost) + (quantity * newCost)) / (stock + quantity);
+};
+
 // @desc    Get stock levels
 // @route   GET /api/inventory/stock-levels
 export const getStockLevels = async (req, res) => {
@@ -217,14 +229,29 @@ export const addStock = async (req, res) => {
         return res.status(400).json({ success: false, message: 'Each stock item must include a valid variant and quantity' });
       }
 
-      await ProductVariant.findByIdAndUpdate(item.variantId, {
-        $inc: { current_stock: quantity }
-      }, { session });
+      const variant = await ProductVariant.findById(item.variantId).session(session);
+      if (!variant) {
+        return res.status(404).json({ success: false, message: 'Inventory item not found' });
+      }
+
+      const unitCost = item.unit_cost !== undefined ? Number(item.unit_cost) : Number(variant.buying_price || 0);
+      if (!Number.isFinite(unitCost) || unitCost < 0) {
+        return res.status(400).json({ success: false, message: 'Unit cost must be zero or a positive number' });
+      }
+
+      const stockBefore = Number(variant.current_stock || 0);
+      const stockAfter = stockBefore + quantity;
+      variant.buying_price = calculateWeightedAverageCost(stockBefore, variant.buying_price, quantity, unitCost);
+      variant.current_stock = stockAfter;
+      await variant.save({ session });
 
       await StockAdjustment.create([{
         variant_id: item.variantId,
         adjustment_type: 'in',
         quantity,
+        unit_cost: unitCost,
+        stock_before: stockBefore,
+        stock_after: stockAfter,
         reason: 'restocking',
         notes: notes || `From supplier: ${supplier}`,
         user_id: req.user._id || req.user.id
@@ -245,11 +272,26 @@ export const addStock = async (req, res) => {
           return res.status(400).json({ success: false, message: 'Each stock item must include a valid variant and quantity' });
         }
 
-        await ProductVariant.findByIdAndUpdate(item.variantId, { $inc: { current_stock: quantity } });
+        const variant = await ProductVariant.findById(item.variantId);
+        if (!variant) {
+          return res.status(404).json({ success: false, message: 'Inventory item not found' });
+        }
+        const unitCost = item.unit_cost !== undefined ? Number(item.unit_cost) : Number(variant.buying_price || 0);
+        if (!Number.isFinite(unitCost) || unitCost < 0) {
+          return res.status(400).json({ success: false, message: 'Unit cost must be zero or a positive number' });
+        }
+        const stockBefore = Number(variant.current_stock || 0);
+        const stockAfter = stockBefore + quantity;
+        variant.buying_price = calculateWeightedAverageCost(stockBefore, variant.buying_price, quantity, unitCost);
+        variant.current_stock = stockAfter;
+        await variant.save();
         await StockAdjustment.create({
           variant_id: item.variantId,
           adjustment_type: 'in',
           quantity,
+          unit_cost: unitCost,
+          stock_before: stockBefore,
+          stock_after: stockAfter,
           reason: 'restocking',
           notes: notes || `From supplier: ${supplier}`,
           user_id: req.user._id || req.user.id
@@ -269,8 +311,11 @@ export const adjustStock = async (req, res) => {
   const session = await mongoose.startSession();
   try {
     session.startTransaction();
-    const { variantId, quantity, type, reason, notes } = req.body; // type: 'in' or 'out'
+    const { variantId, quantity, type, reason, notes, unitCost } = req.body; // type: 'in' or 'out'
     const normalizedQuantity = Number(quantity);
+    const normalizedUnitCost = unitCost !== undefined && unitCost !== ''
+      ? Number(unitCost)
+      : null;
 
     if (!variantId || !Number.isFinite(normalizedQuantity) || normalizedQuantity <= 0) {
       return res.status(400).json({ success: false, message: 'A valid inventory item and quantity are required' });
@@ -278,6 +323,10 @@ export const adjustStock = async (req, res) => {
 
     if (!['in', 'out'].includes(type)) {
       return res.status(400).json({ success: false, message: 'Adjustment type must be either "in" or "out"' });
+    }
+
+    if (normalizedUnitCost !== null && (!Number.isFinite(normalizedUnitCost) || normalizedUnitCost < 0)) {
+      return res.status(400).json({ success: false, message: 'Unit cost must be zero or a positive number' });
     }
     
     const variant = await ProductVariant.findById(variantId).session(session);
@@ -289,15 +338,24 @@ export const adjustStock = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Cannot remove more stock than is currently available' });
     }
 
+    const stockBefore = Number(variant.current_stock || 0);
     const qtyChange = type === 'in' ? normalizedQuantity : -normalizedQuantity;
-    
-    variant.current_stock += qtyChange;
+    const appliedUnitCost = type === 'in' ? (normalizedUnitCost ?? Number(variant.buying_price || 0)) : Number(variant.buying_price || 0);
+
+    if (type === 'in') {
+      variant.buying_price = calculateWeightedAverageCost(stockBefore, variant.buying_price, normalizedQuantity, appliedUnitCost);
+    }
+
+    variant.current_stock = stockBefore + qtyChange;
     await variant.save({ session });
 
     await StockAdjustment.create([{
       variant_id: variantId,
       adjustment_type: type,
       quantity: normalizedQuantity,
+      unit_cost: appliedUnitCost,
+      stock_before: stockBefore,
+      stock_after: variant.current_stock,
       reason,
       notes,
       user_id: req.user._id || req.user.id
@@ -308,8 +366,11 @@ export const adjustStock = async (req, res) => {
   } catch (error) {
     await session.abortTransaction();
     if (error.message.includes('Transaction') || error.message.includes('transaction')) {
-      const { variantId, quantity, type, reason, notes } = req.body;
+      const { variantId, quantity, type, reason, notes, unitCost } = req.body;
       const normalizedQuantity = Number(quantity);
+      const normalizedUnitCost = unitCost !== undefined && unitCost !== ''
+        ? Number(unitCost)
+        : null;
       const variant = await ProductVariant.findById(variantId);
 
       if (!variant) {
@@ -320,12 +381,26 @@ export const adjustStock = async (req, res) => {
         return res.status(400).json({ success: false, message: 'Cannot remove more stock than is currently available' });
       }
 
-      variant.current_stock += type === 'in' ? normalizedQuantity : -normalizedQuantity;
+      if (normalizedUnitCost !== null && (!Number.isFinite(normalizedUnitCost) || normalizedUnitCost < 0)) {
+        return res.status(400).json({ success: false, message: 'Unit cost must be zero or a positive number' });
+      }
+
+      const stockBefore = Number(variant.current_stock || 0);
+      const appliedUnitCost = type === 'in' ? (normalizedUnitCost ?? Number(variant.buying_price || 0)) : Number(variant.buying_price || 0);
+
+      if (type === 'in') {
+        variant.buying_price = calculateWeightedAverageCost(stockBefore, variant.buying_price, normalizedQuantity, appliedUnitCost);
+      }
+
+      variant.current_stock = stockBefore + (type === 'in' ? normalizedQuantity : -normalizedQuantity);
       await variant.save();
       await StockAdjustment.create({
         variant_id: variantId,
         adjustment_type: type,
         quantity: normalizedQuantity,
+        unit_cost: appliedUnitCost,
+        stock_before: stockBefore,
+        stock_after: variant.current_stock,
         reason,
         notes,
         user_id: req.user._id || req.user.id

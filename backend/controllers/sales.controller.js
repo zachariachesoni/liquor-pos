@@ -1,6 +1,7 @@
 import Sale from '../models/Sale.js';
 import SaleItem from '../models/SaleItem.js';
 import ProductVariant from '../models/ProductVariant.js';
+import StockAdjustment from '../models/StockAdjustment.js';
 import logger from '../utils/logger.js';
 import { generateInvoiceNumber } from '../utils/helpers.js';
 import { mongoose } from '../config/database.js';
@@ -63,8 +64,21 @@ export const createSale = async (req, res) => {
       });
 
       // Deduct stock
+      const stockBefore = Number(variant.current_stock || 0);
       variant.current_stock -= quantity;
       await variant.save({ session });
+
+      await StockAdjustment.create([{
+        variant_id: variant._id,
+        adjustment_type: 'out',
+        quantity,
+        unit_cost: Number(variant.buying_price || 0),
+        stock_before: stockBefore,
+        stock_after: Number(variant.current_stock || 0),
+        reason: 'sale',
+        notes: 'Stock deducted during checkout',
+        user_id: req.user._id || req.user.id
+      }], { session, ordered: true });
     }
 
     const appliedAmountPaid = normalizedAmountPaid > 0 ? normalizedAmountPaid : totalAmount;
@@ -100,6 +114,7 @@ export const createSale = async (req, res) => {
       let variantSnapshots = [];
       let createdSale = null;
       let saleItemsCreated = false;
+      const createdStockAdjustmentIds = [];
 
       try {
         const { items, customerId, paymentMethod, amountPaid, priceList } = req.body;
@@ -122,6 +137,7 @@ export const createSale = async (req, res) => {
             id: variant._id,
             quantity,
             originalStock: variant.current_stock,
+            unitCost: Number(variant.buying_price || 0)
           });
 
           const appliesWholesale = priceList === 'wholesale' || quantity >= variant.wholesale_threshold;
@@ -173,6 +189,19 @@ export const createSale = async (req, res) => {
           if (!updatedVariant) {
             throw new Error('Stock changed before fallback checkout could finish');
           }
+
+          const adjustment = await StockAdjustment.create({
+            variant_id: snapshot.id,
+            adjustment_type: 'out',
+            quantity: snapshot.quantity,
+            unit_cost: snapshot.unitCost,
+            stock_before: snapshot.originalStock,
+            stock_after: updatedVariant.current_stock,
+            reason: 'sale',
+            notes: 'Stock deducted during checkout',
+            user_id: req.user._id || req.user.id
+          });
+          createdStockAdjustmentIds.push(adjustment._id);
         }
 
         return res.status(201).json({ success: true, data: createdSale });
@@ -186,6 +215,10 @@ export const createSale = async (req, res) => {
 
           if (createdSale?._id) {
             await Sale.findByIdAndDelete(createdSale._id);
+          }
+
+          if (createdStockAdjustmentIds.length) {
+            await StockAdjustment.deleteMany({ _id: { $in: createdStockAdjustmentIds } });
           }
 
           for (const snapshot of variantSnapshots) {

@@ -10,6 +10,7 @@ const Sales = () => {
   const [sales, setSales] = useState([]);
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState('All');
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().slice(0, 10));
   const [search, setSearch] = useState('');
   const [selectedSale, setSelectedSale] = useState(null);
   const [saleDetails, setSaleDetails] = useState(null);
@@ -20,7 +21,7 @@ const Sales = () => {
 
   useEffect(() => {
     fetchSales();
-  }, [period, search]);
+  }, [period, search, selectedDate]);
 
   const fetchSales = async () => {
     try {
@@ -30,6 +31,11 @@ const Sales = () => {
       if (period === 'Today') {
         now.setHours(0, 0, 0, 0);
         params.start_date = now.toISOString();
+      } else if (period === 'Day') {
+        const dayStart = new Date(`${selectedDate}T00:00:00`);
+        const dayEnd = new Date(`${selectedDate}T23:59:59.999`);
+        params.start_date = dayStart.toISOString();
+        params.end_date = dayEnd.toISOString();
       } else if (period === 'Month') {
         now.setDate(1);
         now.setHours(0, 0, 0, 0);
@@ -179,10 +185,22 @@ const Sales = () => {
                 onChange={(e) => setPeriod(e.target.value)}
               >
                 <option value="All">All Time</option>
+                <option value="Day">Specific Day</option>
                 <option value="Today">Today</option>
                 <option value="Month">This Month</option>
               </select>
             </div>
+            {period === 'Day' && (
+              <div className="toolbar-control compact">
+                <label>Sales Day</label>
+                <input
+                  className="field-select"
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                />
+              </div>
+            )}
           </div>
         </div>
 

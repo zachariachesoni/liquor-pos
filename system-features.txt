@@ -1,0 +1,176 @@
+Liquor POS System - Extracted System Features
+Based on the current frontend and backend implementation in this repository.
+
+1. Authentication and Access Control
+- User login supports username or email plus password.
+- First-run registration is restricted to creation of the initial admin account only.
+- Public self-registration is disabled after the first admin exists.
+- JWT-based authenticated sessions are used for protected routes.
+- Users can log out and change their passwords.
+- Role-based access control is enforced for admin, manager, and cashier users.
+- Cashiers have a restricted operational view, while admins and managers can manage catalog, inventory, suppliers, expenses, and reports.
+- Admins can create staff accounts for managers and cashiers.
+- Admins can update staff roles and remove staff accounts.
+- Staff creation generates temporary passwords and can send invite emails when email is configured.
+
+2. Dashboard and Operational Snapshot
+- Dashboard shows daily, weekly, and monthly revenue and transaction counts.
+- Dashboard shows inventory totals and low-stock alert counts.
+- Dashboard includes a 7-day sales trend chart.
+- Dashboard includes sales-by-category visualization.
+- Cashier dashboard data is scoped to the logged-in cashier's own sales activity.
+
+3. Point of Sale (POS)
+- Product search is available during checkout.
+- Cart-based checkout supports adding, removing, and changing item quantities.
+- Checkout prevents selling more than available stock.
+- Checkout supports walk-in customers and linked customer accounts.
+- Payment methods supported in the system are cash, M-Pesa, bank, and split.
+- Cash checkout records amount paid and calculates change due.
+- Sales create invoice numbers automatically.
+- Receipts can be previewed and printed after checkout.
+- Receipts include business branding, invoice number, customer, payment method, sale type, totals, and footer text.
+
+4. Pricing and Sales Logic
+- Each product can have multiple size variants.
+- Each variant stores buying price, retail price, wholesale price, and wholesale threshold.
+- The system supports retail and wholesale pricing.
+- POS can apply wholesale pricing manually from the price list selector.
+- POS also auto-applies wholesale pricing when quantity reaches the variant threshold.
+- Wholesale customer accounts can unlock wholesale pricing at checkout.
+- Sales store sale type, payment method, subtotal, total amount, amount paid, and change due.
+- Sale line items store unit price, buying price at time of sale, wholesale-applied flag, and profit margin.
+
+5. Product Catalog Management
+- Product records include name, brand, category, description, barcode, image URL, and active status.
+- Variants include size, size in ml, pricing, current stock, barcode, and low-stock threshold.
+- Products can be created with an initial variant.
+- Additional variants can be added to existing products.
+- Products and variants can be edited.
+- Admins can delete products or individual variants.
+- Product browsing supports search by name, variant, category, and brand.
+- Product browsing supports stock-status filtering for in stock, low stock, and out of stock.
+- Margin visibility is available to management roles, showing retail and wholesale margin percentages.
+- Product view includes preferred and cheapest supplier indicators when supplier links exist.
+- Product-level supplier price comparison is available for a variant.
+- Price comparison includes supplier cost, lead time, preferred supplier flags, and recent price movement history.
+
+6. Inventory Management
+- Live stock levels are tracked per variant.
+- Inventory pages show current stock, low-stock status, and last restock details.
+- Effective low-stock levels can be calculated using system settings.
+- High-value items can use a stricter low-stock threshold.
+- Reorder suggestions are generated for items at or below their effective low-stock level.
+- Reorder suggestions can include preferred supplier, last purchase details, unit cost, minimum order quantity, and lead time.
+- Managers and admins can create stock adjustments.
+- Stock adjustments support stock-in and stock-out.
+- Adjustment reasons include restocking, breakage, theft, promotion, expired, damaged, found, return, and other.
+- Adjustment history is recorded in stock movement logs.
+- Negative stock is prevented during adjustments and sales.
+- Reorder suggestions can create one-tap draft purchase orders when a preferred supplier is linked.
+
+7. Suppliers and Procurement
+- Suppliers can be created, viewed, edited, and marked active or inactive.
+- Supplier records include contact name, phone, email, address, account number, notes, payment terms, and credit limit.
+- Supplier list includes linked SKU counts, purchase volume, outstanding balances, and overdue exposure.
+- Supplier-product links can be created per variant.
+- Supplier-product links store unit cost, minimum order quantity, lead time, and preferred supplier flag.
+- Supplier detail screens show linked SKUs, purchase history, payment history, and supplier profile data.
+- Supplier price history is tracked for linked products.
+- Preferred supplier links can roll over to the next best option if a preferred link is removed.
+
+8. Purchase Orders, Receiving, and Payables
+- Draft purchase orders can be created for suppliers.
+- Purchase orders can also be created directly as received stock entries.
+- Purchase order statuses include draft, ordered, partially received, and received.
+- Goods received operations update stock levels.
+- Goods received operations create stock adjustment records tied to the purchase order.
+- Receiving can print a GRN (Goods Received Note).
+- Purchase order records store invoice reference, notes, totals, amount paid, balance outstanding, and due date.
+- Payment status is tracked as unpaid, partial, or paid.
+- Additional receiving can be posted against existing purchase orders.
+- Supplier payments can be recorded against received purchase orders.
+- A payables dashboard highlights total owed, overdue balances, due-this-week balances, and suppliers with open liabilities.
+- Open purchase orders and recent receiving history are available in the suppliers workspace.
+
+9. Sales History and Invoice Management
+- Sales history can be filtered by period.
+- Sales can be searched by invoice number.
+- Cashiers only see their own transaction history.
+- Managers and admins can view wider sales history.
+- Sale detail views show cashier, customer, payment method, sale type, item lines, and total.
+- Sales invoices can be opened and printed/downloaded from the sales history area.
+
+10. Customer Management
+- Customer profiles can be created and browsed.
+- Customer records include name, phone, email, address, notes, and customer type.
+- Customer type supports retail and wholesale.
+- Customer search supports matching by name and phone.
+- Customer records show purchase counts.
+- Customer purchase history can be opened from the customer directory.
+- Customer purchase history can be searched by invoice number, payment method, or sold item.
+- Customer purchase history can be exported as a printable customer report.
+- Wholesale customer accounts are used to unlock wholesale checkout flows.
+
+11. Expense Tracking
+- Expenses can be recorded by admins and managers.
+- Expense records store category, description, amount, expense date, payment method, reference number, and receipt image field.
+- Expense categories include rent, salaries, transport, restocking, utilities, maintenance, and other.
+- Expenses are listed in a ledger view.
+- Expense reporting includes total spend, category breakdown, monthly trend, and highest individual expenses.
+- Expense reporting can be exported as a printable expense report.
+
+12. Reporting and Analytics
+- Financial P&L reporting is available.
+- P&L report calculates gross revenue, cost of goods sold, gross profit, total operating expenses, and net profit.
+- Customer sales reporting shows orders, revenue, items sold, and profit by customer.
+- Product sales reporting shows units sold, revenue, transactions, and profit for selected products and variants.
+- Supplier statement reporting shows purchase volume, payments, and outstanding balances per supplier.
+- Accounts payable aging reporting breaks liabilities into aging buckets.
+- Purchase history reporting is available by SKU.
+- Margin erosion reporting identifies items with low retail or wholesale margins and recent cost increases.
+- Top suppliers reporting ranks suppliers by purchase volume and outstanding balances.
+- Reporting supports date scoping and entity filters where applicable.
+- Reports can be exported as printable PDF-style documents from the UI.
+
+13. Business Settings and Branding
+- Admins can manage business name, business logo, and receipt/report footer.
+- Uploaded logo is applied across receipts, reports, and layout branding.
+- Admins can configure default low-stock threshold.
+- Admins can configure high-value item price threshold.
+- Admins can configure high-value low-stock threshold.
+- Admins can configure minimum margin alert threshold for reports.
+- Public settings endpoint exposes branding and operational thresholds needed by the frontend.
+
+14. Account and Profile Features
+- Each logged-in user can view their username, email, and role.
+- Each logged-in user can change their own password from the account screen.
+
+15. Data Integrity and System Safeguards
+- Product, variant, user, invoice, and supplier uniqueness rules are enforced in the data model.
+- Stock is decremented on sale and incremented on goods receipt.
+- Checkout validates stock before completing a sale.
+- Inventory adjustments reject invalid or negative outcomes.
+- The sales flow attempts MongoDB transactions and falls back safely when transactions are unavailable.
+- Duplicate-entry and validation errors are handled centrally.
+
+16. Security and Platform Features
+- Security middleware includes Helmet and API rate limiting.
+- CORS is restricted to approved frontend origins, with optional Vercel preview support.
+- Request logging is implemented with Morgan in development and Winston-based logging in the app.
+- Health check endpoint is available at /api/health.
+- Backend serves the built frontend in production deployments.
+
+17. Main Functional Areas Present in the Application
+- Authentication and user management
+- Dashboard and analytics snapshot
+- POS and checkout
+- Product and variant catalog
+- Inventory and stock adjustments
+- Suppliers and supplier-SKU linking
+- Purchase orders, receiving, and payables
+- Customer management and customer history
+- Sales history and invoice printing
+- Expense tracking
+- Advanced business reports
+- Admin settings and branding

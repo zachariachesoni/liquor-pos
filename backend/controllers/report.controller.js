@@ -8,6 +8,7 @@ import PurchaseOrderItem from '../models/PurchaseOrderItem.js';
 import SupplierPayment from '../models/SupplierPayment.js';
 import ProductVariant from '../models/ProductVariant.js';
 import SupplierProductPriceHistory from '../models/SupplierProductPriceHistory.js';
+import StockAdjustment from '../models/StockAdjustment.js';
 import { getSystemSettings, serializeSystemSettings } from '../utils/systemSettings.js';
 import { getDaysPastDue, getPaymentTermsLabel } from '../utils/purchasing.js';
 
@@ -73,6 +74,39 @@ const isWithinDateRange = (value, range = {}) => {
 
   return true;
 };
+
+const getClosedDateRange = (startDate, endDate) => {
+  const end = endDate ? new Date(endDate) : new Date();
+  const start = startDate ? new Date(startDate) : new Date(end);
+
+  if (!startDate) {
+    start.setDate(start.getDate() - 29);
+  }
+
+  start.setHours(0, 0, 0, 0);
+  end.setHours(23, 59, 59, 999);
+
+  return { start, end };
+};
+
+const getPreviousDateRange = (range) => {
+  const duration = range.end.getTime() - range.start.getTime();
+  const previousEnd = new Date(range.start.getTime() - 1);
+  const previousStart = new Date(previousEnd.getTime() - duration);
+  return { start: previousStart, end: previousEnd };
+};
+
+const getProductSnapshot = (variant) => ({
+  variant_id: variant?._id || null,
+  product_name: variant?.product_id?.name || 'Unknown item',
+  brand: variant?.product_id?.brand || '',
+  category: variant?.product_id?.category || 'other',
+  size: variant?.size || '',
+  current_stock: Number(variant?.current_stock || 0),
+  buying_price: Number(variant?.buying_price || 0),
+  retail_price: Number(variant?.retail_price || 0),
+  wholesale_price: Number(variant?.wholesale_price || 0)
+});
 
 const attachPurchaseOrderItems = (purchaseOrders = [], purchaseOrderItems = []) => {
   const itemsByPurchaseOrder = purchaseOrderItems.reduce((map, item) => {
@@ -736,6 +770,238 @@ export const getMarginErosionReport = async (req, res) => {
       data: {
         threshold,
         rows
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+// @desc    Get inventory movement, daily sales, best sellers, slow movers, and trending products
+// @route   GET /api/reports/inventory-performance
+export const getInventoryPerformanceReport = async (req, res) => {
+  try {
+    const range = getClosedDateRange(req.query.start_date, req.query.end_date);
+    const previousRange = getPreviousDateRange(range);
+    const saleDateMatch = { createdAt: { $gte: range.start, $lte: range.end } };
+    const adjustmentDateMatch = { createdAt: { $gte: range.start, $lte: range.end } };
+
+    const [
+      dailySales,
+      bestSellers,
+      currentPeriodSales,
+      previousPeriodSales,
+      variants,
+      stockAdjustments
+    ] = await Promise.all([
+      Sale.aggregate([
+        { $match: saleDateMatch },
+        {
+          $group: {
+            _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
+            sales_count: { $sum: 1 },
+            revenue: { $sum: '$total_amount' },
+            amount_paid: { $sum: '$amount_paid' }
+          }
+        },
+        { $sort: { _id: 1 } }
+      ]),
+      SaleItem.aggregate([
+        { $match: { createdAt: saleDateMatch.createdAt } },
+        {
+          $group: {
+            _id: '$variant_id',
+            quantity_sold: { $sum: '$quantity' },
+            revenue: { $sum: '$subtotal' },
+            profit: { $sum: '$profit_margin' },
+            transactions: { $sum: 1 },
+            last_sold_at: { $max: '$createdAt' }
+          }
+        },
+        { $sort: { quantity_sold: -1, revenue: -1 } },
+        { $limit: 25 }
+      ]),
+      SaleItem.aggregate([
+        { $match: { createdAt: saleDateMatch.createdAt } },
+        {
+          $group: {
+            _id: '$variant_id',
+            quantity_sold: { $sum: '$quantity' },
+            revenue: { $sum: '$subtotal' },
+            profit: { $sum: '$profit_margin' },
+            last_sold_at: { $max: '$createdAt' }
+          }
+        }
+      ]),
+      SaleItem.aggregate([
+        { $match: { createdAt: { $gte: previousRange.start, $lte: previousRange.end } } },
+        {
+          $group: {
+            _id: '$variant_id',
+            quantity_sold: { $sum: '$quantity' },
+            revenue: { $sum: '$subtotal' }
+          }
+        }
+      ]),
+      ProductVariant.find().populate('product_id', 'name brand category').lean(),
+      StockAdjustment.find(adjustmentDateMatch)
+        .populate({
+          path: 'variant_id',
+          populate: {
+            path: 'product_id',
+            select: 'name brand category'
+          }
+        })
+        .populate('user_id', 'username')
+        .populate('purchase_order_id', 'po_number invoice_reference')
+        .sort({ createdAt: -1 })
+        .lean()
+    ]);
+
+    const variantsById = new Map(variants.map((variant) => [String(variant._id), variant]));
+    const currentSalesByVariant = new Map(currentPeriodSales.map((row) => [String(row._id), row]));
+    const previousSalesByVariant = new Map(previousPeriodSales.map((row) => [String(row._id), row]));
+
+    const attachVariant = (row) => {
+      const variant = variantsById.get(String(row._id));
+      return {
+        ...getProductSnapshot(variant),
+        quantity_sold: Number(row.quantity_sold || 0),
+        revenue: Number(row.revenue || 0),
+        profit: Number(row.profit || 0),
+        transactions: Number(row.transactions || 0),
+        last_sold_at: row.last_sold_at || null
+      };
+    };
+
+    const bestSellerRows = bestSellers.map(attachVariant);
+
+    const slowMovingRows = variants
+      .map((variant) => {
+        const sales = currentSalesByVariant.get(String(variant._id)) || {};
+        const lastSale = sales.last_sold_at ? new Date(sales.last_sold_at) : null;
+        const daysSinceLastSale = lastSale
+          ? Math.max(0, Math.floor((range.end.getTime() - lastSale.getTime()) / 86400000))
+          : null;
+
+        return {
+          ...getProductSnapshot(variant),
+          quantity_sold: Number(sales.quantity_sold || 0),
+          revenue: Number(sales.revenue || 0),
+          last_sold_at: sales.last_sold_at || null,
+          days_since_last_sale: daysSinceLastSale
+        };
+      })
+      .filter((row) => row.current_stock > 0)
+      .sort((left, right) =>
+        left.quantity_sold - right.quantity_sold ||
+        right.current_stock - left.current_stock ||
+        (right.days_since_last_sale ?? 9999) - (left.days_since_last_sale ?? 9999)
+      )
+      .slice(0, 25);
+
+    const trendingRows = variants
+      .map((variant) => {
+        const current = currentSalesByVariant.get(String(variant._id)) || {};
+        const previous = previousSalesByVariant.get(String(variant._id)) || {};
+        const currentQty = Number(current.quantity_sold || 0);
+        const previousQty = Number(previous.quantity_sold || 0);
+        const delta = currentQty - previousQty;
+        const growthPct = previousQty > 0 ? (delta / previousQty) * 100 : (currentQty > 0 ? 100 : 0);
+
+        return {
+          ...getProductSnapshot(variant),
+          current_quantity_sold: currentQty,
+          previous_quantity_sold: previousQty,
+          quantity_delta: delta,
+          growth_pct: growthPct,
+          current_revenue: Number(current.revenue || 0),
+          previous_revenue: Number(previous.revenue || 0)
+        };
+      })
+      .filter((row) => row.current_quantity_sold > 0 || row.previous_quantity_sold > 0)
+      .sort((left, right) =>
+        right.quantity_delta - left.quantity_delta ||
+        right.growth_pct - left.growth_pct ||
+        right.current_quantity_sold - left.current_quantity_sold
+      )
+      .slice(0, 25);
+
+    const movementRows = stockAdjustments.map((adjustment) => {
+      const variant = adjustment.variant_id;
+      const quantity = Number(adjustment.quantity || 0);
+      const signedQuantity = adjustment.adjustment_type === 'out' ? -quantity : quantity;
+      const unitCost = Number(adjustment.unit_cost ?? variant?.buying_price ?? 0);
+
+      return {
+        _id: adjustment._id,
+        date: adjustment.createdAt,
+        movement_type: adjustment.reason === 'sale' ? 'sale' : adjustment.adjustment_type === 'in' ? 'stock_in' : 'stock_out',
+        adjustment_type: adjustment.adjustment_type,
+        reason: adjustment.reason,
+        quantity,
+        signed_quantity: signedQuantity,
+        unit_cost: unitCost,
+        value: signedQuantity * unitCost,
+        stock_before: adjustment.stock_before,
+        stock_after: adjustment.stock_after,
+        notes: adjustment.notes || '',
+        user: adjustment.user_id ? {
+          _id: adjustment.user_id._id,
+          username: adjustment.user_id.username
+        } : null,
+        purchase_order: adjustment.purchase_order_id ? {
+          _id: adjustment.purchase_order_id._id,
+          po_number: adjustment.purchase_order_id.po_number,
+          invoice_reference: adjustment.purchase_order_id.invoice_reference
+        } : null,
+        product: getProductSnapshot(variant)
+      };
+    });
+
+    const movementSummary = movementRows.reduce((acc, row) => {
+      if (row.signed_quantity > 0) acc.stock_in += row.quantity;
+      if (row.signed_quantity < 0) acc.stock_out += row.quantity;
+      acc.net_movement += row.signed_quantity;
+      acc.inventory_value_change += row.value;
+      return acc;
+    }, {
+      stock_in: 0,
+      stock_out: 0,
+      net_movement: 0,
+      inventory_value_change: 0
+    });
+
+    const salesSummary = dailySales.reduce((acc, row) => {
+      acc.sales_count += Number(row.sales_count || 0);
+      acc.revenue += Number(row.revenue || 0);
+      return acc;
+    }, { sales_count: 0, revenue: 0 });
+
+    res.json({
+      success: true,
+      data: {
+        range: {
+          start_date: range.start,
+          end_date: range.end,
+          previous_start_date: previousRange.start,
+          previous_end_date: previousRange.end
+        },
+        summary: {
+          ...salesSummary,
+          ...movementSummary,
+          skus_tracked: variants.length
+        },
+        daily_sales: dailySales.map((row) => ({
+          date: row._id,
+          sales_count: row.sales_count,
+          revenue: row.revenue,
+          amount_paid: row.amount_paid
+        })),
+        best_sellers: bestSellerRows,
+        slow_movers: slowMovingRows,
+        trending_products: trendingRows,
+        stock_movements: movementRows
       }
     });
   } catch (error) {

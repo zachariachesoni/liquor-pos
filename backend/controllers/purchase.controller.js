@@ -31,6 +31,18 @@ const toNumber = (value, fallback = 0) => {
 
 const getNormalizedPaymentInput = (value) => Math.max(0, toNumber(value, 0));
 
+const calculateWeightedAverageCost = (currentStock, currentCost, receivedQuantity, receivedUnitCost) => {
+  const stock = Math.max(0, Number(currentStock || 0));
+  const quantity = Math.max(0, Number(receivedQuantity || 0));
+  const oldCost = Math.max(0, Number(currentCost || 0));
+  const newCost = Math.max(0, Number(receivedUnitCost || 0));
+
+  if (quantity <= 0) return oldCost;
+  if (stock <= 0) return newCost;
+
+  return ((stock * oldCost) + (quantity * newCost)) / (stock + quantity);
+};
+
 const normalizeCreatePurchaseItems = (items = []) => items.map((item) => {
   const variantId = item.variant_id || item.variantId;
   const qtyReceived = Math.max(0, toNumber(item.qty_received ?? item.qtyReceived, 0));
@@ -204,16 +216,25 @@ const applyReceiptInventory = async ({
       throw new Error('One or more received items reference inventory variants that no longer exist');
     }
 
-    variant.current_stock += Number(line.qty_received_delta || 0);
-    variant.buying_price = Number(line.unit_cost || 0);
+    const stockBefore = Number(variant.current_stock || 0);
+    const receivedQuantity = Number(line.qty_received_delta || 0);
+    const stockAfter = stockBefore + receivedQuantity;
+    const previousCost = Number(variant.buying_price || 0);
+    const averageCost = calculateWeightedAverageCost(stockBefore, previousCost, receivedQuantity, line.unit_cost);
+
+    variant.current_stock = stockAfter;
+    variant.buying_price = averageCost;
     await variant.save();
 
     await StockAdjustment.create({
       variant_id: variant._id,
       adjustment_type: 'in',
-      quantity: Number(line.qty_received_delta || 0),
+      quantity: receivedQuantity,
+      unit_cost: Number(line.unit_cost || 0),
+      stock_before: stockBefore,
+      stock_after: stockAfter,
       reason: 'restocking',
-      notes: sanitizeText(line.notes) || `Received via ${line.po_number || 'purchase order'} from ${supplier.name}`,
+      notes: sanitizeText(line.notes) || `Received via ${line.po_number || 'purchase order'} from ${supplier.name}. Average cost ${averageCost.toFixed(2)} from ${previousCost.toFixed(2)}.`,
       user_id: userId,
       purchase_order_id: purchaseOrderId
     });

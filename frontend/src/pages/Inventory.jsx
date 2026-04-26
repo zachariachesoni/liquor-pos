@@ -16,7 +16,7 @@ const Inventory = () => {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [creatingDraftFor, setCreatingDraftFor] = useState('');
   const [feedback, setFeedback] = useState({ message: '', error: '' });
-  const [formData, setFormData] = useState({ variantId: '', quantity: 0, type: 'in', reason: 'restocking', notes: '' });
+  const [formData, setFormData] = useState({ variantId: '', quantity: 0, type: 'in', reason: 'restocking', unitCost: '', notes: '' });
   const canManageInventory = canManageInventoryAccess(user?.role);
   const inventoryColumnCount = canManageInventory ? 5 : 4;
 
@@ -49,12 +49,13 @@ const Inventory = () => {
         quantity: Number(formData.quantity),
         type: formData.type,
         reason: formData.reason,
+        unitCost: formData.type === 'in' ? formData.unitCost : undefined,
         notes: formData.notes
       };
       await api.post('/inventory/adjustments', payload);
       setShowModal(false);
       fetchInventory();
-      setFormData({ variantId: '', quantity: 0, type: 'in', reason: 'restocking', notes: '' });
+      setFormData({ variantId: '', quantity: 0, type: 'in', reason: 'restocking', unitCost: '', notes: '' });
       setFeedback({ message: 'Inventory adjustment saved successfully.', error: '' });
     } catch (err) {
       console.error(err);
@@ -289,6 +290,19 @@ const Inventory = () => {
                   </select>
                 </div>
                 <div className="modal-form-field modal-form-field-full">
+                  {formData.type === 'in' && (
+                    <div className="modal-form-field">
+                      <label>Unit Cost</label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={formData.unitCost}
+                        placeholder="Leave blank to use current average cost"
+                        onChange={e => setFormData({...formData, unitCost: e.target.value})}
+                      />
+                    </div>
+                  )}
                   <label>Reason</label>
                   <select value={formData.reason} onChange={e => setFormData({...formData, reason: e.target.value})}>
                      <option value="restocking">Restocking</option>

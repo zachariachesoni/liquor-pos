@@ -7,7 +7,8 @@ import {
   getAccountsPayableAgingReport,
   getPurchaseHistoryReport,
   getMarginErosionReport,
-  getTopSuppliersReport
+  getTopSuppliersReport,
+  getInventoryPerformanceReport
 } from '../controllers/report.controller.js';
 import { verifyToken, checkRole } from '../middleware/auth.middleware.js';
 
@@ -25,5 +26,6 @@ router.get('/accounts-payable-aging', getAccountsPayableAgingReport);
 router.get('/purchase-history', getPurchaseHistoryReport);
 router.get('/margin-erosion', getMarginErosionReport);
 router.get('/top-suppliers', getTopSuppliersReport);
+router.get('/inventory-performance', getInventoryPerformanceReport);
 
 export default router;

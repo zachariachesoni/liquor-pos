@@ -57,6 +57,15 @@ const defaultTopSuppliersReport = {
   rows: []
 };
 
+const defaultInventoryPerformanceReport = {
+  summary: null,
+  daily_sales: [],
+  best_sellers: [],
+  slow_movers: [],
+  trending_products: [],
+  stock_movements: []
+};
+
 const reportLabels = {
   pnl: 'Financial Report',
   customer: 'Customer Sales Report',
@@ -65,7 +74,8 @@ const reportLabels = {
   aging: 'Accounts Payable Aging',
   purchases: 'Purchase History Report',
   margin: 'Margin Erosion Report',
-  'top-suppliers': 'Top Suppliers Report'
+  'top-suppliers': 'Top Suppliers Report',
+  inventory: 'Inventory Trends Report'
 };
 
 const getPeriodParams = (period) => {
@@ -100,6 +110,11 @@ const getPeriodParams = (period) => {
 };
 
 const formatCurrency = (value) => `KES ${Number(value || 0).toLocaleString()}`;
+
+const csvEscape = (value) => {
+  const normalized = value === null || value === undefined ? '' : String(value);
+  return `"${normalized.replace(/"/g, '""')}"`;
+};
 
 const calcMargin = (profit, revenue) => {
   if (!revenue || revenue === 0) return '0.0';
@@ -138,6 +153,7 @@ const Reports = () => {
   const [purchaseHistory, setPurchaseHistory] = useState(defaultPurchaseHistory);
   const [marginReport, setMarginReport] = useState(defaultMarginReport);
   const [topSuppliersReport, setTopSuppliersReport] = useState(defaultTopSuppliersReport);
+  const [inventoryPerformance, setInventoryPerformance] = useState(defaultInventoryPerformanceReport);
   const { settings } = useSystemSettings();
 
   useEffect(() => {
@@ -295,6 +311,12 @@ const Reports = () => {
           return;
         }
 
+        if (reportType === 'inventory') {
+          const res = await api.get('/reports/inventory-performance', { params });
+          setInventoryPerformance(res.data.data || defaultInventoryPerformanceReport);
+          return;
+        }
+
         const res = await api.get('/reports/top-suppliers', { params });
         setTopSuppliersReport(res.data.data || defaultTopSuppliersReport);
       } catch (err) {
@@ -307,6 +329,7 @@ const Reports = () => {
         if (reportType === 'purchases') setPurchaseHistory(defaultPurchaseHistory);
         if (reportType === 'margin') setMarginReport(defaultMarginReport);
         if (reportType === 'top-suppliers') setTopSuppliersReport(defaultTopSuppliersReport);
+        if (reportType === 'inventory') setInventoryPerformance(defaultInventoryPerformanceReport);
       } finally {
         setLoading(false);
       }
@@ -319,6 +342,56 @@ const Reports = () => {
     const label = reportLabels[reportType] || 'Report';
     document.title = `${settings.business_name} ${label} - ${period}`;
     window.print();
+  };
+
+  const handleStockMovementCsvExport = () => {
+    const rows = inventoryPerformance.stock_movements || [];
+    const headers = [
+      'Date',
+      'Movement Type',
+      'Reason',
+      'Product',
+      'Brand',
+      'Category',
+      'Size',
+      'Quantity',
+      'Signed Quantity',
+      'Unit Cost',
+      'Value',
+      'Stock Before',
+      'Stock After',
+      'User',
+      'Reference',
+      'Notes'
+    ];
+
+    const csvRows = rows.map((row) => [
+      row.date ? new Date(row.date).toLocaleString() : '',
+      row.movement_type,
+      row.reason,
+      row.product?.product_name,
+      row.product?.brand,
+      row.product?.category,
+      row.product?.size,
+      row.quantity,
+      row.signed_quantity,
+      row.unit_cost,
+      row.value,
+      row.stock_before,
+      row.stock_after,
+      row.user?.username,
+      row.purchase_order?.po_number || '',
+      row.notes
+    ].map(csvEscape).join(','));
+
+    const csv = [headers.map(csvEscape).join(','), ...csvRows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `stock-movement-${period.toLowerCase()}-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
   };
 
   const generatedAt = new Date().toLocaleString();
@@ -951,6 +1024,230 @@ const Reports = () => {
     </>
   );
 
+  const renderInventoryPerformanceView = () => {
+    const summary = inventoryPerformance.summary || {
+      sales_count: 0,
+      revenue: 0,
+      stock_in: 0,
+      stock_out: 0,
+      net_movement: 0,
+      inventory_value_change: 0
+    };
+
+    return (
+      <>
+        <div className="reports-grid">
+          <ReportStatCard icon={ShoppingCart} tone="tone-primary" title="Sales Days" value={inventoryPerformance.daily_sales?.length || 0} />
+          <ReportStatCard icon={DollarSign} tone="tone-success" title="Revenue" value={formatCurrency(summary.revenue)} />
+          <ReportStatCard icon={TrendingUp} tone="tone-warning" title="Stock In" value={summary.stock_in || 0} />
+          <ReportStatCard icon={TrendingDown} tone="tone-danger" title="Stock Out" value={summary.stock_out || 0} />
+        </div>
+
+        <div className="glass-panel main-panel report-detail-panel">
+          <div className="detail-header">
+            <div>
+              <h2>Daily Sales</h2>
+              <p className="page-subtitle">Revenue and transaction count broken down by individual day.</p>
+            </div>
+            <div className="report-meta-chip">Transactions: {summary.sales_count || 0}</div>
+          </div>
+          <div className="table-container">
+            <table className="report-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Sales</th>
+                  <th className="text-right">Revenue</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(inventoryPerformance.daily_sales || []).map((day) => (
+                  <tr key={day.date}>
+                    <td>{new Date(`${day.date}T00:00:00`).toLocaleDateString()}</td>
+                    <td>{day.sales_count}</td>
+                    <td className="text-right">{formatCurrency(day.revenue)}</td>
+                  </tr>
+                ))}
+                {(inventoryPerformance.daily_sales || []).length === 0 && (
+                  <tr>
+                    <td colSpan="3" className="empty-state">No daily sales found for this period.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div className="supplier-report-grid">
+          <div className="glass-panel main-panel report-detail-panel">
+            <div className="detail-header">
+              <div>
+                <h2>Best Selling</h2>
+                <p className="page-subtitle">Ranked by quantity sold, then revenue.</p>
+              </div>
+            </div>
+            <div className="table-container">
+              <table className="report-table">
+                <thead>
+                  <tr>
+                    <th>SKU</th>
+                    <th>Qty Sold</th>
+                    <th>Transactions</th>
+                    <th className="text-right">Revenue</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(inventoryPerformance.best_sellers || []).map((row) => (
+                    <tr key={row.variant_id}>
+                      <td>
+                        <div className="font-medium">{row.product_name}</div>
+                        <div className="td-secondary">{row.size} {row.brand ? `| ${row.brand}` : ''}</div>
+                      </td>
+                      <td>{row.quantity_sold}</td>
+                      <td>{row.transactions}</td>
+                      <td className="text-right">{formatCurrency(row.revenue)}</td>
+                    </tr>
+                  ))}
+                  {(inventoryPerformance.best_sellers || []).length === 0 && (
+                    <tr>
+                      <td colSpan="4" className="empty-state">No best seller data for this period.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className="glass-panel main-panel report-detail-panel">
+            <div className="detail-header">
+              <div>
+                <h2>Slow Moving</h2>
+                <p className="page-subtitle">In-stock SKUs sorted from lowest movement upward.</p>
+              </div>
+            </div>
+            <div className="table-container">
+              <table className="report-table">
+                <thead>
+                  <tr>
+                    <th>SKU</th>
+                    <th>Stock</th>
+                    <th>Qty Sold</th>
+                    <th>Last Sale</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(inventoryPerformance.slow_movers || []).map((row) => (
+                    <tr key={row.variant_id}>
+                      <td>
+                        <div className="font-medium">{row.product_name}</div>
+                        <div className="td-secondary">{row.size} {row.brand ? `| ${row.brand}` : ''}</div>
+                      </td>
+                      <td>{row.current_stock}</td>
+                      <td>{row.quantity_sold}</td>
+                      <td>{row.last_sold_at ? new Date(row.last_sold_at).toLocaleDateString() : 'No sale in period'}</td>
+                    </tr>
+                  ))}
+                  {(inventoryPerformance.slow_movers || []).length === 0 && (
+                    <tr>
+                      <td colSpan="4" className="empty-state">No slow-moving inventory found.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div className="glass-panel main-panel report-detail-panel">
+          <div className="detail-header">
+            <div>
+              <h2>Trending Products</h2>
+              <p className="page-subtitle">Current period movement compared with the previous matching period.</p>
+            </div>
+          </div>
+          <div className="table-container">
+            <table className="report-table">
+              <thead>
+                <tr>
+                  <th>SKU</th>
+                  <th>Current Qty</th>
+                  <th>Previous Qty</th>
+                  <th>Change</th>
+                  <th className="text-right">Growth</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(inventoryPerformance.trending_products || []).map((row) => (
+                  <tr key={row.variant_id}>
+                    <td>
+                      <div className="font-medium">{row.product_name}</div>
+                      <div className="td-secondary">{row.size} {row.brand ? `| ${row.brand}` : ''}</div>
+                    </td>
+                    <td>{row.current_quantity_sold}</td>
+                    <td>{row.previous_quantity_sold}</td>
+                    <td className={row.quantity_delta >= 0 ? 'text-success' : 'text-danger'}>{row.quantity_delta}</td>
+                    <td className="text-right">{Number(row.growth_pct || 0).toFixed(1)}%</td>
+                  </tr>
+                ))}
+                {(inventoryPerformance.trending_products || []).length === 0 && (
+                  <tr>
+                    <td colSpan="5" className="empty-state">No trending product data for this period.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div className="glass-panel main-panel report-detail-panel">
+          <div className="detail-header">
+            <div>
+              <h2>Stock Movement</h2>
+              <p className="page-subtitle">Sales, stock-ins, and stock-outs in date order for audit and Excel export.</p>
+            </div>
+            <button className="primary-btn" onClick={handleStockMovementCsvExport}>
+              <Download size={18} /> Export Excel CSV
+            </button>
+          </div>
+          <div className="table-container">
+            <table className="report-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>SKU</th>
+                  <th>Type</th>
+                  <th>Qty</th>
+                  <th>Stock</th>
+                  <th className="text-right">Value</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(inventoryPerformance.stock_movements || []).map((row) => (
+                  <tr key={row._id}>
+                    <td>{new Date(row.date).toLocaleString()}</td>
+                    <td>
+                      <div className="font-medium">{row.product?.product_name}</div>
+                      <div className="td-secondary">{row.product?.size} {row.product?.brand ? `| ${row.product.brand}` : ''}</div>
+                    </td>
+                    <td className="text-capitalize">{row.movement_type.replace('_', ' ')}</td>
+                    <td className={row.signed_quantity >= 0 ? 'text-success' : 'text-danger'}>{row.signed_quantity}</td>
+                    <td>{row.stock_before ?? '-'} {'->'} {row.stock_after ?? '-'}</td>
+                    <td className="text-right">{formatCurrency(row.value)}</td>
+                  </tr>
+                ))}
+                {(inventoryPerformance.stock_movements || []).length === 0 && (
+                  <tr>
+                    <td colSpan="6" className="empty-state">No stock movement found for this period.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </>
+    );
+  };
+
   const renderTopSuppliersView = () => {
     const summary = topSuppliersReport.summary || {
       purchase_volume: 0,
@@ -1048,6 +1345,7 @@ const Reports = () => {
           <button className={reportType === 'aging' ? 'active' : ''} onClick={() => setReportType('aging')}>AP Aging</button>
           <button className={reportType === 'purchases' ? 'active' : ''} onClick={() => setReportType('purchases')}>Purchase History</button>
           <button className={reportType === 'margin' ? 'active' : ''} onClick={() => setReportType('margin')}>Margin Erosion</button>
+          <button className={reportType === 'inventory' ? 'active' : ''} onClick={() => setReportType('inventory')}>Inventory Trends</button>
           <button className={reportType === 'top-suppliers' ? 'active' : ''} onClick={() => setReportType('top-suppliers')}>Top Suppliers</button>
         </div>
 
@@ -1114,6 +1412,7 @@ const Reports = () => {
           {reportType === 'aging' && renderPayableAgingView()}
           {reportType === 'purchases' && renderPurchaseHistoryView()}
           {reportType === 'margin' && renderMarginErosionView()}
+          {reportType === 'inventory' && renderInventoryPerformanceView()}
           {reportType === 'top-suppliers' && renderTopSuppliersView()}
         </>
       )}
@@ -1485,6 +1784,76 @@ const Reports = () => {
                     <td colSpan="6" className="text-right">No margin erosion risks found for the selected period.</td>
                   </tr>
                 )}
+              </tbody>
+            </table>
+          </>
+        )}
+
+        {reportType === 'inventory' && (
+          <>
+            <div className="report-export-summary">
+              <div className="report-export-card"><span>Sales</span><strong>{inventoryPerformance.summary?.sales_count || 0}</strong></div>
+              <div className="report-export-card"><span>Revenue</span><strong>{formatCurrency(inventoryPerformance.summary?.revenue)}</strong></div>
+              <div className="report-export-card"><span>Stock In</span><strong>{inventoryPerformance.summary?.stock_in || 0}</strong></div>
+              <div className="report-export-card"><span>Stock Out</span><strong>{inventoryPerformance.summary?.stock_out || 0}</strong></div>
+            </div>
+
+            <table className="report-export-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Sales</th>
+                  <th className="text-right">Revenue</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(inventoryPerformance.daily_sales || []).map((day) => (
+                  <tr key={day.date}>
+                    <td>{new Date(`${day.date}T00:00:00`).toLocaleDateString()}</td>
+                    <td>{day.sales_count}</td>
+                    <td className="text-right">{Number(day.revenue || 0).toLocaleString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            <table className="report-export-table">
+              <thead>
+                <tr>
+                  <th>Best Selling SKU</th>
+                  <th>Qty Sold</th>
+                  <th className="text-right">Revenue</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(inventoryPerformance.best_sellers || []).slice(0, 15).map((row) => (
+                  <tr key={row.variant_id}>
+                    <td>{row.product_name} {row.size ? `(${row.size})` : ''}</td>
+                    <td>{row.quantity_sold}</td>
+                    <td className="text-right">{Number(row.revenue || 0).toLocaleString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            <table className="report-export-table">
+              <thead>
+                <tr>
+                  <th>Slow Moving SKU</th>
+                  <th>Stock</th>
+                  <th>Qty Sold</th>
+                  <th>Last Sale</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(inventoryPerformance.slow_movers || []).slice(0, 15).map((row) => (
+                  <tr key={row.variant_id}>
+                    <td>{row.product_name} {row.size ? `(${row.size})` : ''}</td>
+                    <td>{row.current_stock}</td>
+                    <td>{row.quantity_sold}</td>
+                    <td>{row.last_sold_at ? new Date(row.last_sold_at).toLocaleDateString() : 'No sale in period'}</td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </>
