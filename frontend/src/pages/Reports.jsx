@@ -78,11 +78,25 @@ const reportLabels = {
   inventory: 'Inventory Trends Report'
 };
 
-const getPeriodParams = (period) => {
+const getPeriodParams = (period, selectedDate) => {
   const params = {};
   const now = new Date();
 
   switch (period) {
+    case 'Day': {
+      const dayStart = new Date(`${selectedDate}T00:00:00`);
+      const dayEnd = new Date(`${selectedDate}T23:59:59.999`);
+      params.start_date = dayStart.toISOString();
+      params.end_date = dayEnd.toISOString();
+      break;
+    }
+    case 'Range': {
+      const start = new Date(`${selectedDate.start}T00:00:00`);
+      const end = new Date(`${selectedDate.end}T23:59:59.999`);
+      params.start_date = start.toISOString();
+      params.end_date = end.toISOString();
+      break;
+    }
     case 'Today':
       now.setHours(0, 0, 0, 0);
       params.start_date = now.toISOString();
@@ -107,6 +121,21 @@ const getPeriodParams = (period) => {
   }
 
   return params;
+};
+
+const getPeriodLabel = (period, selectedDate) => {
+  if (period === 'Day') {
+    return selectedDate ? new Date(`${selectedDate}T00:00:00`).toLocaleDateString() : 'Selected Day';
+  }
+
+  if (period === 'Range') {
+    const start = selectedDate?.start ? new Date(`${selectedDate.start}T00:00:00`).toLocaleDateString() : 'Start';
+    const end = selectedDate?.end ? new Date(`${selectedDate.end}T00:00:00`).toLocaleDateString() : 'End';
+    return `${start} - ${end}`;
+  }
+
+  if (period === 'Today') return 'Today';
+  return `This ${period}`;
 };
 
 const formatCurrency = (value) => `KES ${Number(value || 0).toLocaleString()}`;
@@ -137,6 +166,16 @@ const ReportStatCard = ({ icon: Icon, tone, title, value, note, valueClassName =
 const Reports = () => {
   const [reportType, setReportType] = useState('pnl');
   const [period, setPeriod] = useState('Month');
+  const [selectedReportDate, setSelectedReportDate] = useState(new Date().toISOString().slice(0, 10));
+  const [selectedReportRange, setSelectedReportRange] = useState(() => {
+    const today = new Date();
+    const start = new Date(today);
+    start.setDate(start.getDate() - 6);
+    return {
+      start: start.toISOString().slice(0, 10),
+      end: today.toISOString().slice(0, 10)
+    };
+  });
   const [loading, setLoading] = useState(true);
   const [customers, setCustomers] = useState([]);
   const [products, setProducts] = useState([]);
@@ -225,7 +264,7 @@ const Reports = () => {
     const fetchReport = async () => {
       try {
         setLoading(true);
-        const params = getPeriodParams(period);
+        const params = getPeriodParams(period, period === 'Range' ? selectedReportRange : selectedReportDate);
 
         if (reportType === 'pnl') {
           const res = await api.get('/reports/pnl', { params });
@@ -336,11 +375,11 @@ const Reports = () => {
     };
 
     fetchReport();
-  }, [period, reportType, selectedCustomer, selectedProduct, selectedVariant, selectedSupplier]);
+  }, [period, selectedReportDate, selectedReportRange, reportType, selectedCustomer, selectedProduct, selectedVariant, selectedSupplier]);
 
   const handleExport = () => {
     const label = reportLabels[reportType] || 'Report';
-    document.title = `${settings.business_name} ${label} - ${period}`;
+    document.title = `${settings.business_name} ${label} - ${getPeriodLabel(period, period === 'Range' ? selectedReportRange : selectedReportDate)}`;
     window.print();
   };
 
@@ -389,12 +428,18 @@ const Reports = () => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `stock-movement-${period.toLowerCase()}-${new Date().toISOString().slice(0, 10)}.csv`;
+    const periodSlug = period === 'Day'
+      ? selectedReportDate
+      : period === 'Range'
+        ? `${selectedReportRange.start}-to-${selectedReportRange.end}`
+        : period.toLowerCase();
+    link.download = `stock-movement-${periodSlug}-${new Date().toISOString().slice(0, 10)}.csv`;
     link.click();
     URL.revokeObjectURL(url);
   };
 
   const generatedAt = new Date().toLocaleString();
+  const periodLabel = getPeriodLabel(period, period === 'Range' ? selectedReportRange : selectedReportDate);
   const isProductScopedReport = reportType === 'product' || reportType === 'purchases';
   const pnlGrossMargin = calcMargin(pnlData.gross_profit, pnlData.gross_revenue);
   const pnlNetMargin = calcMargin(pnlData.net_profit, pnlData.gross_revenue);
@@ -430,7 +475,7 @@ const Reports = () => {
       <div className="glass-panel main-panel pnl-statement">
         <div className="pnl-header">
           <h2>Income Statement</h2>
-          <span className="badge">Period: This {period}</span>
+          <span className="badge">Period: {periodLabel}</span>
         </div>
 
         <table className="pnl-table">
@@ -1324,12 +1369,49 @@ const Reports = () => {
           <div className="toolbar-control compact report-period-control">
             <label>Period</label>
             <select className="filter-select field-select" value={period} onChange={(e) => setPeriod(e.target.value)}>
+              <option value="Day">Specific Day</option>
+              <option value="Range">Specific Range</option>
               <option value="Today">Today</option>
               <option value="Week">This Week</option>
               <option value="Month">This Month</option>
               <option value="Year">This Year</option>
             </select>
           </div>
+          {period === 'Day' && (
+            <div className="toolbar-control compact report-period-control">
+              <label>Report Day</label>
+              <input
+                className="filter-select field-select"
+                type="date"
+                value={selectedReportDate}
+                onChange={(e) => setSelectedReportDate(e.target.value)}
+              />
+            </div>
+          )}
+          {period === 'Range' && (
+            <>
+              <div className="toolbar-control compact report-period-control">
+                <label>Start Date</label>
+                <input
+                  className="filter-select field-select"
+                  type="date"
+                  value={selectedReportRange.start}
+                  max={selectedReportRange.end}
+                  onChange={(e) => setSelectedReportRange((prev) => ({ ...prev, start: e.target.value }))}
+                />
+              </div>
+              <div className="toolbar-control compact report-period-control">
+                <label>End Date</label>
+                <input
+                  className="filter-select field-select"
+                  type="date"
+                  value={selectedReportRange.end}
+                  min={selectedReportRange.start}
+                  onChange={(e) => setSelectedReportRange((prev) => ({ ...prev, end: e.target.value }))}
+                />
+              </div>
+            </>
+          )}
           <button className="primary-btn" onClick={handleExport}>
             <Download size={18} /> Export PDF
           </button>
@@ -1434,7 +1516,7 @@ const Reports = () => {
             </div>
           </div>
           <div className="report-export-meta">
-            <span><strong>Period:</strong> This {period}</span>
+            <span><strong>Period:</strong> {periodLabel}</span>
             <span><strong>Generated:</strong> {generatedAt}</span>
           </div>
         </div>
