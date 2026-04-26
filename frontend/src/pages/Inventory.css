@@ -1,5 +1,9 @@
 /* Reuses Products.css implicitly via import in Inventory.jsx */
 
+.inventory-search {
+  min-width: min(100%, 320px);
+}
+
 .reorder-suggestions-panel {
   padding: 1.5rem;
 }
@@ -35,6 +39,10 @@
 }
 
 @media (max-width: 768px) {
+  .inventory-search {
+    min-width: 100%;
+  }
+
   .reorder-suggestion-actions .primary-btn {
     width: 100%;
   }

@@ -11,7 +11,6 @@ import Expenses from './pages/Expenses';
 import Reports from './pages/Reports';
 import Register from './pages/Register';
 import AdminPanel from './pages/AdminPanel';
-import Account from './pages/Account';
 import Suppliers from './pages/Suppliers';
 import Layout from './components/Layout';
 import { INVENTORY_ROUTE_ROLES, PRODUCTS_ROUTE_ROLES, SALES_ROUTE_ROLES } from './utils/accessControl';
@@ -106,17 +105,13 @@ function App() {
 
       <Route
         path="/account"
-        element={
-          <ProtectedRoute>
-            <Account />
-          </ProtectedRoute>
-        }
+        element={<Navigate to="/admin" />}
       />
 
       <Route
         path="/admin"
         element={
-          <ProtectedRoute allowedRoles={['admin']}>
+          <ProtectedRoute>
             <AdminPanel />
           </ProtectedRoute>
         }

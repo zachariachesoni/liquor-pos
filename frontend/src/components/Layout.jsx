@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { LayoutDashboard, ShoppingCart, Package, ClipboardList, FileBarChart, Users, Receipt, PieChart, LogOut, Menu, X, Shield, User, Truck } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, Package, ClipboardList, FileBarChart, Users, Receipt, PieChart, LogOut, Menu, X, Shield, Truck, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { useSystemSettings } from '../hooks/useSystemSettings';
 import { INVENTORY_ROUTE_ROLES, PRODUCTS_ROUTE_ROLES, SALES_ROUTE_ROLES } from '../utils/accessControl';
 import './Layout.css';
@@ -11,6 +11,7 @@ const Layout = ({ children }) => {
   const { settings } = useSystemSettings();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const handleLogout = () => {
     logout();
@@ -26,8 +27,7 @@ const Layout = ({ children }) => {
     { name: 'Reports', path: '/reports', icon: <PieChart size={20} />, roles: ['admin', 'manager'] },
     { name: 'Sales', path: '/sales', icon: <FileBarChart size={20} />, roles: SALES_ROUTE_ROLES },
     { name: 'Customers', path: '/customers', icon: <Users size={20} />, roles: ['admin', 'manager', 'cashier'] },
-    { name: 'Account', path: '/account', icon: <User size={20} />, roles: ['admin', 'manager', 'cashier'] },
-    { name: 'Admin', path: '/admin', icon: <Shield size={20} />, roles: ['admin'] },
+    { name: 'Admin', path: '/admin', icon: <Shield size={20} />, roles: ['admin', 'manager', 'cashier'] },
     { name: 'Expenses', path: '/expenses', icon: <Receipt size={20} />, roles: ['admin', 'manager'] }
   ].filter((item) => user && item.roles.includes(user.role));
 
@@ -44,13 +44,21 @@ const Layout = ({ children }) => {
   };
 
   return (
-    <div className="layout-container">
+    <div className={`layout-container ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
       <aside className={`sidebar glass-panel ${mobileMenuOpen ? 'open' : ''}`}>
         <div className="sidebar-header">
           <div className="brand">
             {renderBrandIcon()}
             <h2>{settings.business_name}</h2>
           </div>
+          <button
+            className="sidebar-collapse-toggle"
+            onClick={() => setSidebarCollapsed((prev) => !prev)}
+            aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          >
+            {sidebarCollapsed ? <PanelLeftOpen size={20} /> : <PanelLeftClose size={20} />}
+          </button>
           <button className="mobile-close" onClick={toggleMobileMenu}>
             <X size={24} />
           </button>
@@ -71,6 +79,7 @@ const Layout = ({ children }) => {
               key={item.path}
               className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
               onClick={() => setMobileMenuOpen(false)}
+              title={item.name}
             >
               {item.icon}
               <span>{item.name}</span>

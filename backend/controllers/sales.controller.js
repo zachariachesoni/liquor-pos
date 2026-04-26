@@ -255,8 +255,36 @@ export const getSales = async (req, res) => {
       filters.createdAt = filters.createdAt || {};
       filters.createdAt.$lte = new Date(req.query.end_date);
     }
-    const sales = await Sale.find(filters).populate('user_id', 'username').sort({ createdAt: -1 });
-    res.json({ success: true, count: sales.length, data: sales });
+    const sales = await Sale.find(filters).populate('user_id', 'username').sort({ createdAt: -1 }).lean();
+    const saleIds = sales.map((sale) => sale._id);
+    const saleItemSummaries = saleIds.length
+      ? await SaleItem.aggregate([
+          { $match: { sale_id: { $in: saleIds } } },
+          {
+            $group: {
+              _id: '$sale_id',
+              item_count: { $sum: '$quantity' },
+              line_count: { $sum: 1 },
+              cogs: { $sum: { $multiply: ['$buying_price', '$quantity'] } },
+              profit: { $sum: '$profit_margin' }
+            }
+          }
+        ])
+      : [];
+
+    const summariesBySale = new Map(saleItemSummaries.map((summary) => [String(summary._id), summary]));
+    const enrichedSales = sales.map((sale) => {
+      const summary = summariesBySale.get(String(sale._id)) || {};
+      return {
+        ...sale,
+        item_count: Number(summary.item_count || 0),
+        line_count: Number(summary.line_count || 0),
+        cogs: Number(summary.cogs || 0),
+        profit: Number(summary.profit || 0)
+      };
+    });
+
+    res.json({ success: true, count: enrichedSales.length, data: enrichedSales });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Server error' });
   }

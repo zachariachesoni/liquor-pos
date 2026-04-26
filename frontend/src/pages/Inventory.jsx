@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ClipboardList, ArrowUpRight, ArrowDownRight, AlertTriangle, Plus, Truck, X } from 'lucide-react';
+import { ClipboardList, ArrowUpRight, ArrowDownRight, AlertTriangle, Plus, Truck, X, Search } from 'lucide-react';
 import api from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { canManageInventory as canManageInventoryAccess } from '../utils/accessControl';
@@ -15,6 +15,7 @@ const Inventory = () => {
   const [showModal, setShowModal] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [creatingDraftFor, setCreatingDraftFor] = useState('');
+  const [inventorySearch, setInventorySearch] = useState('');
   const [feedback, setFeedback] = useState({ message: '', error: '' });
   const [formData, setFormData] = useState({ variantId: '', quantity: 0, type: 'in', reason: 'restocking', unitCost: '', notes: '' });
   const canManageInventory = canManageInventoryAccess(user?.role);
@@ -106,6 +107,39 @@ const Inventory = () => {
   };
 
   const lowStockCount = inventory.filter(v => getStatus(v) !== 'Optimal').length;
+  const normalizedSearch = inventorySearch.trim().toLowerCase();
+  const filteredInventory = inventory.filter((item) => {
+    if (!normalizedSearch) return true;
+
+    const haystack = [
+      item.product_id?.name,
+      item.product_id?.category,
+      item.size,
+      getStatus(item)
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+
+    return haystack.includes(normalizedSearch);
+  });
+
+  const filteredReorderSuggestions = reorderSuggestions.filter((suggestion) => {
+    if (!normalizedSearch) return true;
+
+    const haystack = [
+      suggestion.product_name,
+      suggestion.product_brand,
+      suggestion.category,
+      suggestion.size,
+      suggestion.preferred_supplier?.name
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+
+    return haystack.includes(normalizedSearch);
+  });
 
   return (
     <div className="page-container animate-fade-in">
@@ -119,6 +153,15 @@ const Inventory = () => {
           </p>
         </div>
         <div className="page-header-actions">
+          <div className="search-box toolbar-search inventory-search">
+            <Search size={18} className="search-icon" />
+            <input
+              type="text"
+              placeholder="Search product, size, category..."
+              value={inventorySearch}
+              onChange={(e) => setInventorySearch(e.target.value)}
+            />
+          </div>
           <button className="icon-btn icon-btn-warning" onClick={() => setShowSuggestions((prev) => !prev)}>
              <AlertTriangle size={18} /> Reorder ({reorderSuggestions.length || lowStockCount})
           </button>
@@ -149,12 +192,12 @@ const Inventory = () => {
               </p>
             </div>
             <div className="report-meta-chip">
-              {canManageInventory ? `Suggestions: ${reorderSuggestions.length}` : 'Manager action required'}
+              {canManageInventory ? `Suggestions: ${filteredReorderSuggestions.length}` : 'Manager action required'}
             </div>
           </div>
 
           <div className="reorder-suggestion-grid">
-            {reorderSuggestions.map((suggestion) => (
+            {filteredReorderSuggestions.map((suggestion) => (
               <div key={suggestion.variant_id} className="glass-panel reorder-suggestion-card">
                 <div className="report-record-top">
                   <div>
@@ -201,8 +244,10 @@ const Inventory = () => {
               </div>
             ))}
 
-            {reorderSuggestions.length === 0 && (
-              <div className="empty-state">No reorder suggestions right now.</div>
+            {filteredReorderSuggestions.length === 0 && (
+              <div className="empty-state">
+                {normalizedSearch ? 'No reorder suggestions matched your search.' : 'No reorder suggestions right now.'}
+              </div>
             )}
           </div>
         </div>
@@ -224,7 +269,7 @@ const Inventory = () => {
               </tr>
             </thead>
             <tbody>
-              {inventory.map(item => {
+              {filteredInventory.map(item => {
                 const status = getStatus(item);
                 return (
                 <tr key={item._id}>
@@ -249,9 +294,11 @@ const Inventory = () => {
                   )}
                 </tr>
               )})}
-              {inventory.length === 0 && (
+              {filteredInventory.length === 0 && (
                 <tr>
-                  <td colSpan={inventoryColumnCount} className="empty-state">No inventory variants found.</td>
+                  <td colSpan={inventoryColumnCount} className="empty-state">
+                    {normalizedSearch ? 'No inventory items matched your search.' : 'No inventory variants found.'}
+                  </td>
                 </tr>
               )}
             </tbody>

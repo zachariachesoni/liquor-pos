@@ -1,10 +1,12 @@
-import React, { useEffect, useState } from 'react';
-import { Download, ReceiptText, ChevronRight, X, Search } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Download, ReceiptText, ChevronRight, X, Search, DollarSign, Package, TrendingUp, Wallet } from 'lucide-react';
 import api from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { useSystemSettings } from '../hooks/useSystemSettings';
 import { getPrintBaseStyles, getPrintBrandMarkup } from '../utils/printBranding';
 import './Products.css';
+import './Reports.css';
+import './Sales.css';
 
 const Sales = () => {
   const [sales, setSales] = useState([]);
@@ -18,6 +20,42 @@ const Sales = () => {
   const { user } = useAuth();
   const { settings } = useSystemSettings();
   const isCashier = user?.role === 'cashier';
+
+  const salesSummary = useMemo(() => {
+    const paymentMap = new Map();
+    const cashierMap = new Map();
+
+    const totals = sales.reduce((acc, sale) => {
+      const revenue = Number(sale.total_amount || 0);
+      const profit = Number(sale.profit || 0);
+      const itemCount = Number(sale.item_count || 0);
+      const payment = sale.payment_method || 'unknown';
+      const cashier = sale.user_id?.username || 'Unknown';
+
+      acc.revenue += revenue;
+      acc.profit += profit;
+      acc.items += itemCount;
+      paymentMap.set(payment, (paymentMap.get(payment) || 0) + revenue);
+      cashierMap.set(cashier, (cashierMap.get(cashier) || 0) + revenue);
+      return acc;
+    }, {
+      revenue: 0,
+      profit: 0,
+      items: 0
+    });
+
+    const topPayment = Array.from(paymentMap.entries()).sort((a, b) => b[1] - a[1])[0] || [];
+    const topCashier = Array.from(cashierMap.entries()).sort((a, b) => b[1] - a[1])[0] || [];
+
+    return {
+      ...totals,
+      transactions: sales.length,
+      averageSale: sales.length ? totals.revenue / sales.length : 0,
+      marginPct: totals.revenue > 0 ? (totals.profit / totals.revenue) * 100 : 0,
+      topPayment: topPayment[0] || 'N/A',
+      topCashier: topCashier[0] || 'N/A'
+    };
+  }, [sales]);
 
   useEffect(() => {
     fetchSales();
@@ -72,6 +110,8 @@ const Sales = () => {
     setSelectedSale(null);
     setSaleDetails(null);
   };
+
+  const formatCurrency = (value) => `KES ${Number(value || 0).toLocaleString()}`;
 
   const downloadInvoice = (sale) => {
     if (!sale) return;
@@ -163,7 +203,7 @@ const Sales = () => {
             <p className="page-subtitle">
               {isCashier
                 ? 'Review and reprint the transactions you recorded.'
-                : 'View and filter transaction logs by period or invoice number.'}
+                : 'Track revenue, items sold, profit, payments, and invoice details by period.'}
             </p>
           </div>
           <div className="page-header-actions">
@@ -204,6 +244,41 @@ const Sales = () => {
           </div>
         </div>
 
+        <div className="reports-grid sales-summary-grid">
+          <div className="stat-card glass-panel">
+            <div className="report-stat-icon tone-success"><DollarSign size={22} /></div>
+            <div className="report-stat-copy">
+              <h3>Revenue</h3>
+              <p className="stat-number">{formatCurrency(salesSummary.revenue)}</p>
+              <span className="report-stat-note">{salesSummary.transactions} transactions</span>
+            </div>
+          </div>
+          <div className="stat-card glass-panel">
+            <div className="report-stat-icon tone-warning"><Package size={22} /></div>
+            <div className="report-stat-copy">
+              <h3>Items Sold</h3>
+              <p className="stat-number">{salesSummary.items}</p>
+              <span className="report-stat-note">Avg sale {formatCurrency(salesSummary.averageSale)}</span>
+            </div>
+          </div>
+          <div className="stat-card glass-panel">
+            <div className="report-stat-icon tone-primary"><TrendingUp size={22} /></div>
+            <div className="report-stat-copy">
+              <h3>Gross Profit</h3>
+              <p className="stat-number">{formatCurrency(salesSummary.profit)}</p>
+              <span className="report-stat-note">{salesSummary.marginPct.toFixed(1)}% margin</span>
+            </div>
+          </div>
+          <div className="stat-card glass-panel">
+            <div className="report-stat-icon tone-sky"><Wallet size={22} /></div>
+            <div className="report-stat-copy">
+              <h3>Top Payment</h3>
+              <p className="stat-number text-capitalize">{salesSummary.topPayment}</p>
+              <span className="report-stat-note">Top cashier {salesSummary.topCashier}</span>
+            </div>
+          </div>
+        </div>
+
         <div className="glass-panel main-panel">
           <div className="table-container">
             {loading ? (
@@ -217,6 +292,8 @@ const Sales = () => {
                     <th>Type</th>
                     <th>Payment</th>
                     <th>Cashier</th>
+                    <th className="text-center">Items</th>
+                    <th className="text-right">Profit</th>
                     <th className="text-right">Total (KES)</th>
                     <th></th>
                   </tr>
@@ -233,13 +310,15 @@ const Sales = () => {
                       <td>{sale.sale_type}</td>
                       <td><span className="badge">{sale.payment_method}</span></td>
                       <td>{sale.user_id?.username || 'admin'}</td>
+                      <td className="text-center">{sale.item_count || 0}</td>
+                      <td className="font-medium text-right text-success">{Number(sale.profit || 0).toLocaleString()}</td>
                       <td className="font-medium text-right">{sale.total_amount?.toLocaleString()}</td>
                       <td className="text-right text-muted"><ChevronRight size={20} /></td>
                     </tr>
                   ))}
                   {sales.length === 0 && (
                     <tr>
-                      <td colSpan="7" className="empty-state">No sales records matched your filters.</td>
+                      <td colSpan="9" className="empty-state">No sales records matched your filters.</td>
                     </tr>
                   )}
                 </tbody>
@@ -278,6 +357,8 @@ const Sales = () => {
                   <div><strong>Payment:</strong> <span className="text-capitalize">{saleDetails.payment_method}</span></div>
                   <div><strong>Customer Phone:</strong> {saleDetails.customer_id?.phone || 'N/A'}</div>
                   <div><strong>Type:</strong> <span className="text-capitalize">{saleDetails.sale_type}</span></div>
+                  <div><strong>Items:</strong> {(saleDetails.items || []).reduce((sum, item) => sum + Number(item.quantity || 0), 0)}</div>
+                  <div><strong>Gross Profit:</strong> {formatCurrency((saleDetails.items || []).reduce((sum, item) => sum + Number(item.profit_margin || 0), 0))}</div>
                 </div>
 
                 <table className="data-table">
@@ -285,8 +366,9 @@ const Sales = () => {
                     <tr>
                       <th>Product</th>
                       <th>Category</th>
-                      <th>Qty</th>
-                      <th>Sell Price</th>
+                      <th className="text-center">Qty</th>
+                      <th className="text-right">Sell Price</th>
+                      <th className="text-right">Profit</th>
                       <th className="text-right">Subtotal</th>
                     </tr>
                   </thead>
@@ -300,8 +382,9 @@ const Sales = () => {
                           </div>
                         </td>
                         <td className="text-capitalize">{item.productCategory}</td>
-                        <td>{item.quantity}</td>
-                        <td>KES {item.unit_price?.toLocaleString() || 0}</td>
+                        <td className="text-center">{item.quantity}</td>
+                        <td className="text-right">KES {item.unit_price?.toLocaleString() || 0}</td>
+                        <td className="text-right text-success">KES {Number(item.profit_margin || 0).toLocaleString()}</td>
                         <td className="text-right">KES {item.subtotal?.toLocaleString() || 0}</td>
                       </tr>
                     ))}
@@ -309,6 +392,7 @@ const Sales = () => {
                 </table>
 
                 <div className="modal-detail-totals">
+                  <span>COGS: {formatCurrency((saleDetails.items || []).reduce((sum, item) => sum + (Number(item.buying_price || 0) * Number(item.quantity || 0)), 0))}</span>
                   <strong>Total: KES {saleDetails.total_amount?.toLocaleString() || 0}</strong>
                 </div>
               </>

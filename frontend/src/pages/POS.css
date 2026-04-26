@@ -560,11 +560,11 @@
   background: linear-gradient(135deg, var(--primary), var(--primary-hover));
   color: white;
   font-weight: 600;
-  box-shadow: 0 8px 18px rgba(99, 102, 241, 0.24);
+  box-shadow: none;
 }
 
 .primary-btn:hover {
-  transform: translateY(-1px);
+  background: linear-gradient(135deg, var(--primary-hover), var(--primary));
 }
 
 .modal-overlay {

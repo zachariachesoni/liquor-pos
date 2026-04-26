@@ -1,9 +1,11 @@
 .expense-budget-modal {
   width: min(1040px, calc(100vw - 2.5rem));
+  max-height: min(860px, calc(100vh - 4rem));
   padding: 1.75rem;
   display: flex;
   flex-direction: column;
   gap: 1rem;
+  overflow-y: auto;
 }
 
 .expense-budget-title {

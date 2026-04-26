@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ImagePlus, KeyRound, Save, Settings, Shield, Trash2, UserPlus } from 'lucide-react';
+import { ImagePlus, KeyRound, Save, Settings, Shield, Trash2, User, UserPlus } from 'lucide-react';
 import api from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { getCacheableSettings } from '../hooks/useSystemSettings';
@@ -46,6 +46,7 @@ const AdminPanel = () => {
     () => staff.filter((member) => member.role !== 'admin'),
     [staff]
   );
+  const isAdmin = user?.role === 'admin';
 
   const setFeedback = (nextMessage = '', nextError = '') => {
     setMessage(nextMessage);
@@ -54,9 +55,14 @@ const AdminPanel = () => {
 
   useEffect(() => {
     fetchAdminData();
-  }, []);
+  }, [user?.role]);
 
   const fetchAdminData = async () => {
+    if (user?.role !== 'admin') {
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       const [settingsResponse, usersResponse] = await Promise.all([
@@ -227,8 +233,12 @@ const AdminPanel = () => {
     <div className="page-container animate-fade-in admin-shell">
       <div className="page-header">
         <div className="page-header-copy">
-          <h1 className="page-title">Admin Console</h1>
-          <p className="page-subtitle">Manage business identity, stock alert policies, employee roles, and your account from one place.</p>
+          <h1 className="page-title">{isAdmin ? 'Admin Console' : 'Account Settings'}</h1>
+          <p className="page-subtitle">
+            {isAdmin
+              ? 'Manage business identity, stock alert policies, employee roles, and your account from one place.'
+              : 'Review your sign-in details and update your password securely.'}
+          </p>
         </div>
       </div>
 
@@ -251,19 +261,37 @@ const AdminPanel = () => {
               <strong>{user?.username || 'Admin'}</strong>
               <span className="td-secondary">{user?.email || 'No email on file'}</span>
             </div>
-            <div className="glass-panel admin-stat-card">
-              <span className="admin-stat-label">Active staff</span>
-              <strong>{activeEmployees.length}</strong>
-              <span className="td-secondary">Managers and cashiers currently on the roster</span>
-            </div>
-            <div className="glass-panel admin-stat-card">
-              <span className="admin-stat-label">Current stock rule</span>
-              <strong>{settings.default_low_stock_level} units</strong>
-              <span className="td-secondary">High-value goods switch to {settings.high_value_low_stock_level} units</span>
-            </div>
+            {isAdmin ? (
+              <>
+                <div className="glass-panel admin-stat-card">
+                  <span className="admin-stat-label">Active staff</span>
+                  <strong>{activeEmployees.length}</strong>
+                  <span className="td-secondary">Managers and cashiers currently on the roster</span>
+                </div>
+                <div className="glass-panel admin-stat-card">
+                  <span className="admin-stat-label">Current stock rule</span>
+                  <strong>{settings.default_low_stock_level} units</strong>
+                  <span className="td-secondary">High-value goods switch to {settings.high_value_low_stock_level} units</span>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="glass-panel admin-stat-card">
+                  <span className="admin-stat-label">Role</span>
+                  <strong className="text-capitalize">{user?.role || 'staff'}</strong>
+                  <span className="td-secondary">Your current POS access level</span>
+                </div>
+                <div className="glass-panel admin-stat-card">
+                  <span className="admin-stat-label">Security</span>
+                  <strong>Password</strong>
+                  <span className="td-secondary">Use the form below to update your login password</span>
+                </div>
+              </>
+            )}
           </div>
 
           <div className="admin-page-grid">
+            {isAdmin && (
             <div className="glass-panel main-panel admin-section-card">
               <div className="detail-header admin-section-header">
                 <div className="page-header-copy">
@@ -366,15 +394,43 @@ const AdminPanel = () => {
                 </div>
               </form>
             </div>
+            )}
 
             <div className="admin-side-stack">
+              {!isAdmin && (
+                <div className="glass-panel main-panel admin-section-card">
+                  <div className="detail-header admin-section-header">
+                    <div className="page-header-copy">
+                      <h2 className="section-heading">
+                        <User size={20} /> Profile
+                      </h2>
+                      <p className="page-subtitle">Your current access and identity inside the POS.</p>
+                    </div>
+                  </div>
+                  <div className="account-summary-card glass-panel">
+                    <div className="account-summary-row">
+                      <span className="admin-stat-label">Username</span>
+                      <strong>{user?.username || 'Unknown user'}</strong>
+                    </div>
+                    <div className="account-summary-row">
+                      <span className="admin-stat-label">Email</span>
+                      <span className="td-secondary">{user?.email || 'No email on file'}</span>
+                    </div>
+                    <div className="account-summary-row">
+                      <span className="admin-stat-label">Role</span>
+                      <span className="report-meta-chip text-capitalize">{user?.role || 'staff'}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="glass-panel main-panel admin-section-card">
                 <div className="detail-header admin-section-header">
                   <div className="page-header-copy">
                     <h2 className="section-heading">
                       <KeyRound size={20} /> Change Password
                     </h2>
-                    <p className="page-subtitle">Update the admin password from one secure place.</p>
+                    <p className="page-subtitle">Update your login password from one secure place.</p>
                   </div>
                 </div>
 
@@ -411,6 +467,7 @@ const AdminPanel = () => {
                 </form>
               </div>
 
+              {isAdmin && (
               <div className="glass-panel main-panel admin-section-card">
                 <div className="detail-header admin-section-header">
                   <div className="page-header-copy">
@@ -482,6 +539,7 @@ const AdminPanel = () => {
                   </table>
                 </div>
               </div>
+              )}
             </div>
           </div>
         </>

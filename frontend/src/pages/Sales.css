@@ -1,1 +1,46 @@
-/* Reuses Products.css */
+/* Reuses Products.css and Reports.css */
+
+.sales-summary-grid {
+  margin-bottom: 1.35rem;
+}
+
+.sales-summary-grid .stat-card {
+  min-height: 124px;
+}
+
+.sales-summary-grid .stat-number {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.text-success {
+  color: #22c55e;
+}
+
+.modal-detail-card .data-table {
+  table-layout: fixed;
+}
+
+.modal-detail-card .data-table th,
+.modal-detail-card .data-table td {
+  white-space: normal;
+}
+
+.modal-detail-totals {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.modal-detail-totals span {
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+@media (max-width: 768px) {
+  .modal-detail-totals {
+    justify-content: flex-start;
+  }
+}
