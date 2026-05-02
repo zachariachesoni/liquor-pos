@@ -118,15 +118,6 @@ function App() {
       />
 
       <Route
-        path="/employees"
-        element={
-          <ProtectedRoute allowedRoles={['admin']}>
-            <AdminPanel />
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
         path="/expenses"
         element={
           <ProtectedRoute allowedRoles={['admin', 'manager']}>

@@ -7,9 +7,5 @@ import { verifyToken } from '../middleware/auth.middleware.js';
 router.use(verifyToken);
 
 router.get('/stats', getStats);
-router.get('/sales-trend', getStats);
-router.get('/top-products', getStats);
-router.get('/profit-summary', getStats);
-router.get('/category-performance', getStats);
 
 export default router;

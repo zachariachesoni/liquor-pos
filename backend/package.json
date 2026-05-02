@@ -12,9 +12,6 @@
     "start": "node server.js",
     "seed": "node seed.js"
   },
-  "devDependencies": {
-    "vite": "^8.0.1"
-  },
   "dependencies": {
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",

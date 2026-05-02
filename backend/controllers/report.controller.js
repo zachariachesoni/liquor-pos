@@ -9,6 +9,7 @@ import SupplierPayment from '../models/SupplierPayment.js';
 import ProductVariant from '../models/ProductVariant.js';
 import SupplierProductPriceHistory from '../models/SupplierProductPriceHistory.js';
 import StockAdjustment from '../models/StockAdjustment.js';
+import { getVariantProductSnapshot } from '../utils/productSnapshot.js';
 import { getSystemSettings, serializeSystemSettings } from '../utils/systemSettings.js';
 import { getDaysPastDue, getPaymentTermsLabel } from '../utils/purchasing.js';
 
@@ -96,16 +97,8 @@ const getPreviousDateRange = (range) => {
   return { start: previousStart, end: previousEnd };
 };
 
-const getProductSnapshot = (variant) => ({
-  variant_id: variant?._id || null,
-  product_name: variant?.product_id?.name || 'Unknown item',
-  brand: variant?.product_id?.brand || '',
-  category: variant?.product_id?.category || 'other',
-  size: variant?.size || '',
-  current_stock: Number(variant?.current_stock || 0),
-  buying_price: Number(variant?.buying_price || 0),
-  retail_price: Number(variant?.retail_price || 0),
-  wholesale_price: Number(variant?.wholesale_price || 0)
+const getProductSnapshot = (variant) => getVariantProductSnapshot(variant, {
+  unknownProductName: 'Unknown item'
 });
 
 const attachPurchaseOrderItems = (purchaseOrders = [], purchaseOrderItems = []) => {

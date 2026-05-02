@@ -290,6 +290,24 @@ export const getSales = async (req, res) => {
   }
 };
 
+// @desc    Get today's sales
+// @route   GET /api/sales/today
+export const getTodaySales = async (req, res) => {
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+
+  const startOfTomorrow = new Date(startOfToday);
+  startOfTomorrow.setDate(startOfTomorrow.getDate() + 1);
+
+  req.query = {
+    ...req.query,
+    start_date: startOfToday.toISOString(),
+    end_date: startOfTomorrow.toISOString()
+  };
+
+  return getSales(req, res);
+};
+
 // @desc    Get single sale details
 // @route   GET /api/sales/:id
 export const getSaleDetails = async (req, res) => {

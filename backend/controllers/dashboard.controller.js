@@ -2,6 +2,7 @@ import Sale from '../models/Sale.js';
 import ProductVariant from '../models/ProductVariant.js';
 import SaleItem from '../models/SaleItem.js';
 import StockAdjustment from '../models/StockAdjustment.js';
+import { getVariantProductSnapshot } from '../utils/productSnapshot.js';
 import { calculateEffectiveLowStockLevel, getSystemSettings, serializeSystemSettings } from '../utils/systemSettings.js';
 
 const MANAGEMENT_ROLES = ['admin', 'manager'];
@@ -36,22 +37,10 @@ const getSaleItemScopeStages = (req, createdAtMatch = null) => {
   return stages;
 };
 
-const getProductSnapshot = (variant, fallbackVariantId = null) => {
-  const product = variant?.product_id || {};
-
-  return {
-    variant_id: String(variant?._id || fallbackVariantId || ''),
-    product_id: product?._id ? String(product._id) : null,
-    product_name: product?.name || 'Unknown product',
-    brand: product?.brand || '',
-    category: product?.category || 'other',
-    size: variant?.size || '',
-    current_stock: toNumber(variant?.current_stock),
-    buying_price: toNumber(variant?.buying_price),
-    retail_price: toNumber(variant?.retail_price),
-    wholesale_price: toNumber(variant?.wholesale_price)
-  };
-};
+const getProductSnapshot = (variant, fallbackVariantId = null) => getVariantProductSnapshot(variant, {
+  fallbackVariantId,
+  stringifyIds: true
+});
 
 const redactProductCostFields = (row) => {
   if (!row) return null;

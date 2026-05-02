@@ -6,6 +6,7 @@ import SupplierPayment from '../models/SupplierPayment.js';
 import ProductVariant from '../models/ProductVariant.js';
 import StockAdjustment from '../models/StockAdjustment.js';
 import logger from '../utils/logger.js';
+import { calculateWeightedAverageCost } from '../utils/inventoryCost.js';
 import {
   generatePurchaseOrderNumber,
   calculateLineTotal,
@@ -30,18 +31,6 @@ const toNumber = (value, fallback = 0) => {
 };
 
 const getNormalizedPaymentInput = (value) => Math.max(0, toNumber(value, 0));
-
-const calculateWeightedAverageCost = (currentStock, currentCost, receivedQuantity, receivedUnitCost) => {
-  const stock = Math.max(0, Number(currentStock || 0));
-  const quantity = Math.max(0, Number(receivedQuantity || 0));
-  const oldCost = Math.max(0, Number(currentCost || 0));
-  const newCost = Math.max(0, Number(receivedUnitCost || 0));
-
-  if (quantity <= 0) return oldCost;
-  if (stock <= 0) return newCost;
-
-  return ((stock * oldCost) + (quantity * newCost)) / (stock + quantity);
-};
 
 const normalizeCreatePurchaseItems = (items = []) => items.map((item) => {
   const variantId = item.variant_id || item.variantId;
