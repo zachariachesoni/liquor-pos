@@ -12,6 +12,7 @@ import Reports from './pages/Reports';
 import Register from './pages/Register';
 import AdminPanel from './pages/AdminPanel';
 import Suppliers from './pages/Suppliers';
+import Notifications from './pages/Notifications';
 import Layout from './components/Layout';
 import { INVENTORY_ROUTE_ROLES, PRODUCTS_ROUTE_ROLES, SALES_ROUTE_ROLES } from './utils/accessControl';
 import './App.css';
@@ -113,6 +114,15 @@ function App() {
         element={
           <ProtectedRoute>
             <AdminPanel />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/notifications"
+        element={
+          <ProtectedRoute allowedRoles={['admin']}>
+            <Notifications />
           </ProtectedRoute>
         }
       />

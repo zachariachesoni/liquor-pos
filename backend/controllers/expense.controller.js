@@ -6,7 +6,7 @@ const expenseCategoryAliases = {
   salary: 'salaries',
 };
 
-const allowedExpenseCategories = ['rent', 'salaries', 'transport', 'restocking', 'utilities', 'maintenance', 'other'];
+const allowedExpenseCategories = ['rent', 'salaries', 'transport', 'utilities', 'maintenance', 'other'];
 
 const normalizeExpenseCategory = (category) => {
   if (!category) return category;

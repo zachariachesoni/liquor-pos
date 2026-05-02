@@ -53,7 +53,7 @@ const redactSalesCostFields = (metrics) => {
   return visibleMetrics;
 };
 
-const normalizeSalesMetrics = ({ lineMetrics, salesMetrics, paymentBreakdown }) => {
+const normalizeSalesMetrics = ({ lineMetrics, salesMetrics, paymentBreakdown, trendDays = 7 }) => {
   const lineRevenue = toNumber(lineMetrics?.revenue);
   const salesRevenue = toNumber(salesMetrics?.totalSales || lineRevenue);
   const transactions = toNumber(salesMetrics?.count);
@@ -62,7 +62,7 @@ const normalizeSalesMetrics = ({ lineMetrics, salesMetrics, paymentBreakdown }) 
   const wholesaleUnits = toNumber(lineMetrics?.wholesale_units);
 
   return {
-    window_label: 'Last 7 days',
+    window_label: `Last ${trendDays} day${trendDays === 1 ? '' : 's'}`,
     revenue: salesRevenue,
     transactions,
     units_sold: unitsSold,
@@ -194,6 +194,7 @@ export const getStats = async (req, res) => {
     const settingsDoc = await getSystemSettings();
     const settings = serializeSystemSettings(settingsDoc);
     const canViewCostDetails = MANAGEMENT_ROLES.includes(req.user?.role);
+    const trendDays = Math.min(90, Math.max(1, Number(req.query.trend_days || 7)));
     const salesScope = req.user?.role === 'cashier'
       ? { user_id: req.user._id || req.user.id }
       : {};
@@ -206,6 +207,8 @@ export const getStats = async (req, res) => {
     const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
     const revenueWindowStart = new Date(today);
     revenueWindowStart.setDate(today.getDate() - 6);
+    const trendWindowStart = new Date(today);
+    trendWindowStart.setDate(today.getDate() - (trendDays - 1));
 
     const pipe = (startDate) => [
       { $match: { ...salesScope, createdAt: { $gte: startDate } } },
@@ -241,9 +244,9 @@ export const getStats = async (req, res) => {
       }
     ];
 
-    const currentTrendStart = new Date(revenueWindowStart);
+    const currentTrendStart = new Date(trendWindowStart);
     const previousTrendStart = new Date(currentTrendStart);
-    previousTrendStart.setDate(currentTrendStart.getDate() - 7);
+    previousTrendStart.setDate(currentTrendStart.getDate() - trendDays);
 
     const [salesLineMetrics = null, paymentBreakdown, currentPeriodSales, previousPeriodSales] = await Promise.all([
       SaleItem.aggregate(salesLineMetricsPipeline).then((rows) => rows[0] || null),
@@ -423,12 +426,13 @@ export const getStats = async (req, res) => {
       ? trendVariantsById.get(String(trendingProduct.variant_id))
       : null;
     const averageCostUsage = canViewCostDetails
-      ? await buildAverageCostUsage({ req, variant: trendingVariant, windowStart: revenueWindowStart })
+      ? await buildAverageCostUsage({ req, variant: trendingVariant, windowStart: trendWindowStart })
       : null;
     const salesMetrics = normalizeSalesMetrics({
       lineMetrics: salesLineMetrics,
       salesMetrics: last7Sales,
-      paymentBreakdown
+      paymentBreakdown,
+      trendDays
     });
     const visibleSalesMetrics = canViewCostDetails ? salesMetrics : redactSalesCostFields(salesMetrics);
     const visibleTrendingProducts = canViewCostDetails
@@ -459,6 +463,10 @@ export const getStats = async (req, res) => {
         salesData,
         categoryData,
         salesMetrics: visibleSalesMetrics,
+        trendWindow: {
+          days: trendDays,
+          label: `Last ${trendDays} day${trendDays === 1 ? '' : 's'}`
+        },
         trendingProduct: visibleTrendingProduct,
         trendingProducts: visibleTrendingProducts,
         averageCostUsage

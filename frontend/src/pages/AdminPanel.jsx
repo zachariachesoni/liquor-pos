@@ -9,6 +9,8 @@ const defaultSettings = {
   business_name: 'Liquor POS',
   business_logo_url: '',
   receipt_footer: 'Thank you for your business.',
+  payment_account_type: '',
+  payment_account_number: '',
   default_low_stock_level: 5,
   high_value_price_threshold: 10000,
   high_value_low_stock_level: 2,
@@ -17,7 +19,7 @@ const defaultSettings = {
 
 const defaultInvite = {
   username: '',
-  email: '',
+  password: '',
   role: 'cashier',
 };
 
@@ -39,8 +41,7 @@ const AdminPanel = () => {
   const [savingSettings, setSavingSettings] = useState(false);
   const [creatingUser, setCreatingUser] = useState(false);
   const [changingPassword, setChangingPassword] = useState(false);
-  const [message, setMessage] = useState('');
-  const [error, setError] = useState('');
+  const [toast, setToast] = useState(null);
 
   const activeEmployees = useMemo(
     () => staff.filter((member) => member.role !== 'admin'),
@@ -49,8 +50,14 @@ const AdminPanel = () => {
   const isAdmin = user?.role === 'admin';
 
   const setFeedback = (nextMessage = '', nextError = '') => {
-    setMessage(nextMessage);
-    setError(nextError);
+    const text = nextError || nextMessage;
+    if (!text) {
+      setToast(null);
+      return;
+    }
+
+    setToast({ message: text, type: nextError ? 'error' : 'success' });
+    window.setTimeout(() => setToast(null), 3200);
   };
 
   useEffect(() => {
@@ -88,7 +95,6 @@ const AdminPanel = () => {
 
       const response = await api.put(`/users/${userId}`, {
         username: current.username,
-        email: current.email,
         role: nextRole,
       });
 
@@ -184,11 +190,7 @@ const AdminPanel = () => {
       const response = await api.post('/users', inviteForm);
       setStaff((prev) => [...prev, response.data.data]);
       setInviteForm(defaultInvite);
-      setFeedback(
-        response.data.emailSent
-          ? 'Team member invited successfully.'
-          : `Team member created. Temporary password: ${response.data.temporaryPassword}`
-      );
+      setFeedback('Team member added successfully.');
     } catch (err) {
       console.error('Failed to create staff account', err);
       setFeedback('', err.response?.data?.message || 'Failed to create staff account');
@@ -236,15 +238,15 @@ const AdminPanel = () => {
           <h1 className="page-title">{isAdmin ? 'Admin Console' : 'Account Settings'}</h1>
           <p className="page-subtitle">
             {isAdmin
-              ? 'Manage business identity, stock alert policies, employee roles, and your account from one place.'
+              ? 'Manage business identity, stock alert policies, and employee roles from one place.'
               : 'Review your sign-in details and update your password securely.'}
           </p>
         </div>
       </div>
 
-      {(message || error) && (
-        <div className={`feedback-banner ${error ? 'error' : 'success'}`}>
-          {error || message}
+      {toast && (
+        <div className={`toast-popup ${toast.type === 'error' ? 'error' : 'success'}`}>
+          {toast.message}
         </div>
       )}
 
@@ -256,11 +258,6 @@ const AdminPanel = () => {
       ) : (
         <>
           <div className="admin-overview-grid">
-            <div className="glass-panel admin-stat-card">
-              <span className="admin-stat-label">Signed in as</span>
-              <strong>{user?.username || 'Admin'}</strong>
-              <span className="td-secondary">{user?.email || 'No email on file'}</span>
-            </div>
             {isAdmin ? (
               <>
                 <div className="glass-panel admin-stat-card">
@@ -298,7 +295,7 @@ const AdminPanel = () => {
                   <h2 className="section-heading">
                     <Settings size={20} /> Business Identity
                   </h2>
-                  <p className="page-subtitle">These settings flow through receipts, invoices, reports, and the app shell.</p>
+                  <p className="page-subtitle">These settings control receipts and the app shell.</p>
                 </div>
               </div>
 
@@ -329,11 +326,30 @@ const AdminPanel = () => {
                   <span className="td-secondary">Upload a PNG, JPG, WEBP, or SVG file up to 2MB.</span>
                 </div>
                 <div className="form-field form-field-full">
-                  <label>Receipt / Report Footer</label>
+                  <label>Sales Receipt Footer</label>
                   <textarea
                     value={settings.receipt_footer}
                     onChange={(e) => setSettings((prev) => ({ ...prev, receipt_footer: e.target.value }))}
                     rows="3"
+                  />
+                </div>
+                <div className="form-field">
+                  <label>Payment Account Type</label>
+                  <select
+                    value={settings.payment_account_type}
+                    onChange={(e) => setSettings((prev) => ({ ...prev, payment_account_type: e.target.value }))}
+                  >
+                    <option value="">None</option>
+                    <option value="paybill">Paybill</option>
+                    <option value="till">Till Number</option>
+                  </select>
+                </div>
+                <div className="form-field">
+                  <label>Paybill / Till Number</label>
+                  <input
+                    value={settings.payment_account_number}
+                    onChange={(e) => setSettings((prev) => ({ ...prev, payment_account_number: e.target.value }))}
+                    placeholder="e.g. 123456"
                   />
                 </div>
                 <div className="form-field">
@@ -367,7 +383,9 @@ const AdminPanel = () => {
                     )}
                     <div className="preview-summary">
                       <div className="font-medium">{settings.business_name}</div>
-                      <div className="td-secondary">{settings.receipt_footer}</div>
+                      <div className="td-secondary">{settings.payment_account_type && settings.payment_account_number
+                        ? `${settings.payment_account_type === 'paybill' ? 'Paybill' : 'Till'}: ${settings.payment_account_number}`
+                        : 'No payment account on receipt'}</div>
                     </div>
                   </div>
                   <div className="glass-panel admin-note-card">
@@ -474,7 +492,7 @@ const AdminPanel = () => {
                     <h2 className="section-heading">
                       <Shield size={20} /> Team Roles
                     </h2>
-                    <p className="page-subtitle">Invite staff, adjust role assignments, and remove old accounts completely.</p>
+                    <p className="page-subtitle">Add staff manually, set their password, adjust roles, and remove old accounts completely.</p>
                   </div>
                   <div className="report-meta-chip">Active staff: {activeEmployees.length}</div>
                 </div>
@@ -485,8 +503,8 @@ const AdminPanel = () => {
                     <input required value={inviteForm.username} onChange={(e) => setInviteForm((prev) => ({ ...prev, username: e.target.value }))} />
                   </div>
                   <div className="form-field">
-                    <label>Email</label>
-                    <input required type="email" value={inviteForm.email} onChange={(e) => setInviteForm((prev) => ({ ...prev, email: e.target.value }))} />
+                    <label>Password</label>
+                    <input required type="password" minLength="6" value={inviteForm.password} onChange={(e) => setInviteForm((prev) => ({ ...prev, password: e.target.value }))} />
                   </div>
                   <div className="form-field">
                     <label>Role</label>
@@ -497,7 +515,7 @@ const AdminPanel = () => {
                   </div>
                   <div className="form-actions form-actions-stretch">
                     <button className="primary-btn" type="submit" disabled={creatingUser}>
-                      <UserPlus size={18} /> {creatingUser ? 'Inviting...' : 'Add Staff'}
+                      <UserPlus size={18} /> {creatingUser ? 'Adding...' : 'Add Staff'}
                     </button>
                   </div>
                 </form>
@@ -507,7 +525,6 @@ const AdminPanel = () => {
                     <thead>
                       <tr>
                         <th>Username</th>
-                        <th>Email</th>
                         <th>Role</th>
                         <th className="text-right">Actions</th>
                       </tr>
@@ -516,7 +533,6 @@ const AdminPanel = () => {
                       {activeEmployees.map((member) => (
                         <tr key={member._id}>
                           <td className="font-medium">{member.username}</td>
-                          <td>{member.email || 'No email'}</td>
                           <td>
                             <select value={member.role} onChange={(e) => updateStaffRole(member._id, e.target.value)} className="table-select">
                               <option value="manager">Manager</option>
@@ -532,7 +548,7 @@ const AdminPanel = () => {
                       ))}
                       {activeEmployees.length === 0 && (
                         <tr>
-                          <td colSpan="4" className="empty-state">No employees on the roster yet.</td>
+                          <td colSpan="3" className="empty-state">No employees on the roster yet.</td>
                         </tr>
                       )}
                     </tbody>

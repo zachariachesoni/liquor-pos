@@ -29,6 +29,8 @@ export const updateSettings = async (req, res) => {
       'business_name',
       'business_logo_url',
       'receipt_footer',
+      'payment_account_type',
+      'payment_account_number',
       'default_low_stock_level',
       'high_value_price_threshold',
       'high_value_low_stock_level',

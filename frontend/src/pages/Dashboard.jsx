@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Cell, PieChart, Pie } from 'recharts';
-import { TrendingUp, ShoppingBag, AlertTriangle, ArrowUpRight, ArrowDownRight, DollarSign, Package, Award, Calculator, ReceiptText, Percent, Wallet } from 'lucide-react';
+import { TrendingUp, ShoppingBag, AlertTriangle, ArrowUpRight, ArrowDownRight, DollarSign, Package, Award } from 'lucide-react';
 import api from '../utils/api';
 import { canSeeProductCosts } from '../utils/accessControl';
 import './Dashboard.css';
@@ -17,10 +17,6 @@ const formatCurrency = (value, digits = 0) => (
 const formatNumber = (value) => Number(value || 0).toLocaleString();
 
 const formatPercent = (value, digits = 1) => `${Number(value || 0).toFixed(digits)}%`;
-
-const formatPaymentMethod = (method) => (
-  method ? method.replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase()) : 'No sales yet'
-);
 
 const formatDate = (value) => (
   value ? new Date(value).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'No date'
@@ -37,6 +33,7 @@ const getTrendLabel = (product) => {
 const Dashboard = () => {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [trendDays, setTrendDays] = useState(7);
   const { user } = useAuth();
   const navigate = useNavigate();
   const isCashier = user?.role === 'cashier';
@@ -44,11 +41,12 @@ const Dashboard = () => {
 
   useEffect(() => {
     fetchDashboardStats();
-  }, []);
+  }, [trendDays]);
 
   const fetchDashboardStats = async () => {
     try {
-      const response = await api.get('/dashboard/stats');
+      setLoading(true);
+      const response = await api.get('/dashboard/stats', { params: { trend_days: trendDays } });
       setStats(response.data.data);
     } catch (error) {
       console.error('Error fetching stats:', error);
@@ -60,7 +58,7 @@ const Dashboard = () => {
 
   const salesData = stats?.salesData || [];
   const categoryData = stats?.categoryData || [];
-  const salesMetrics = stats?.salesMetrics || {};
+  const trendWindow = stats?.trendWindow || { days: trendDays, label: `Last ${trendDays} days` };
   const trendingProduct = stats?.trendingProduct;
   const trendingProducts = stats?.trendingProducts || [];
   const averageCostUsage = stats?.averageCostUsage;
@@ -73,7 +71,7 @@ const Dashboard = () => {
     <div className="dashboard-container">
       <div className="dashboard-header">
         <div>
-          <h1 className="page-title">Welcome back, {user?.username}</h1>
+          <h1 className="page-title">Welcome back</h1>
           <p className="page-subtitle">
             {isCashier
               ? "Here is your sales and stock snapshot for today."
@@ -156,10 +154,23 @@ const Dashboard = () => {
           <div className="insight-header">
             <div>
               <h3>Trending Product</h3>
-              <p>{salesMetrics.window_label || 'Last 7 days'} compared with the previous 7 days</p>
+              <p>{trendWindow.label} compared with the previous {trendWindow.days} days</p>
             </div>
-            <div className="insight-icon trend-icon">
-              <Award size={22} />
+            <div className="trend-period-control">
+              <select
+                className="field-select"
+                value={trendDays}
+                onChange={(event) => setTrendDays(Number(event.target.value))}
+                aria-label="Trending product period"
+              >
+                <option value={7}>Last 7 days</option>
+                <option value={14}>Last 14 days</option>
+                <option value={30}>Last 30 days</option>
+                <option value={60}>Last 60 days</option>
+              </select>
+              <div className="insight-icon trend-icon">
+                <Award size={22} />
+              </div>
             </div>
           </div>
 
@@ -216,123 +227,54 @@ const Dashboard = () => {
                   </div>
                 ))}
               </div>
+
+              {canViewCostDetails && averageCostUsage && (
+                <div className="average-cost-audit">
+                  <div className="average-cost-header">
+                    <div>
+                      <h4>Average Cost Usage</h4>
+                      <p>Recent sales and stock movements using the current average buying price.</p>
+                    </div>
+                    <span className="report-meta-chip">
+                      Avg cost {formatCurrency(averageCostUsage.average_buying_price)}
+                    </span>
+                  </div>
+                  <div className="average-cost-summary">
+                    <div>
+                      <span>Units Costed</span>
+                      <strong>{formatNumber(averageCostUsage.summary?.units_costed)}</strong>
+                    </div>
+                    <div>
+                      <span>COGS From Average</span>
+                      <strong>{formatCurrency(averageCostUsage.summary?.cogs_from_average)}</strong>
+                    </div>
+                    <div>
+                      <span>Sales Rows</span>
+                      <strong>{formatNumber(averageCostUsage.summary?.sale_rows)}</strong>
+                    </div>
+                  </div>
+                  <div className="average-cost-list">
+                    {(averageCostUsage.recent_sales || []).slice(0, 4).map((sale) => (
+                      <div className="average-cost-row" key={sale._id}>
+                        <div>
+                          <strong>{sale.invoice_number}</strong>
+                          <small>{formatDate(sale.date)} | Qty {formatNumber(sale.quantity)}</small>
+                        </div>
+                        <span>Cost used {formatCurrency(sale.average_cost_used)}</span>
+                        <span>COGS {formatCurrency(sale.cogs)}</span>
+                      </div>
+                    ))}
+                    {(averageCostUsage.recent_sales || []).length === 0 && (
+                      <div className="td-secondary">No recent sale rows used this average cost in the selected period.</div>
+                    )}
+                  </div>
+                </div>
+              )}
             </>
           ) : (
             <div className="dashboard-empty-state">
               <Package size={24} />
               <p>No product trend yet for this window.</p>
-            </div>
-          )}
-        </section>
-
-        <section className="dashboard-insight-panel sales-metrics-panel glass-panel">
-          <div className="insight-header">
-            <div>
-              <h3>Sales Metrics</h3>
-              <p>Revenue, averages, mix, and payment movement</p>
-            </div>
-            <div className="insight-icon sales-icon">
-              <Calculator size={22} />
-            </div>
-          </div>
-
-          <div className="sales-kpi-strip">
-            <div>
-              <ReceiptText size={18} />
-              <span>Transactions</span>
-              <strong>{formatNumber(salesMetrics.transactions)}</strong>
-            </div>
-            <div>
-              <DollarSign size={18} />
-              <span>Avg Sale</span>
-              <strong>{formatCurrency(salesMetrics.average_sale_value)}</strong>
-            </div>
-            <div>
-              <Package size={18} />
-              <span>Avg Unit Price</span>
-              <strong>{formatCurrency(salesMetrics.average_unit_price)}</strong>
-            </div>
-            <div>
-              <Percent size={18} />
-              <span>Wholesale Mix</span>
-              <strong>{formatPercent(salesMetrics.wholesale_share_pct)}</strong>
-            </div>
-            <div>
-              <Wallet size={18} />
-              <span>Top Payment</span>
-              <strong>{formatPaymentMethod(salesMetrics.top_payment_method?.method)}</strong>
-            </div>
-          </div>
-
-          {canViewCostDetails && averageCostUsage ? (
-            <div className="average-detail">
-              <div className="average-detail-summary">
-                <div>
-                  <span>Average BP Used</span>
-                  <strong>{formatCurrency(averageCostUsage.average_buying_price)}</strong>
-                </div>
-                <div>
-                  <span>COGS From Listed Sales</span>
-                  <strong>{formatCurrency(averageCostUsage.summary?.cogs_from_average)}</strong>
-                </div>
-              </div>
-
-              <div className="average-detail-columns">
-                <div>
-                  <h4>Invoice Use</h4>
-                  <div className="average-use-list">
-                    {(averageCostUsage.recent_sales || []).slice(0, 4).map((sale) => (
-                      <div className="average-use-row" key={sale._id}>
-                        <div>
-                          <strong>{sale.invoice_number}</strong>
-                          <small>{formatDate(sale.date)} | {formatNumber(sale.quantity)} units</small>
-                        </div>
-                        <div className="text-right">
-                          <span>{formatCurrency(sale.average_cost_used)}</span>
-                          <small>COGS {formatCurrency(sale.cogs)}</small>
-                        </div>
-                      </div>
-                    ))}
-                    {(averageCostUsage.recent_sales || []).length === 0 && (
-                      <div className="average-use-row muted-row">No recent invoice rows for this SKU.</div>
-                    )}
-                  </div>
-                </div>
-
-                <div>
-                  <h4>Stock Movement Use</h4>
-                  <div className="average-use-list">
-                    {(averageCostUsage.stock_movements || []).slice(0, 4).map((movement) => (
-                      <div className="average-use-row" key={movement._id}>
-                        <div>
-                          <strong>{movement.reason.replace(/_/g, ' ')}</strong>
-                          <small>{formatDate(movement.date)} | stock {formatNumber(movement.stock_before)} to {formatNumber(movement.stock_after)}</small>
-                        </div>
-                        <div className="text-right">
-                          <span>{formatCurrency(movement.unit_cost)}</span>
-                          <small>{movement.adjustment_type === 'in' ? 'incoming cost' : 'cost used'}</small>
-                        </div>
-                      </div>
-                    ))}
-                    {(averageCostUsage.stock_movements || []).length === 0 && (
-                      <div className="average-use-row muted-row">No stock movement rows for this SKU.</div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="average-detail compact-average">
-              <div className="average-detail-summary">
-                <div>
-                  <span>Average Unit Price</span>
-                  <strong>{formatCurrency(salesMetrics.average_unit_price)}</strong>
-                </div>
-                <div>
-                  <span>Units Included</span>
-                  <strong>{formatNumber(salesMetrics.units_sold)}</strong>
-                </div>
-              </div>
             </div>
           )}
         </section>

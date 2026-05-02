@@ -760,6 +760,19 @@
   flex: 1 1 320px;
 }
 
+.receipt-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.35rem;
+}
+
+.receipt-print-error {
+  max-width: 260px;
+  margin-top: 0;
+  text-align: right;
+}
+
 .receipt-header .modal-title {
   margin: 0 0 0.35rem;
 }
@@ -807,6 +820,11 @@
   display: flex;
   justify-content: space-between;
   gap: 1rem;
+}
+
+.receipt-payment-account {
+  margin-top: 0.65rem;
+  padding-top: 0.65rem;
 }
 
 .receipt-footer-note {
@@ -908,6 +926,16 @@
 
   .receipt-meta {
     grid-template-columns: 1fr;
+  }
+
+  .receipt-actions {
+    width: 100%;
+    align-items: stretch;
+  }
+
+  .receipt-print-error {
+    max-width: none;
+    text-align: center;
   }
 
   .pos-receipt-modal {

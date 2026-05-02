@@ -84,24 +84,6 @@ const getEmailErrorMessage = (error) => {
   return error?.message || 'Email could not be sent';
 };
 
-const buildInviteEmailHtml = ({ username, role, inviteLink, tempPassword, businessName }) => `
-  <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
-    <h2 style="color: #6366f1;">Welcome to ${businessName}!</h2>
-    <p>Hi <b>${username}</b>,</p>
-    <p>An administrator has created an account for you with the role: <b>${role.toUpperCase()}</b>.</p>
-    
-    <div style="background-color: #f3f4f6; padding: 15px; border-radius: 8px; margin: 20px 0;">
-      <p style="margin: 0;"><strong>Username:</strong> ${username}</p>
-      <p style="margin: 5px 0 0 0;"><strong>Temporary Password:</strong> ${tempPassword}</p>
-    </div>
-    
-    <p>Please log in using the link below and change your password immediately:</p>
-    <a href="${inviteLink}" style="display: inline-block; padding: 10px 20px; background-color: #6366f1; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">Open ${businessName}</a>
-    
-    <p style="margin-top: 30px; font-size: 12px; color: #9ca3af;">If you did not expect this invitation, please ignore this email.</p>
-  </div>
-`;
-
 const buildRegistrationEmailHtml = ({ username, role, loginLink, businessName }) => `
   <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
     <h2 style="color: #6366f1;">Welcome to ${businessName}!</h2>
@@ -145,18 +127,6 @@ const sendEmail = async ({ to, from, subject, html, mockMessage }) => {
       manualShareNeeded: true,
     };
   }
-};
-
-export const sendInviteEmail = async (toEmail, username, role, inviteLink, tempPassword) => {
-  const { businessName, from } = await getEmailBranding();
-
-  return sendEmail({
-    to: toEmail,
-    from,
-    subject: `You have been added to ${businessName} as a ${role}`,
-    html: buildInviteEmailHtml({ username, role, inviteLink, tempPassword, businessName }),
-    mockMessage: `Your ${businessName} login link is ${inviteLink} (Pass: ${tempPassword})`,
-  });
 };
 
 export const sendRegistrationEmail = async (toEmail, username, role, loginLink) => {

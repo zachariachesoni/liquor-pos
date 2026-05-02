@@ -8,6 +8,8 @@ const defaultSettings = {
   business_name: 'Liquor POS',
   business_logo_url: '',
   receipt_footer: 'Thank you for your business.',
+  payment_account_type: '',
+  payment_account_number: '',
   default_low_stock_level: 5,
   high_value_price_threshold: 10000,
   high_value_low_stock_level: 2,

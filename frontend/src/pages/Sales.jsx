@@ -184,6 +184,14 @@ const Sales = () => {
               <div><span>Total</span><strong>KES ${(sale.total_amount || 0).toLocaleString()}</strong></div>
               <div class="total-line"><span>Recorded By</span><strong>${sale.user_id?.username || 'Unknown'}</strong></div>
             </div>
+            ${settings.payment_account_number ? `
+              <div class="totals">
+                <div>
+                  <span>${settings.payment_account_type === 'paybill' ? 'Paybill' : 'Till Number'}</span>
+                  <strong>${settings.payment_account_number}</strong>
+                </div>
+              </div>
+            ` : ''}
             <p class="print-footer">${settings.receipt_footer || ''}</p>
           </div>
         </body>

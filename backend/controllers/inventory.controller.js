@@ -340,37 +340,6 @@ const runStockWrite = async ({ action, successMessage, fallbackMessage, logLabel
   }
 };
 
-const processStockIn = async (req, session = null) => {
-  const { items, supplier, notes } = req.body;
-
-  if (!Array.isArray(items) || items.length === 0) {
-    throw createInventoryError('At least one stock item is required');
-  }
-
-  for (const item of items) {
-    const variantId = item.variantId || item.variant_id;
-    const quantity = normalizePositiveQuantity(
-      item.quantity,
-      'Each stock item must include a valid variant and quantity'
-    );
-
-    if (!variantId) {
-      throw createInventoryError('Each stock item must include a valid variant and quantity');
-    }
-
-    await applyStockChange({
-      variantId,
-      quantity,
-      type: 'in',
-      reason: 'restocking',
-      notes: item.notes || notes || (supplier ? `From supplier: ${supplier}` : 'Manual stock-in'),
-      unitCost: item.unit_cost !== undefined ? item.unit_cost : item.unitCost,
-      userId: getRequestUserId(req),
-      session
-    });
-  }
-};
-
 const processManualAdjustment = async (req, session = null) => {
   const {
     variantId,
@@ -383,6 +352,10 @@ const processManualAdjustment = async (req, session = null) => {
     unit_cost: unitCostSnake
   } = req.body;
 
+  if (type === 'in') {
+    throw createInventoryError('Restocking is handled from the Suppliers tab through GRNs and purchase orders.');
+  }
+
   await applyStockChange({
     variantId: variantId || variantIdSnake,
     quantity,
@@ -394,16 +367,6 @@ const processManualAdjustment = async (req, session = null) => {
     session
   });
 };
-
-// @desc    Stock In (Restock)
-// @route   POST /api/inventory/stock-in
-export const addStock = async (req, res) => runStockWrite({
-  action: (session) => processStockIn(req, session),
-  successMessage: 'Stock updated successfully',
-  fallbackMessage: 'Stock updated via fallback',
-  logLabel: 'Stock in error:',
-  res
-});
 
 // @desc    Stock Adjustment
 // @route   POST /api/inventory/adjustments

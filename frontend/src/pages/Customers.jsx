@@ -162,7 +162,6 @@ const Customers = () => {
             })}
             <div class="sales-count">Extracted invoices: ${filteredHistory.length}</div>
             ${saleBlocks || '<p>No purchase history matched the current search.</p>'}
-            <p class="print-footer">${settings.receipt_footer || ''}</p>
           </div>
         </body>
       </html>

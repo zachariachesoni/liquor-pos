@@ -21,6 +21,7 @@ const POS = () => {
   const [showWholesaleModal, setShowWholesaleModal] = useState(false);
   const [showReceiptModal, setShowReceiptModal] = useState(false);
   const [receiptData, setReceiptData] = useState(null);
+  const [printError, setPrintError] = useState('');
   const [newCustomer, setNewCustomer] = useState({ name: '', phone: '' });
   const { settings, loading: settingsLoading } = useSystemSettings();
 
@@ -163,25 +164,34 @@ const POS = () => {
     ? 'Enter Full Cash Amount'
     : `Complete ${paymentMethod === 'cash' ? 'Cash Sale' : 'M-Pesa Sale'}`;
 
-  const printReceipt = (receipt) => {
-    if (!receipt) return;
+  const escapeReceiptValue = (value = '') => String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 
-    const receiptWindow = window.open('', '_blank', 'width=420,height=720');
-    if (!receiptWindow) return;
+  const formatReceiptCurrency = (value) => Number(value || 0).toLocaleString();
 
+  const buildReceiptPrintHtml = (receipt) => {
     const rows = receipt.items.map((item) => `
       <tr>
-        <td style="padding:6px 0;">${item.name}<div style="font-size:12px;color:#666;">${item.variant}${item.wholesaleApplied ? ' - Wholesale' : ''}</div></td>
-        <td style="padding:6px 0;text-align:center;">${item.quantity}</td>
-        <td style="padding:6px 0;text-align:right;">KES ${item.unitPrice.toLocaleString()}</td>
-        <td style="padding:6px 0;text-align:right;">KES ${item.total.toLocaleString()}</td>
+        <td style="padding:6px 0;">
+          ${escapeReceiptValue(item.name)}
+          <div style="font-size:12px;color:#666;">
+            ${escapeReceiptValue(item.variant)}${item.wholesaleApplied ? ' - Wholesale' : ''}
+          </div>
+        </td>
+        <td style="padding:6px 0;text-align:center;">${Number(item.quantity || 0)}</td>
+        <td style="padding:6px 0;text-align:right;">KES ${formatReceiptCurrency(item.unitPrice)}</td>
+        <td style="padding:6px 0;text-align:right;">KES ${formatReceiptCurrency(item.total)}</td>
       </tr>
     `).join('');
 
-    receiptWindow.document.write(`
+    return `
       <html>
         <head>
-          <title>Receipt ${receipt.invoiceNumber}</title>
+          <title>Receipt ${escapeReceiptValue(receipt.invoiceNumber)}</title>
           <style>
             ${getPrintBaseStyles(`
               body { padding: 24px; color: #111827; }
@@ -204,14 +214,14 @@ const POS = () => {
               documentTitle: 'Sales Receipt',
               subtitle: receipt.invoiceNumber,
               metaRows: [
-                `<strong>Date:</strong> ${receipt.createdAt}`,
-                `<strong>Customer:</strong> ${receipt.customerName}`,
-                `<strong>Payment:</strong> ${receipt.paymentMethod}`,
-                `<strong>Price List:</strong> ${receipt.saleType}`
+                `<strong>Date:</strong> ${escapeReceiptValue(receipt.createdAt)}`,
+                `<strong>Customer:</strong> ${escapeReceiptValue(receipt.customerName)}`,
+                `<strong>Payment:</strong> ${escapeReceiptValue(receipt.paymentMethod)}`,
+                `<strong>Price List:</strong> ${escapeReceiptValue(receipt.saleType)}`
               ]
             })}
             <div class="meta">
-              <div><strong>Invoice:</strong> ${receipt.invoiceNumber}</div>
+              <div><strong>Invoice:</strong> ${escapeReceiptValue(receipt.invoiceNumber)}</div>
             </div>
             <table>
               <thead>
@@ -225,18 +235,78 @@ const POS = () => {
               <tbody>${rows}</tbody>
             </table>
             <div class="totals">
-              <div><span>Subtotal</span><strong>KES ${receipt.subtotal.toLocaleString()}</strong></div>
-              <div><span>Amount Paid</span><strong>KES ${receipt.amountPaid.toLocaleString()}</strong></div>
-              <div><span>Change</span><strong>KES ${receipt.changeDue.toLocaleString()}</strong></div>
+              <div><span>Subtotal</span><strong>KES ${formatReceiptCurrency(receipt.subtotal)}</strong></div>
+              <div><span>Amount Paid</span><strong>KES ${formatReceiptCurrency(receipt.amountPaid)}</strong></div>
+              <div><span>Change</span><strong>KES ${formatReceiptCurrency(receipt.changeDue)}</strong></div>
             </div>
-            <p class="print-footer">${receipt.receiptFooter || ''}</p>
+            ${receipt.paymentAccountNumber ? `
+              <div class="totals">
+                <div>
+                  <span>${escapeReceiptValue(receipt.paymentAccountType === 'paybill' ? 'Paybill' : 'Till Number')}</span>
+                  <strong>${escapeReceiptValue(receipt.paymentAccountNumber)}</strong>
+                </div>
+              </div>
+            ` : ''}
+            <p class="print-footer">${escapeReceiptValue(receipt.receiptFooter || '')}</p>
           </div>
         </body>
       </html>
-    `);
-    receiptWindow.document.close();
-    receiptWindow.focus();
-    receiptWindow.print();
+    `;
+  };
+
+  const printReceipt = (receipt) => {
+    if (!receipt) return;
+
+    setPrintError('');
+
+    const printFrame = document.createElement('iframe');
+    printFrame.title = `Receipt ${receipt.invoiceNumber}`;
+    printFrame.style.position = 'fixed';
+    printFrame.style.right = '0';
+    printFrame.style.bottom = '0';
+    printFrame.style.width = '1px';
+    printFrame.style.height = '1px';
+    printFrame.style.border = '0';
+    printFrame.style.opacity = '0';
+    document.body.appendChild(printFrame);
+
+    const printWindow = printFrame.contentWindow;
+    const printDocument = printWindow?.document;
+
+    if (!printWindow || !printDocument) {
+      printFrame.remove();
+      setPrintError('Receipt preview is ready, but the browser blocked printing. Try the button again.');
+      return;
+    }
+
+    const cleanup = () => {
+      if (printFrame.parentNode) {
+        printFrame.parentNode.removeChild(printFrame);
+      }
+    };
+
+    const triggerPrint = () => {
+      try {
+        printWindow.addEventListener('afterprint', cleanup, { once: true });
+        printWindow.focus();
+        printWindow.print();
+        window.setTimeout(cleanup, 60000);
+      } catch (error) {
+        console.error('Failed to print receipt', error);
+        cleanup();
+        setPrintError('The print dialog did not open. Check browser popup/print permissions and try again.');
+      }
+    };
+
+    printDocument.open();
+    printDocument.write(buildReceiptPrintHtml(receipt));
+    printDocument.close();
+
+    if (printDocument.readyState === 'complete') {
+      window.setTimeout(triggerPrint, 250);
+    } else {
+      printFrame.onload = () => window.setTimeout(triggerPrint, 250);
+    }
   };
 
   const handleCheckout = async () => {
@@ -284,6 +354,8 @@ const POS = () => {
         businessName: resolvedSettings.business_name || 'Business',
         businessLogoUrl: resolvedSettings.business_logo_url || '',
         receiptFooter: resolvedSettings.receipt_footer || '',
+        paymentAccountType: resolvedSettings.payment_account_type || '',
+        paymentAccountNumber: resolvedSettings.payment_account_number || '',
         invoiceNumber: sale.invoice_number,
         createdAt: new Date(sale.createdAt || Date.now()).toLocaleString(),
         customerName: activeCustomer?.name || 'Walk-in Customer',
@@ -294,6 +366,7 @@ const POS = () => {
         changeDue: Number(sale.change_due || 0),
         items: receiptItems,
       });
+      setPrintError('');
       setShowReceiptModal(true);
       setCart([]);
       setSelectedCustomerId('');
@@ -660,9 +733,14 @@ const POS = () => {
                 <h2 className="modal-title">{receiptData.businessName} Receipt</h2>
                 <p className="receipt-subtitle">Invoice {receiptData.invoiceNumber}</p>
               </div>
-              <button className="primary-btn" onClick={() => printReceipt(receiptData)}>
-                <Printer size={18} /> Print Receipt
-              </button>
+              <div className="receipt-actions">
+                <button className="primary-btn" onClick={() => printReceipt(receiptData)}>
+                  <Printer size={18} /> Print Receipt
+                </button>
+                {printError && (
+                  <div className="checkout-hint warning receipt-print-error">{printError}</div>
+                )}
+              </div>
             </div>
             <div className="pos-receipt-body">
               <div className="receipt-meta">
@@ -701,6 +779,14 @@ const POS = () => {
                 <div><span>Amount Paid</span><strong>KES {receiptData.amountPaid.toLocaleString()}</strong></div>
                 <div><span>Change</span><strong>KES {receiptData.changeDue.toLocaleString()}</strong></div>
               </div>
+              {receiptData.paymentAccountNumber && (
+                <div className="receipt-totals receipt-payment-account">
+                  <div>
+                    <span>{receiptData.paymentAccountType === 'paybill' ? 'Paybill' : 'Till Number'}</span>
+                    <strong>{receiptData.paymentAccountNumber}</strong>
+                  </div>
+                </div>
+              )}
               {receiptData.receiptFooter && (
                 <p className="td-secondary receipt-footer-note">{receiptData.receiptFooter}</p>
               )}

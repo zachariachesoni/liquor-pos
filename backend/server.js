@@ -24,6 +24,7 @@ import reportRoutes from './routes/report.routes.js';
 import settingsRoutes from './routes/settings.routes.js';
 import supplierRoutes from './routes/suppliers.routes.js';
 import purchaseRoutes from './routes/purchase.routes.js';
+import notificationRoutes from './routes/notification.routes.js';
 
 // Import database connection
 import { connectDB, mongoose } from './config/database.js';
@@ -142,6 +143,7 @@ app.use('/api/reports', reportRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/suppliers', supplierRoutes);
 app.use('/api/purchase-orders', purchaseRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // Serve Frontend in Production environment
 if (process.env.NODE_ENV === 'production') {

@@ -68,7 +68,7 @@ export const getPaymentTermsLabel = (termsDays = 0) => {
     return 'Cash on delivery';
   }
 
-  return `Net ${days}`;
+  return `Every ${days} day${days === 1 ? '' : 's'}`;
 };
 
 export const getDaysPastDue = (date, referenceDate = new Date()) => {

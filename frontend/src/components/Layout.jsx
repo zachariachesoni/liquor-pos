@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { LayoutDashboard, ShoppingCart, Package, ClipboardList, FileBarChart, Users, Receipt, PieChart, LogOut, Menu, X, Shield, Truck, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, Package, ClipboardList, FileBarChart, Users, Receipt, PieChart, LogOut, Menu, X, Shield, Truck, PanelLeftClose, PanelLeftOpen, Bell } from 'lucide-react';
 import { useSystemSettings } from '../hooks/useSystemSettings';
 import { INVENTORY_ROUTE_ROLES, PRODUCTS_ROUTE_ROLES, SALES_ROUTE_ROLES } from '../utils/accessControl';
 import './Layout.css';
@@ -27,6 +27,7 @@ const Layout = ({ children }) => {
     { name: 'Reports', path: '/reports', icon: <PieChart size={20} />, roles: ['admin', 'manager'] },
     { name: 'Sales', path: '/sales', icon: <FileBarChart size={20} />, roles: SALES_ROUTE_ROLES },
     { name: 'Customers', path: '/customers', icon: <Users size={20} />, roles: ['admin', 'manager', 'cashier'] },
+    { name: 'Notifications', path: '/notifications', icon: <Bell size={20} />, roles: ['admin'] },
     { name: 'Admin', path: '/admin', icon: <Shield size={20} />, roles: ['admin', 'manager', 'cashier'] },
     { name: 'Expenses', path: '/expenses', icon: <Receipt size={20} />, roles: ['admin', 'manager'] }
   ].filter((item) => user && item.roles.includes(user.role));
@@ -62,14 +63,6 @@ const Layout = ({ children }) => {
           <button className="mobile-close" onClick={toggleMobileMenu}>
             <X size={24} />
           </button>
-        </div>
-
-        <div className="user-profile">
-          <div className="avatar">{user?.username?.charAt(0).toUpperCase()}</div>
-          <div className="user-info">
-            <span className="user-name">{user?.username}</span>
-            <span className="user-role">{user?.role}</span>
-          </div>
         </div>
 
         <nav className="sidebar-nav">

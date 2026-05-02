@@ -78,6 +78,18 @@ const reportLabels = {
   inventory: 'Inventory Trends Report'
 };
 
+const reportOptions = [
+  { value: 'pnl', label: 'P&L' },
+  { value: 'customer', label: 'Customer Sales' },
+  { value: 'product', label: 'Product Sales' },
+  { value: 'supplier', label: 'Supplier Statement' },
+  { value: 'aging', label: 'AP Aging' },
+  { value: 'purchases', label: 'Purchase History' },
+  { value: 'margin', label: 'Margin Erosion' },
+  { value: 'inventory', label: 'Inventory Trends' },
+  { value: 'top-suppliers', label: 'Top Suppliers' }
+];
+
 const getPeriodParams = (period, selectedDate) => {
   const params = {};
   const now = new Date();
@@ -135,7 +147,25 @@ const getPeriodLabel = (period, selectedDate) => {
   }
 
   if (period === 'Today') return 'Today';
-  return `This ${period}`;
+
+  const now = new Date();
+  if (period === 'Week') {
+    const start = new Date(now);
+    start.setDate(now.getDate() - now.getDay());
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
+    return `${start.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} - ${end.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`;
+  }
+
+  if (period === 'Month') {
+    return now.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+  }
+
+  if (period === 'Year') {
+    return String(now.getFullYear());
+  }
+
+  return period;
 };
 
 const formatCurrency = (value) => `KES ${Number(value || 0).toLocaleString()}`;
@@ -440,6 +470,8 @@ const Reports = () => {
 
   const generatedAt = new Date().toLocaleString();
   const periodLabel = getPeriodLabel(period, period === 'Range' ? selectedReportRange : selectedReportDate);
+  const currentMonthLabel = new Date().toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+  const currentYearLabel = String(new Date().getFullYear());
   const isProductScopedReport = reportType === 'product' || reportType === 'purchases';
   const pnlGrossMargin = calcMargin(pnlData.gross_profit, pnlData.gross_revenue);
   const pnlNetMargin = calcMargin(pnlData.net_profit, pnlData.gross_revenue);
@@ -1373,8 +1405,8 @@ const Reports = () => {
               <option value="Range">Specific Range</option>
               <option value="Today">Today</option>
               <option value="Week">This Week</option>
-              <option value="Month">This Month</option>
-              <option value="Year">This Year</option>
+              <option value="Month">{currentMonthLabel}</option>
+              <option value="Year">{currentYearLabel}</option>
             </select>
           </div>
           {period === 'Day' && (
@@ -1419,16 +1451,15 @@ const Reports = () => {
       </div>
 
       <div className="glass-panel main-panel report-mode-panel">
-        <div className="report-mode-switch">
-          <button className={reportType === 'pnl' ? 'active' : ''} onClick={() => setReportType('pnl')}>P&L</button>
-          <button className={reportType === 'customer' ? 'active' : ''} onClick={() => setReportType('customer')}>Customer Sales</button>
-          <button className={reportType === 'product' ? 'active' : ''} onClick={() => setReportType('product')}>Product Sales</button>
-          <button className={reportType === 'supplier' ? 'active' : ''} onClick={() => setReportType('supplier')}>Supplier Statement</button>
-          <button className={reportType === 'aging' ? 'active' : ''} onClick={() => setReportType('aging')}>AP Aging</button>
-          <button className={reportType === 'purchases' ? 'active' : ''} onClick={() => setReportType('purchases')}>Purchase History</button>
-          <button className={reportType === 'margin' ? 'active' : ''} onClick={() => setReportType('margin')}>Margin Erosion</button>
-          <button className={reportType === 'inventory' ? 'active' : ''} onClick={() => setReportType('inventory')}>Inventory Trends</button>
-          <button className={reportType === 'top-suppliers' ? 'active' : ''} onClick={() => setReportType('top-suppliers')}>Top Suppliers</button>
+        <div className="report-picker-row">
+          <label className="toolbar-control report-type-control">
+            <span>Report Type</span>
+            <select className="field-select" value={reportType} onChange={(event) => setReportType(event.target.value)}>
+              {reportOptions.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+          </label>
         </div>
 
         {reportType === 'customer' && (
@@ -1981,7 +2012,6 @@ const Reports = () => {
             </table>
           </>
         )}
-        <p className="report-export-note">{settings.receipt_footer}</p>
       </section>
     </div>
   );

@@ -16,6 +16,17 @@ const systemSettingsSchema = new mongoose.Schema({
     default: 'Thank you for your business.',
     trim: true
   },
+  payment_account_type: {
+    type: String,
+    enum: ['paybill', 'till', ''],
+    default: '',
+    trim: true
+  },
+  payment_account_number: {
+    type: String,
+    default: '',
+    trim: true
+  },
   default_low_stock_level: {
     type: Number,
     default: 5,

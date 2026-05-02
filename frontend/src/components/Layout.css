@@ -97,51 +97,6 @@
   border-color: rgba(255, 255, 255, 0.12);
 }
 
-.user-profile {
-  padding: 1.5rem;
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  border-bottom: var(--glass-border);
-}
-
-.avatar {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: var(--bg-tertiary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 600;
-  font-size: 1.1rem;
-  color: var(--primary-light);
-  border: 1px solid rgba(99, 102, 241, 0.3);
-}
-
-.user-info {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  max-width: 150px;
-  overflow: hidden;
-  opacity: 1;
-  transition: max-width 0.2s ease, opacity 0.16s ease;
-}
-
-.user-name {
-  font-weight: 500;
-  font-size: 0.95rem;
-}
-
-.user-role {
-  font-size: 0.75rem;
-  color: var(--primary);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  font-weight: 600;
-}
-
 .sidebar-nav {
   flex: 1;
   padding: 1.5rem 1rem;
@@ -242,11 +197,24 @@
 .sidebar-collapsed .sidebar-header {
   justify-content: space-between;
   gap: 0.35rem;
-  padding: 0 0.75rem;
+  padding: 0 0.45rem;
+}
+
+.sidebar-collapsed .brand {
+  width: 34px;
+  flex: 0 0 34px;
+  gap: 0;
+  justify-content: center;
+  overflow: visible;
+}
+
+.sidebar-collapsed .brand-icon {
+  width: 34px;
+  height: 34px;
+  flex-basis: 34px;
 }
 
 .sidebar-collapsed .brand h2,
-.sidebar-collapsed .user-info,
 .sidebar-collapsed .nav-item span,
 .sidebar-collapsed .logout-btn span {
   max-width: 0;
@@ -254,18 +222,8 @@
 }
 
 .sidebar-collapsed .sidebar-collapse-toggle {
-  width: 38px;
-  height: 38px;
-}
-
-.sidebar-collapsed .user-profile {
-  justify-content: center;
-  padding: 1rem 0.75rem;
-}
-
-.sidebar-collapsed .avatar {
-  width: 42px;
-  height: 42px;
+  width: 34px;
+  height: 34px;
 }
 
 .sidebar-collapsed .sidebar-nav {
@@ -363,7 +321,6 @@
   }
 
   .sidebar-collapsed .brand h2,
-  .sidebar-collapsed .user-info,
   .sidebar-collapsed .nav-item span,
   .sidebar-collapsed .logout-btn span {
     max-width: 160px;
@@ -381,11 +338,6 @@
 
   .mobile-close {
     display: flex;
-  }
-
-  .sidebar-collapsed .user-profile {
-    justify-content: flex-start;
-    padding: 1.5rem;
   }
 
   .sidebar-collapsed .sidebar-nav {

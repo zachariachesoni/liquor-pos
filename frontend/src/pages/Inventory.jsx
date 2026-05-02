@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ClipboardList, ArrowUpRight, ArrowDownRight, AlertTriangle, Plus, Truck, X, Search } from 'lucide-react';
+import { ClipboardList, ArrowDownRight, AlertTriangle, Truck, X, Search } from 'lucide-react';
 import api from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { canManageInventory as canManageInventoryAccess } from '../utils/accessControl';
@@ -16,10 +16,21 @@ const Inventory = () => {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [creatingDraftFor, setCreatingDraftFor] = useState('');
   const [inventorySearch, setInventorySearch] = useState('');
-  const [feedback, setFeedback] = useState({ message: '', error: '' });
-  const [formData, setFormData] = useState({ variantId: '', quantity: 0, type: 'in', reason: 'restocking', unitCost: '', notes: '' });
+  const [toast, setToast] = useState(null);
+  const [formData, setFormData] = useState({ variantId: '', quantity: 0, type: 'out', reason: 'damaged', notes: '' });
   const canManageInventory = canManageInventoryAccess(user?.role);
   const inventoryColumnCount = canManageInventory ? 5 : 4;
+
+  const showToast = (message = '', error = '') => {
+    const text = error || message;
+    if (!text) {
+      setToast(null);
+      return;
+    }
+
+    setToast({ message: text, type: error ? 'error' : 'success' });
+    window.setTimeout(() => setToast(null), 3200);
+  };
 
   useEffect(() => {
     fetchInventory();
@@ -36,7 +47,7 @@ const Inventory = () => {
       setReorderSuggestions(reorderRes.data.data || reorderRes.data || []);
     } catch (err) {
       console.error('Failed to load inventory', err);
-      setFeedback({ message: '', error: 'Failed to load inventory insights' });
+      showToast('', 'Failed to load inventory insights');
     } finally {
       setLoading(false);
     }
@@ -50,23 +61,22 @@ const Inventory = () => {
         quantity: Number(formData.quantity),
         type: formData.type,
         reason: formData.reason,
-        unitCost: formData.type === 'in' ? formData.unitCost : undefined,
         notes: formData.notes
       };
       await api.post('/inventory/adjustments', payload);
       setShowModal(false);
       fetchInventory();
-      setFormData({ variantId: '', quantity: 0, type: 'in', reason: 'restocking', unitCost: '', notes: '' });
-      setFeedback({ message: 'Inventory adjustment saved successfully.', error: '' });
+      setFormData({ variantId: '', quantity: 0, type: 'out', reason: 'damaged', notes: '' });
+      showToast('Inventory adjustment saved successfully.');
     } catch (err) {
       console.error(err);
-      setFeedback({ message: '', error: err.response?.data?.message || 'Error adjusting stock' });
+      showToast('', err.response?.data?.message || 'Error adjusting stock');
     }
   };
 
   const handleCreateDraftPO = async (suggestion) => {
     if (!suggestion.preferred_supplier?._id) {
-      setFeedback({ message: '', error: 'Link a preferred supplier before creating a draft PO.' });
+      showToast('', 'Link a preferred supplier before creating a draft PO.');
       return;
     }
 
@@ -90,11 +100,11 @@ const Inventory = () => {
           is_preferred: true
         }]
       });
-      setFeedback({ message: `Draft PO created for ${suggestion.product_name} ${suggestion.size}.`, error: '' });
+      showToast(`Draft PO created for ${suggestion.product_name} ${suggestion.size}.`);
       await fetchInventory();
     } catch (err) {
       console.error('Failed to create draft purchase order', err);
-      setFeedback({ message: '', error: err.response?.data?.message || 'Failed to create draft purchase order' });
+      showToast('', err.response?.data?.message || 'Failed to create draft purchase order');
     } finally {
       setCreatingDraftFor('');
     }
@@ -148,7 +158,7 @@ const Inventory = () => {
           <h1 className="page-title">Inventory Control</h1>
           <p className="page-subtitle">
             {canManageInventory
-              ? 'Monitor stock levels, reorder needs, and record adjustments.'
+              ? 'Monitor stock levels, reorder needs, and record stock-out adjustments. Incoming stock is handled in Suppliers.'
               : 'Monitor stock levels and low-stock reorder needs in a read-only view.'}
           </p>
         </div>
@@ -166,17 +176,13 @@ const Inventory = () => {
              <AlertTriangle size={18} /> Reorder ({reorderSuggestions.length || lowStockCount})
           </button>
           {!canManageInventory && <div className="report-meta-chip">Read-only access</div>}
-          {canManageInventory && (
-            <button className="primary-btn" onClick={() => setShowModal(true)}>
-              <Plus size={18} /> Stock Adjustment
-            </button>
-          )}
+          {canManageInventory && <div className="report-meta-chip">Purchasing through Suppliers</div>}
         </div>
       </div>
 
-      {(feedback.message || feedback.error) && (
-        <div className={`feedback-banner ${feedback.error ? 'error' : 'success'}`}>
-          {feedback.error || feedback.message}
+      {toast && (
+        <div className={`toast-popup ${toast.type === 'error' ? 'error' : 'success'}`}>
+          {toast.message}
         </div>
       )}
 
@@ -188,7 +194,7 @@ const Inventory = () => {
               <p className="page-subtitle">
                 {canManageInventory
                   ? 'Preferred supplier, last buy price, lead time, and one-tap draft PO creation for low-stock SKUs.'
-                  : 'A read-only view of the SKUs that need restocking attention.'}
+                  : 'A read-only view of the SKUs that need purchasing attention.'}
               </p>
             </div>
             <div className="report-meta-chip">
@@ -264,7 +270,7 @@ const Inventory = () => {
                 <th>Product</th>
                 <th>Stock Level</th>
                 <th>Status</th>
-                <th>Last Restock</th>
+                <th>Last Updated</th>
                 {canManageInventory && <th className="text-right">Actions</th>}
               </tr>
             </thead>
@@ -284,10 +290,7 @@ const Inventory = () => {
                   <td className="td-secondary">{new Date(item.updatedAt).toLocaleDateString()}</td>
                   {canManageInventory && (
                     <td className="text-right">
-                      <button className="action-icon action-icon-success" title="Stock In" onClick={() => { setFormData({...formData, variantId: item._id, type: 'in'}); setShowModal(true); }}>
-                        <ArrowUpRight size={16} />
-                      </button>
-                      <button className="action-icon action-icon-danger" title="Stock Out" onClick={() => { setFormData({...formData, variantId: item._id, type: 'out'}); setShowModal(true); }}>
+                      <button className="action-icon action-icon-danger" title="Record stock out" onClick={() => { setFormData({...formData, variantId: item._id, type: 'out'}); setShowModal(true); }}>
                         <ArrowDownRight size={16} />
                       </button>
                     </td>
@@ -313,7 +316,7 @@ const Inventory = () => {
             <button className="modal-close-btn" onClick={() => setShowModal(false)}>
               <X size={20} />
             </button>
-            <h2 className="modal-title">Adjust Stock</h2>
+            <h2 className="modal-title">Record Stock Out</h2>
             <form onSubmit={handleAdjustStock} className="modal-form">
               <div className="modal-form-field">
                 <label>Inventory Item</label>
@@ -329,30 +332,9 @@ const Inventory = () => {
                   <label>Quantity</label>
                   <input required type="number" min="1" value={formData.quantity} onChange={e => setFormData({...formData, quantity: e.target.value})} />
                 </div>
-                <div className="modal-form-field">
-                  <label>Adjustment Type</label>
-                  <select value={formData.type} onChange={e => setFormData({...formData, type: e.target.value})}>
-                     <option value="in">Stock In (Add)</option>
-                     <option value="out">Stock Out (Subtract)</option>
-                  </select>
-                </div>
                 <div className="modal-form-field modal-form-field-full">
-                  {formData.type === 'in' && (
-                    <div className="modal-form-field">
-                      <label>Unit Cost</label>
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={formData.unitCost}
-                        placeholder="Leave blank to use current average cost"
-                        onChange={e => setFormData({...formData, unitCost: e.target.value})}
-                      />
-                    </div>
-                  )}
                   <label>Reason</label>
                   <select value={formData.reason} onChange={e => setFormData({...formData, reason: e.target.value})}>
-                     <option value="restocking">Restocking</option>
                      <option value="damaged">Damage / Spillage</option>
                      <option value="other">Inventory Correction / Other</option>
                      <option value="promotion">Promotional Giveaway</option>

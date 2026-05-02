@@ -51,15 +51,3 @@ export const generateInvoiceNumber = () => {
   const random = Math.random().toString(36).substring(2, 8).toUpperCase();
   return `INV-${year}${month}${day}-${random}`;
 };
-
-export const generateTemporaryPassword = (length = 10) => {
-  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%';
-  let password = '';
-
-  for (let i = 0; i < length; i += 1) {
-    const index = Math.floor(Math.random() * alphabet.length);
-    password += alphabet[index];
-  }
-
-  return password;
-};

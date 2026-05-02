@@ -26,14 +26,18 @@ import './Suppliers.css';
 
 const paymentTermsOptions = [
   { value: 0, label: 'Cash on delivery' },
-  { value: 7, label: 'Net 7' },
-  { value: 14, label: 'Net 14' },
-  { value: 30, label: 'Net 30' }
+  { value: 7, label: 'Every 7 days' },
+  { value: 14, label: 'Every 14 days' },
+  { value: 30, label: 'Every 30 days' }
 ];
 
 const formatCurrency = (value) => `KES ${Number(value || 0).toLocaleString()}`;
 const formatDateInput = (value = new Date()) => new Date(value).toISOString().slice(0, 10);
-const paymentTermsLabel = (days = 0) => paymentTermsOptions.find((option) => option.value === Number(days))?.label || `Net ${Number(days || 0)}`;
+const paymentTermsLabel = (days = 0) => {
+  const normalizedDays = Number(days || 0);
+  return paymentTermsOptions.find((option) => option.value === normalizedDays)?.label
+    || (normalizedDays > 0 ? `Every ${normalizedDays} day${normalizedDays === 1 ? '' : 's'}` : 'Cash on delivery');
+};
 
 const createDefaultSupplierForm = () => ({
   name: '',
@@ -105,7 +109,7 @@ const Suppliers = () => {
   const [supplierSearch, setSupplierSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [sortMode, setSortMode] = useState('owed_desc');
-  const [feedback, setFeedback] = useState({ message: '', error: '' });
+  const [toast, setToast] = useState(null);
 
   const [showSupplierModal, setShowSupplierModal] = useState(false);
   const [supplierForm, setSupplierForm] = useState(createDefaultSupplierForm());
@@ -134,7 +138,14 @@ const Suppliers = () => {
   const [savingPayment, setSavingPayment] = useState(false);
 
   const setPageFeedback = (message = '', error = '') => {
-    setFeedback({ message, error });
+    const text = error || message;
+    if (!text) {
+      setToast(null);
+      return;
+    }
+
+    setToast({ message: text, type: error ? 'error' : 'success' });
+    window.setTimeout(() => setToast(null), 3200);
   };
 
   const fetchDashboardData = async () => {
@@ -509,7 +520,6 @@ const Suppliers = () => {
             </table>
             <div class="summary">Outstanding Balance: KES ${Number(purchaseOrder.balance_outstanding || 0).toLocaleString()}</div>
             <p style="margin-top:24px;color:#64748b;">${purchaseOrder.notes || ''}</p>
-            <p class="print-footer">${settings.receipt_footer || ''}</p>
           </div>
         </body>
       </html>
@@ -718,9 +728,9 @@ const Suppliers = () => {
         </div>
       </div>
 
-      {(feedback.message || feedback.error) && (
-        <div className={`feedback-banner ${feedback.error ? 'error' : 'success'}`}>
-          {feedback.error || feedback.message}
+      {toast && (
+        <div className={`toast-popup ${toast.type === 'error' ? 'error' : 'success'}`}>
+          {toast.message}
         </div>
       )}
 
@@ -732,10 +742,15 @@ const Suppliers = () => {
       </div>
 
       <div className="glass-panel main-panel report-mode-panel">
-        <div className="report-mode-switch">
-          <button className={activeTab === 'directory' ? 'active' : ''} onClick={() => setActiveTab('directory')}>Supplier Directory</button>
-          <button className={activeTab === 'receiving' ? 'active' : ''} onClick={() => setActiveTab('receiving')}>Receiving & GRN</button>
-          <button className={activeTab === 'payables' ? 'active' : ''} onClick={() => setActiveTab('payables')}>Accounts Payable</button>
+        <div className="report-picker-row">
+          <label className="toolbar-control report-type-control">
+            <span>Supplier View</span>
+            <select className="field-select" value={activeTab} onChange={(event) => setActiveTab(event.target.value)}>
+              <option value="directory">Supplier Directory</option>
+              <option value="receiving">Receiving & GRN</option>
+              <option value="payables">Accounts Payable</option>
+            </select>
+          </label>
         </div>
       </div>
 

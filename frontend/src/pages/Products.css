@@ -358,7 +358,7 @@
   inset: 0;
   background: rgba(0, 0, 0, 0.5);
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   padding: clamp(1.5rem, 4vh, 3rem) 1.25rem;
   z-index: 1000;
@@ -387,7 +387,8 @@
   background: var(--bg-secondary);
   position: relative;
   overflow-x: hidden;
-  overflow-y: visible;
+  overflow-y: auto;
+  max-height: calc(100vh - 2rem);
   border-radius: var(--radius-lg);
   margin: 0 auto;
   min-width: 0;
@@ -399,18 +400,21 @@
 }
 
 .modal-close-btn {
-  position: absolute;
+  position: sticky;
+  float: right;
   top: 1rem;
   right: 1rem;
+  margin: -0.55rem -0.55rem 0.5rem auto;
   width: 36px;
   height: 36px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   border-radius: 999px;
-  background: transparent;
+  background: rgba(15, 23, 42, 0.92);
   color: var(--text-primary);
-  z-index: 2;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  z-index: 20;
 }
 
 .modal-close-btn:hover {
@@ -635,23 +639,38 @@ textarea {
   min-height: 110px;
 }
 
-.feedback-banner {
-  padding: 1rem 1.1rem;
-  border-radius: 16px;
+.toast-popup {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 3000;
+  max-width: min(360px, calc(100vw - 2rem));
+  padding: 0.9rem 1rem;
+  border-radius: var(--radius-lg);
   border: 1px solid transparent;
-  backdrop-filter: blur(14px);
+  color: var(--text-primary);
+  background: var(--glass-bg-hover);
+  box-shadow: var(--shadow-lg);
 }
 
-.feedback-banner.success {
-  border-color: var(--success);
-  background: var(--success-bg);
-  color: var(--success);
+.toast-popup.success {
+  border-color: rgba(16, 185, 129, 0.4);
+  background: rgba(6, 78, 59, 0.92);
 }
 
-.feedback-banner.error {
-  border-color: var(--danger);
-  background: var(--danger-bg);
-  color: var(--danger);
+.toast-popup.error {
+  border-color: rgba(239, 68, 68, 0.45);
+  background: rgba(127, 29, 29, 0.94);
+}
+
+.report-picker-row {
+  display: flex;
+  justify-content: center;
+}
+
+.report-type-control {
+  width: min(420px, 100%);
+  min-width: min(420px, 100%);
 }
 
 .feedback-card {

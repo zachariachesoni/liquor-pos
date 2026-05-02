@@ -140,7 +140,7 @@
 
 .dashboard-insights-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.08fr) minmax(420px, 0.92fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 1.5rem;
   align-items: stretch;
 }
@@ -172,6 +172,22 @@
   color: var(--text-muted);
   font-size: 0.86rem;
   line-height: 1.45;
+}
+
+.trend-period-control {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.trend-period-control .field-select {
+  min-width: 150px;
+  min-height: 40px;
+  border-radius: var(--radius-md);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
 }
 
 .insight-icon {
@@ -338,6 +354,94 @@
   font-weight: 700;
 }
 
+.average-cost-audit {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: var(--radius-lg);
+  background: rgba(15, 23, 42, 0.28);
+  padding: 1rem;
+}
+
+.average-cost-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.average-cost-header h4 {
+  font-size: 0.94rem;
+  font-weight: 700;
+  margin-bottom: 0.2rem;
+}
+
+.average-cost-header p {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
+.average-cost-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+.average-cost-summary > div {
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.035);
+  padding: 0.75rem;
+}
+
+.average-cost-summary span {
+  display: block;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.average-cost-summary strong {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.98rem;
+}
+
+.average-cost-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.average-cost-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 0.75rem;
+  align-items: center;
+  border-top: 1px solid rgba(148, 163, 184, 0.1);
+  padding-top: 0.55rem;
+  font-size: 0.84rem;
+}
+
+.average-cost-row strong,
+.average-cost-row small {
+  display: block;
+}
+
+.average-cost-row small {
+  color: var(--text-muted);
+  margin-top: 0.12rem;
+}
+
+.average-cost-row span {
+  color: var(--text-secondary);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
 .sales-kpi-strip > div {
   display: grid;
   grid-template-columns: 22px minmax(0, 1fr);
@@ -486,7 +590,8 @@
   }
 
   .average-detail-columns,
-  .average-detail-summary {
+  .average-detail-summary,
+  .average-cost-summary {
     grid-template-columns: 1fr;
   }
 }
@@ -506,7 +611,8 @@
     justify-self: start;
   }
 
-  .average-use-row {
+  .average-use-row,
+  .average-cost-row {
     grid-template-columns: 1fr;
   }
 

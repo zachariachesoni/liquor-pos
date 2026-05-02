@@ -235,7 +235,7 @@ const Products = () => {
           {!canManageProducts && <div className="report-meta-chip">Read-only access</div>}
           {canManageProducts && (
             <button className="primary-btn" onClick={() => setShowModal(true)}>
-              <Plus size={18} /> Add Product / Variant
+              <Plus size={18} /> Add Product
             </button>
           )}
         </div>
@@ -385,7 +385,7 @@ const Products = () => {
             <button className="modal-close-btn" onClick={() => setShowModal(false)}>
               <X size={20} />
             </button>
-            <h2 className="modal-title">Add Product or Variant</h2>
+            <h2 className="modal-title">Add Product</h2>
             <p className="page-subtitle">If the product name already exists, this will add the size as a new variant instead of blocking you.</p>
             <form onSubmit={handleAddProduct} className="modal-form">
               <div className="modal-form-grid">
@@ -410,7 +410,7 @@ const Products = () => {
                   </select>
                 </div>
                 <div className="modal-form-field">
-                  <label>Variant (e.g. 750ml)</label>
+                  <label>Size (e.g. 750ml)</label>
                   <input required type="text" value={formData.size} onChange={e => setFormData({ ...formData, size: e.target.value })} />
                 </div>
                 <div className="modal-form-field">
@@ -435,7 +435,7 @@ const Products = () => {
                 </div>
               </div>
               <div className="modal-actions">
-                <button type="submit" className="primary-btn">Save Product / Variant</button>
+                <button type="submit" className="primary-btn">Save Product</button>
               </div>
             </form>
           </div>

@@ -1,8 +1,6 @@
 import User from '../models/User.js';
 import logger from '../utils/logger.js';
-import bcrypt from 'bcryptjs';
-import { sendInviteEmail } from '../utils/email.js';
-import { generateTemporaryPassword } from '../utils/helpers.js';
+import { hashPassword } from '../utils/helpers.js';
 
 // @desc    Get all users
 // @route   GET /api/users
@@ -40,10 +38,18 @@ export const getUser = async (req, res) => {
 // @access  Private/Admin
 export const createUser = async (req, res) => {
   try {
-    const { username, email, role } = req.body;
+    const { username, email, password, role } = req.body;
 
     if (!['manager', 'cashier'].includes(role)) {
       return res.status(400).json({ success: false, message: 'Only manager and cashier accounts can be created here' });
+    }
+
+    if (!username || !password) {
+      return res.status(400).json({ success: false, message: 'Username and password are required' });
+    }
+
+    if (String(password).length < 6) {
+      return res.status(400).json({ success: false, message: 'Password must be at least 6 characters long' });
     }
 
     const employeeCount = await User.countDocuments({ role: { $ne: 'admin' }, is_active: true });
@@ -54,13 +60,11 @@ export const createUser = async (req, res) => {
       });
     }
 
-    const temporaryPassword = generateTemporaryPassword();
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(temporaryPassword, salt);
+    const hashedPassword = await hashPassword(password);
 
     const user = await User.create({
       username,
-      email,
+      email: email || undefined,
       password: hashedPassword,
       role,
       permissions: req.body.permissions || {},
@@ -69,17 +73,10 @@ export const createUser = async (req, res) => {
     
     // Remove password from response
     user.password = undefined;
-    
-    // Dispatch SMTP Welcome Email Link
-    const inviteLink = `${process.env.FRONTEND_URL || `${req.protocol}://${req.get('host')}`}/login?username=${encodeURIComponent(username)}&switch=1`;
-    const emailRes = await sendInviteEmail(email, username, role, inviteLink, temporaryPassword);
 
     res.status(201).json({ 
       success: true, 
-      data: user, 
-      temporaryPassword,
-      emailSent: emailRes.success,
-      emailResponse: emailRes.mocked ? emailRes.message : (emailRes.error || 'Sent successfully')
+      data: user
     });
   } catch (error) {
     logger.error('Create user error:', error);

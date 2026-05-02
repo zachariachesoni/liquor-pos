@@ -27,10 +27,21 @@ const Expenses = () => {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [showBudgetModal, setShowBudgetModal] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
+  const [toast, setToast] = useState(null);
   const [formData, setFormData] = useState({ amount: '', category: 'other', description: '', expenseDate: new Date().toISOString().split('T')[0] });
   const { settings } = useSystemSettings();
   const budget = useMemo(() => calculateBudget(expenses), [expenses]);
+
+  const showToast = (message = '', error = '') => {
+    const text = error || message;
+    if (!text) {
+      setToast(null);
+      return;
+    }
+
+    setToast({ message: text, type: error ? 'error' : 'success' });
+    window.setTimeout(() => setToast(null), 3200);
+  };
 
   useEffect(() => {
     fetchExpenses();
@@ -41,9 +52,8 @@ const Expenses = () => {
       setLoading(true);
       const res = await api.get('/expenses');
       setExpenses(res.data.data || res.data); // in case backend wrap changes
-      setErrorMessage('');
     } catch (err) {
-      setErrorMessage(err.response?.data?.message || 'Failed to load expenses');
+      showToast('', err.response?.data?.message || 'Failed to load expenses');
       console.error('Failed to load expenses', err);
     } finally {
       setLoading(false);
@@ -63,9 +73,9 @@ const Expenses = () => {
       setShowModal(false);
       fetchExpenses();
       setFormData({ amount: '', category: 'other', description: '', expenseDate: new Date().toISOString().split('T')[0] });
-      setErrorMessage('');
+      showToast('Expense recorded successfully.');
     } catch (err) {
-      setErrorMessage(err.response?.data?.message || 'Error recording expense');
+      showToast('', err.response?.data?.message || 'Error recording expense');
       console.error(err);
     }
   };
@@ -195,7 +205,6 @@ const Expenses = () => {
               </table>
             </div>
 
-            <p class="print-footer">${settings.receipt_footer || ''}</p>
           </div>
         </body>
       </html>
@@ -221,6 +230,12 @@ const Expenses = () => {
           </button>
         </div>
       </div>
+
+      {toast && (
+        <div className={`toast-popup ${toast.type === 'error' ? 'error' : 'success'}`}>
+          {toast.message}
+        </div>
+      )}
 
       <div className="glass-panel main-panel">
         <div className="table-container">
@@ -272,11 +287,6 @@ const Expenses = () => {
               <X size={20} />
             </button>
             <h2 className="modal-title">Record Expense</h2>
-            {errorMessage && (
-              <div className="feedback-banner error">
-                {errorMessage}
-              </div>
-            )}
             <form onSubmit={handleRecordExpense} className="modal-form">
               <div className="modal-form-grid">
                 <div className="modal-form-field">
@@ -289,7 +299,6 @@ const Expenses = () => {
                      <option value="rent">Rent</option>
                      <option value="salaries">Salaries</option>
                      <option value="transport">Transport</option>
-                     <option value="restocking">Restocking</option>
                      <option value="utilities">Utilities</option>
                      <option value="maintenance">Maintenance</option>
                      <option value="other">Other</option>
