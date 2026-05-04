@@ -11,6 +11,9 @@ const defaultSettings = {
   receipt_footer: 'Thank you for your business.',
   payment_account_type: '',
   payment_account_number: '',
+  paybill_business_number: '',
+  paybill_account_number: '',
+  till_number: '',
   default_low_stock_level: 5,
   high_value_price_threshold: 10000,
   high_value_low_stock_level: 2,
@@ -30,6 +33,32 @@ const defaultPasswordForm = {
 };
 
 const MAX_LOGO_SIZE_BYTES = 2 * 1024 * 1024;
+
+const getPaymentAccountSummary = (settings) => {
+  if (settings.payment_account_type === 'paybill') {
+    const businessNumber = settings.paybill_business_number || settings.payment_account_number;
+    const accountNumber = settings.paybill_account_number;
+
+    if (businessNumber && accountNumber) {
+      return `Paybill: ${businessNumber} | Account: ${accountNumber}`;
+    }
+
+    if (businessNumber) {
+      return `Paybill business no: ${businessNumber}`;
+    }
+
+    if (accountNumber) {
+      return `Paybill account: ${accountNumber}`;
+    }
+  }
+
+  if (settings.payment_account_type === 'till') {
+    const tillNumber = settings.till_number || settings.payment_account_number;
+    return tillNumber ? `Till: ${tillNumber}` : 'Till number not set';
+  }
+
+  return 'No payment account on receipt';
+};
 
 const AdminPanel = () => {
   const { user, changePassword } = useAuth();
@@ -127,13 +156,18 @@ const AdminPanel = () => {
     e.preventDefault();
     try {
       setSavingSettings(true);
-        const payload = {
-          ...settings,
-          default_low_stock_level: Number(settings.default_low_stock_level),
-          high_value_price_threshold: Number(settings.high_value_price_threshold),
-          high_value_low_stock_level: Number(settings.high_value_low_stock_level),
-          minimum_margin_threshold: Number(settings.minimum_margin_threshold),
-        };
+      const payload = {
+        ...settings,
+        payment_account_number: settings.payment_account_type === 'paybill'
+          ? (settings.paybill_business_number || settings.payment_account_number)
+          : settings.payment_account_type === 'till'
+            ? (settings.till_number || settings.payment_account_number)
+            : '',
+        default_low_stock_level: Number(settings.default_low_stock_level),
+        high_value_price_threshold: Number(settings.high_value_price_threshold),
+        high_value_low_stock_level: Number(settings.high_value_low_stock_level),
+        minimum_margin_threshold: Number(settings.minimum_margin_threshold),
+      };
       const response = await api.put('/settings', payload);
       const nextSettings = { ...defaultSettings, ...(response.data.data || {}) };
       setSettings(nextSettings);
@@ -257,35 +291,20 @@ const AdminPanel = () => {
         </div>
       ) : (
         <>
-          <div className="admin-overview-grid">
-            {isAdmin ? (
-              <>
-                <div className="glass-panel admin-stat-card">
-                  <span className="admin-stat-label">Active staff</span>
-                  <strong>{activeEmployees.length}</strong>
-                  <span className="td-secondary">Managers and cashiers currently on the roster</span>
-                </div>
-                <div className="glass-panel admin-stat-card">
-                  <span className="admin-stat-label">Current stock rule</span>
-                  <strong>{settings.default_low_stock_level} units</strong>
-                  <span className="td-secondary">High-value goods switch to {settings.high_value_low_stock_level} units</span>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="glass-panel admin-stat-card">
-                  <span className="admin-stat-label">Role</span>
-                  <strong className="text-capitalize">{user?.role || 'staff'}</strong>
-                  <span className="td-secondary">Your current POS access level</span>
-                </div>
-                <div className="glass-panel admin-stat-card">
-                  <span className="admin-stat-label">Security</span>
-                  <strong>Password</strong>
-                  <span className="td-secondary">Use the form below to update your login password</span>
-                </div>
-              </>
-            )}
-          </div>
+          {!isAdmin && (
+            <div className="admin-overview-grid">
+              <div className="glass-panel admin-stat-card">
+                <span className="admin-stat-label">Role</span>
+                <strong className="text-capitalize">{user?.role || 'staff'}</strong>
+                <span className="td-secondary">Your current POS access level</span>
+              </div>
+              <div className="glass-panel admin-stat-card">
+                <span className="admin-stat-label">Security</span>
+                <strong>Password</strong>
+                <span className="td-secondary">Use the form below to update your login password</span>
+              </div>
+            </div>
+          )}
 
           <div className="admin-page-grid">
             {isAdmin && (
@@ -344,14 +363,36 @@ const AdminPanel = () => {
                     <option value="till">Till Number</option>
                   </select>
                 </div>
-                <div className="form-field">
-                  <label>Paybill / Till Number</label>
-                  <input
-                    value={settings.payment_account_number}
-                    onChange={(e) => setSettings((prev) => ({ ...prev, payment_account_number: e.target.value }))}
-                    placeholder="e.g. 123456"
-                  />
-                </div>
+                {settings.payment_account_type === 'paybill' && (
+                  <>
+                    <div className="form-field">
+                      <label>Paybill Business Number</label>
+                      <input
+                        value={settings.paybill_business_number}
+                        onChange={(e) => setSettings((prev) => ({ ...prev, paybill_business_number: e.target.value }))}
+                        placeholder="e.g. 123456"
+                      />
+                    </div>
+                    <div className="form-field">
+                      <label>Paybill Account Number</label>
+                      <input
+                        value={settings.paybill_account_number}
+                        onChange={(e) => setSettings((prev) => ({ ...prev, paybill_account_number: e.target.value }))}
+                        placeholder="e.g. INV or store account"
+                      />
+                    </div>
+                  </>
+                )}
+                {settings.payment_account_type === 'till' && (
+                  <div className="form-field">
+                    <label>Till Number</label>
+                    <input
+                      value={settings.till_number}
+                      onChange={(e) => setSettings((prev) => ({ ...prev, till_number: e.target.value }))}
+                      placeholder="e.g. 654321"
+                    />
+                  </div>
+                )}
                 <div className="form-field">
                   <label>Default Low-Stock Threshold</label>
                   <input type="number" min="0" value={settings.default_low_stock_level} onChange={(e) => setSettings((prev) => ({ ...prev, default_low_stock_level: e.target.value }))} />
@@ -383,9 +424,7 @@ const AdminPanel = () => {
                     )}
                     <div className="preview-summary">
                       <div className="font-medium">{settings.business_name}</div>
-                      <div className="td-secondary">{settings.payment_account_type && settings.payment_account_number
-                        ? `${settings.payment_account_type === 'paybill' ? 'Paybill' : 'Till'}: ${settings.payment_account_number}`
-                        : 'No payment account on receipt'}</div>
+                      <div className="td-secondary">{getPaymentAccountSummary(settings)}</div>
                     </div>
                   </div>
                   <div className="glass-panel admin-note-card">
@@ -494,7 +533,6 @@ const AdminPanel = () => {
                     </h2>
                     <p className="page-subtitle">Add staff manually, set their password, adjust roles, and remove old accounts completely.</p>
                   </div>
-                  <div className="report-meta-chip">Active staff: {activeEmployees.length}</div>
                 </div>
 
                 <form onSubmit={handleCreateUser} className="admin-form-grid admin-staff-form">

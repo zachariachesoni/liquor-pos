@@ -305,11 +305,19 @@ export const getProductSalesReport = async (req, res) => {
   try {
     const { product_id, variant_id, start_date, end_date } = req.query;
 
-    if (!product_id || !mongoose.Types.ObjectId.isValid(product_id)) {
+    if (product_id && !mongoose.Types.ObjectId.isValid(product_id)) {
       return res.status(400).json({ success: false, message: 'Valid product_id is required' });
     }
 
+    if (variant_id && !mongoose.Types.ObjectId.isValid(variant_id)) {
+      return res.status(400).json({ success: false, message: 'Valid variant_id is required' });
+    }
+
     const { saleItemMatch } = buildDateFilters(start_date, end_date);
+    const variantMatch = {
+      ...(product_id ? { 'variant.product_id': new mongoose.Types.ObjectId(product_id) } : {}),
+      ...(variant_id ? { 'variant._id': new mongoose.Types.ObjectId(variant_id) } : {})
+    };
 
     const pipeline = [
       { $match: saleItemMatch },
@@ -322,14 +330,7 @@ export const getProductSalesReport = async (req, res) => {
         }
       },
       { $unwind: '$variant' },
-      {
-        $match: {
-          'variant.product_id': new mongoose.Types.ObjectId(product_id),
-          ...(variant_id && mongoose.Types.ObjectId.isValid(variant_id)
-            ? { 'variant._id': new mongoose.Types.ObjectId(variant_id) }
-            : {})
-        }
-      },
+      ...(Object.keys(variantMatch).length ? [{ $match: variantMatch }] : []),
       {
         $lookup: {
           from: 'products',
@@ -411,6 +412,8 @@ export const getProductSalesReport = async (req, res) => {
       const variantSummary = acc.variantsMap.get(key) || {
         variant_id: item.variant?._id || null,
         size: item.variant?.size || 'Unknown',
+        product_id: item.product?._id || null,
+        product_name: item.product?.name || 'Unknown item',
         quantity_sold: 0,
         revenue: 0,
         profit: 0
@@ -421,25 +424,47 @@ export const getProductSalesReport = async (req, res) => {
       variantSummary.profit += item.profit_margin || 0;
       acc.variantsMap.set(key, variantSummary);
 
+      const productKey = item.product?._id ? String(item.product._id) : item.product?.name || 'Unknown item';
+      const productSummary = acc.productsMap.get(productKey) || {
+        product_id: item.product?._id || null,
+        product_name: item.product?.name || 'Unknown item',
+        brand: item.product?.brand || '',
+        category: item.product?.category || 'other',
+        quantity_sold: 0,
+        revenue: 0,
+        profit: 0,
+        transactions: 0
+      };
+
+      productSummary.quantity_sold += item.quantity || 0;
+      productSummary.revenue += item.subtotal || 0;
+      productSummary.profit += item.profit_margin || 0;
+      productSummary.transactions += 1;
+      acc.productsMap.set(productKey, productSummary);
+
       return acc;
     }, {
       totalQuantity: 0,
       totalRevenue: 0,
       totalProfit: 0,
       totalTransactions: 0,
-      variantsMap: new Map()
+      variantsMap: new Map(),
+      productsMap: new Map()
     });
 
     res.json({
       success: true,
       data: {
-        product: sales[0]?.product || null,
+        scope: product_id ? 'single' : 'all',
+        product: product_id ? sales[0]?.product || null : null,
         summary: {
           total_quantity: summary.totalQuantity,
           total_revenue: summary.totalRevenue,
           total_profit: summary.totalProfit,
           total_transactions: summary.totalTransactions,
-          variants: Array.from(summary.variantsMap.values())
+          variants: Array.from(summary.variantsMap.values()),
+          product_breakdown: Array.from(summary.productsMap.values())
+            .sort((a, b) => b.quantity_sold - a.quantity_sold || b.revenue - a.revenue)
         },
         sales
       }

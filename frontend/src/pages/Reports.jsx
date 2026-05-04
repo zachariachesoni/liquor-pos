@@ -273,10 +273,6 @@ const Reports = () => {
           setSelectedCustomer(customerRows[0]._id);
         }
 
-        if (!selectedProduct && productRows.length > 0) {
-          setSelectedProduct(productRows[0]._id);
-        }
-
         if (!selectedSupplier && supplierRows.length > 0) {
           setSelectedSupplier(supplierRows[0]._id);
         }
@@ -318,6 +314,12 @@ const Reports = () => {
   }, [selectedProductRecord, selectedVariant]);
 
   useEffect(() => {
+    if (reportType === 'purchases' && !selectedProduct && products.length > 0) {
+      setSelectedProduct(products[0]._id);
+    }
+  }, [products, reportType, selectedProduct]);
+
+  useEffect(() => {
     const fetchReport = async () => {
       try {
         setLoading(true);
@@ -346,16 +348,11 @@ const Reports = () => {
         }
 
         if (reportType === 'product') {
-          if (!selectedProduct) {
-            setProductReport({ product: null, summary: null, sales: [] });
-            return;
-          }
-
           const res = await api.get('/reports/product-sales', {
             params: {
               ...params,
-              product_id: selectedProduct,
-              ...(selectedVariant ? { variant_id: selectedVariant } : {})
+              ...(selectedProduct ? { product_id: selectedProduct } : {}),
+              ...(selectedProduct && selectedVariant ? { variant_id: selectedVariant } : {})
             }
           });
           setProductReport(res.data.data || { product: null, summary: null, sales: [] });
@@ -737,14 +734,17 @@ const Reports = () => {
   };
 
   const renderProductView = () => {
+    const isAllProductsReport = productReport.scope === 'all' || !selectedProduct;
     const reportProduct = productReport.product || selectedProductRecord;
     const summary = productReport.summary || {
       total_quantity: 0,
       total_revenue: 0,
       total_profit: 0,
       total_transactions: 0,
-      variants: []
+      variants: [],
+      product_breakdown: []
     };
+    const breakdownRows = isAllProductsReport ? summary.product_breakdown || [] : summary.variants || [];
 
     return (
       <>
@@ -774,23 +774,26 @@ const Reports = () => {
         <div className="glass-panel main-panel report-detail-panel">
           <div className="detail-header">
             <div>
-              <h2>{reportProduct?.name || 'Product sales report'}</h2>
+              <h2>{isAllProductsReport ? 'All products sold' : reportProduct?.name || 'Product sales report'}</h2>
               <p className="page-subtitle">
-                {reportProduct?.brand || 'No brand'} | {reportProduct?.category || 'Uncategorized'}
+                {isAllProductsReport
+                  ? `Every product sold in ${periodLabel}`
+                  : `${reportProduct?.brand || 'No brand'} | ${reportProduct?.category || 'Uncategorized'}`}
               </p>
             </div>
             <div className="report-meta-chip">Transactions: {summary.total_transactions || 0}</div>
           </div>
 
           <div className="variant-summary-grid">
-            {(summary.variants || []).map((variant) => (
-              <div key={variant.variant_id || variant.size} className="variant-summary-card">
-                <strong>{variant.size}</strong>
-                <span>{variant.quantity_sold} units sold</span>
-                <span>{formatCurrency(variant.revenue)} revenue</span>
+            {breakdownRows.map((row) => (
+              <div key={row.product_id || row.variant_id || row.product_name || row.size} className="variant-summary-card">
+                <strong>{isAllProductsReport ? row.product_name : row.size}</strong>
+                <span>{Number(row.quantity_sold || 0).toLocaleString()} units sold</span>
+                <span>{formatCurrency(row.revenue)} revenue</span>
+                {isAllProductsReport && <span>{row.category || 'Uncategorized'}</span>}
               </div>
             ))}
-            {(!summary.variants || summary.variants.length === 0) && (
+            {breakdownRows.length === 0 && (
               <div className="empty-state">No product sales found for the selected period.</div>
             )}
           </div>
@@ -801,6 +804,7 @@ const Reports = () => {
                 <thead>
                   <tr>
                     <th>Invoice</th>
+                    {isAllProductsReport && <th>Product</th>}
                     <th>Variant</th>
                     <th>Customer</th>
                     <th>Qty</th>
@@ -815,6 +819,12 @@ const Reports = () => {
                         <div className="font-medium">{sale.sale?.invoice_number}</div>
                         <div className="td-secondary">{new Date(sale.sale?.createdAt).toLocaleString()}</div>
                       </td>
+                      {isAllProductsReport && (
+                        <td>
+                          <div className="font-medium">{sale.product?.name || 'Unknown item'}</div>
+                          <div className="td-secondary">{sale.product?.category || 'Uncategorized'}</div>
+                        </td>
+                      )}
                       <td>{sale.variant?.size || 'Unknown'}</td>
                       <td>{sale.customer?.name || 'Walk-in customer'}</td>
                       <td>{sale.quantity}</td>
@@ -1532,21 +1542,24 @@ const Reports = () => {
             <label>
               <span><Package size={16} /> Product</span>
               <select className="filter-select" value={selectedProduct} onChange={(e) => setSelectedProduct(e.target.value)}>
+                {reportType === 'product' && <option value="">All products</option>}
                 {products.length === 0 && <option value="">No products available</option>}
                 {products.map((product) => (
                   <option key={product._id} value={product._id}>{product.name}</option>
                 ))}
               </select>
             </label>
-            <label>
-              <span><ShoppingCart size={16} /> Variant</span>
-              <select className="filter-select" value={selectedVariant} onChange={(e) => setSelectedVariant(e.target.value)}>
-                <option value="">All variants</option>
-                {(selectedProductRecord?.variants || []).map((variant) => (
-                  <option key={variant._id} value={variant._id}>{variant.size}</option>
-                ))}
-              </select>
-            </label>
+            {selectedProductRecord && (
+              <label>
+                <span><ShoppingCart size={16} /> Variant</span>
+                <select className="filter-select" value={selectedVariant} onChange={(e) => setSelectedVariant(e.target.value)}>
+                  <option value="">All variants</option>
+                  {(selectedProductRecord?.variants || []).map((variant) => (
+                    <option key={variant._id} value={variant._id}>{variant.size}</option>
+                  ))}
+                </select>
+              </label>
+            )}
           </div>
         )}
       </div>
@@ -1715,16 +1728,42 @@ const Reports = () => {
         {reportType === 'product' && (
           <>
             <div className="report-export-summary">
-              <div className="report-export-card"><span>Product</span><strong>{(productReport.product || selectedProductRecord)?.name || 'N/A'}</strong></div>
+              <div className="report-export-card"><span>Product Scope</span><strong>{selectedProduct ? (productReport.product || selectedProductRecord)?.name || 'N/A' : 'All products'}</strong></div>
               <div className="report-export-card"><span>Units Sold</span><strong>{productReport.summary?.total_quantity || 0}</strong></div>
               <div className="report-export-card"><span>Revenue</span><strong>{formatCurrency(productReport.summary?.total_revenue)}</strong></div>
               <div className="report-export-card"><span>Profit</span><strong>{formatCurrency(productReport.summary?.total_profit)}</strong></div>
             </div>
 
+            {!selectedProduct && (productReport.summary?.product_breakdown || []).length > 0 && (
+              <table className="report-export-table">
+                <thead>
+                  <tr>
+                    <th>Product</th>
+                    <th>Category</th>
+                    <th>Transactions</th>
+                    <th>Qty Sold</th>
+                    <th className="text-right">Revenue</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(productReport.summary?.product_breakdown || []).map((row) => (
+                    <tr key={row.product_id || row.product_name}>
+                      <td>{row.product_name}</td>
+                      <td>{row.category || 'Uncategorized'}</td>
+                      <td>{row.transactions || 0}</td>
+                      <td>{row.quantity_sold || 0}</td>
+                      <td className="text-right">{Number(row.revenue || 0).toLocaleString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+
             <table className="report-export-table">
               <thead>
                 <tr>
                   <th>Invoice</th>
+                  {!selectedProduct && <th>Product</th>}
                   <th>Variant</th>
                   <th>Customer</th>
                   <th>Qty</th>
@@ -1735,6 +1774,7 @@ const Reports = () => {
                 {(productReport.sales || []).map((sale) => (
                   <tr key={sale._id}>
                     <td>{sale.sale?.invoice_number}</td>
+                    {!selectedProduct && <td>{sale.product?.name || 'Unknown item'}</td>}
                     <td>{sale.variant?.size || 'Unknown'}</td>
                     <td>{sale.customer?.name || 'Walk-in customer'}</td>
                     <td>{sale.quantity}</td>

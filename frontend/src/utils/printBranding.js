@@ -44,14 +44,13 @@ export const getPrintBaseStyles = (extraStyles = '') => `
   }
 
   .print-logo {
-    width: 72px;
-    height: 72px;
+    width: 96px;
+    height: 96px;
     object-fit: contain;
-    border-radius: 18px;
-    border: 1px solid #dbe4f0;
-    background: #ffffff;
-    box-shadow: 0 14px 28px rgba(15, 23, 42, 0.08);
-    padding: 8px;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    padding: 0;
   }
 
   .print-logo-fallback {
@@ -105,6 +104,29 @@ export const getPrintBaseStyles = (extraStyles = '') => `
     color: #111827;
   }
 
+  .print-header-center {
+    justify-content: center;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    text-align: center;
+  }
+
+  .print-header-center .print-brand {
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .print-header-center .print-brand-copy {
+    text-align: center;
+  }
+
+  .print-header-center .print-meta {
+    text-align: center;
+    align-items: center;
+  }
+
   .print-footer {
     margin-top: 24px;
     color: #6b7280;
@@ -143,7 +165,8 @@ export const getPrintBrandMarkup = ({
   businessLogoUrl = '',
   documentTitle = '',
   subtitle = '',
-  metaRows = []
+  metaRows = [],
+  centered = false
 }) => {
   const safeBusinessName = escapeHtml(businessName);
   const safeDocumentTitle = escapeHtml(documentTitle);
@@ -158,7 +181,7 @@ export const getPrintBrandMarkup = ({
     : '';
 
   return `
-    <div class="print-header">
+    <div class="print-header${centered ? ' print-header-center' : ''}">
       <div class="print-brand">
         ${logoMarkup}
         <div class="print-brand-copy">

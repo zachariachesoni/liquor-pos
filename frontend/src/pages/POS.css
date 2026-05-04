@@ -794,6 +794,11 @@
   color: var(--text-secondary);
 }
 
+.receipt-meta-centered {
+  grid-template-columns: 1fr;
+  text-align: center;
+}
+
 .receipt-meta-value-capitalize {
   text-transform: capitalize;
 }

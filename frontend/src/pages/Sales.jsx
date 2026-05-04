@@ -61,6 +61,32 @@ const Sales = () => {
     fetchSales();
   }, [period, search, selectedDate]);
 
+  const escapeInvoiceValue = (value = '') => String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+
+  const getReceiptPaymentRows = () => {
+    if (settings.payment_account_type === 'paybill') {
+      const businessNumber = settings.paybill_business_number || settings.payment_account_number;
+      const accountNumber = settings.paybill_account_number;
+
+      return [
+        ...(businessNumber ? [{ label: 'Paybill Business No', value: businessNumber }] : []),
+        ...(accountNumber ? [{ label: 'Account Number', value: accountNumber }] : [])
+      ];
+    }
+
+    if (settings.payment_account_type === 'till') {
+      const tillNumber = settings.till_number || settings.payment_account_number;
+      return tillNumber ? [{ label: 'Till Number', value: tillNumber }] : [];
+    }
+
+    return [];
+  };
+
   const fetchSales = async () => {
     try {
       setLoading(true);
@@ -118,6 +144,7 @@ const Sales = () => {
 
     const invoiceWindow = window.open('', '_blank', 'width=900,height=900');
     if (!invoiceWindow) return;
+    const paymentRows = getReceiptPaymentRows();
 
     const rows = (sale.items || []).map((item) => `
       <tr>
@@ -135,7 +162,7 @@ const Sales = () => {
     invoiceWindow.document.write(`
       <html>
         <head>
-          <title>Invoice ${sale.invoice_number}</title>
+          <title>Receipt ${sale.invoice_number}</title>
           <style>
             ${getPrintBaseStyles(`
               body { padding: 28px; color: #111827; }
@@ -153,20 +180,16 @@ const Sales = () => {
             ${getPrintBrandMarkup({
               businessName: settings.business_name,
               businessLogoUrl: settings.business_logo_url,
-              documentTitle: 'Sales Invoice',
+              documentTitle: 'Sales Receipt',
               subtitle: sale.invoice_number,
               metaRows: [
-                `<strong>Date:</strong> ${new Date(sale.createdAt).toLocaleString()}`,
-                `<strong>Sales Person:</strong> ${sale.user_id?.username || 'Unknown'}`,
-                `<strong>Payment:</strong> ${sale.payment_method}`,
-                `<strong>Type:</strong> ${sale.sale_type}`
-              ]
+                `<strong>Date:</strong> ${escapeInvoiceValue(new Date(sale.createdAt).toLocaleString())}`,
+                `<strong>Invoice:</strong> ${escapeInvoiceValue(sale.invoice_number)}`,
+                `<strong>Served By:</strong> ${escapeInvoiceValue(sale.user_id?.username || 'Unknown')}`,
+                ...paymentRows.map((row) => `<strong>${escapeInvoiceValue(row.label)}:</strong> ${escapeInvoiceValue(row.value)}`)
+              ],
+              centered: true
             })}
-            <div class="meta">
-              <div><strong>Customer:</strong> ${sale.customer_id?.name || 'Walk-in Customer'}</div>
-              <div><strong>Phone:</strong> ${sale.customer_id?.phone || 'N/A'}</div>
-              <div><strong>Email:</strong> ${sale.customer_id?.email || 'N/A'}</div>
-            </div>
             <table>
               <thead>
                 <tr>
@@ -184,14 +207,6 @@ const Sales = () => {
               <div><span>Total</span><strong>KES ${(sale.total_amount || 0).toLocaleString()}</strong></div>
               <div class="total-line"><span>Recorded By</span><strong>${sale.user_id?.username || 'Unknown'}</strong></div>
             </div>
-            ${settings.payment_account_number ? `
-              <div class="totals">
-                <div>
-                  <span>${settings.payment_account_type === 'paybill' ? 'Paybill' : 'Till Number'}</span>
-                  <strong>${settings.payment_account_number}</strong>
-                </div>
-              </div>
-            ` : ''}
             <p class="print-footer">${settings.receipt_footer || ''}</p>
           </div>
         </body>

@@ -27,6 +27,21 @@ const systemSettingsSchema = new mongoose.Schema({
     default: '',
     trim: true
   },
+  paybill_business_number: {
+    type: String,
+    default: '',
+    trim: true
+  },
+  paybill_account_number: {
+    type: String,
+    default: '',
+    trim: true
+  },
+  till_number: {
+    type: String,
+    default: '',
+    trim: true
+  },
   default_low_stock_level: {
     type: Number,
     default: 5,

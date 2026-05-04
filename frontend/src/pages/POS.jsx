@@ -173,7 +173,27 @@ const POS = () => {
 
   const formatReceiptCurrency = (value) => Number(value || 0).toLocaleString();
 
+  const getReceiptPaymentRows = (receipt) => {
+    if (receipt.paymentAccountType === 'paybill') {
+      const businessNumber = receipt.paybillBusinessNumber || receipt.paymentAccountNumber;
+      const accountNumber = receipt.paybillAccountNumber;
+
+      return [
+        ...(businessNumber ? [{ label: 'Paybill Business No', value: businessNumber }] : []),
+        ...(accountNumber ? [{ label: 'Account Number', value: accountNumber }] : [])
+      ];
+    }
+
+    if (receipt.paymentAccountType === 'till') {
+      const tillNumber = receipt.tillNumber || receipt.paymentAccountNumber;
+      return tillNumber ? [{ label: 'Till Number', value: tillNumber }] : [];
+    }
+
+    return [];
+  };
+
   const buildReceiptPrintHtml = (receipt) => {
+    const paymentRows = getReceiptPaymentRows(receipt);
     const rows = receipt.items.map((item) => `
       <tr>
         <td style="padding:6px 0;">
@@ -215,14 +235,11 @@ const POS = () => {
               subtitle: receipt.invoiceNumber,
               metaRows: [
                 `<strong>Date:</strong> ${escapeReceiptValue(receipt.createdAt)}`,
-                `<strong>Customer:</strong> ${escapeReceiptValue(receipt.customerName)}`,
-                `<strong>Payment:</strong> ${escapeReceiptValue(receipt.paymentMethod)}`,
-                `<strong>Price List:</strong> ${escapeReceiptValue(receipt.saleType)}`
-              ]
+                `<strong>Invoice:</strong> ${escapeReceiptValue(receipt.invoiceNumber)}`,
+                ...paymentRows.map((row) => `<strong>${escapeReceiptValue(row.label)}:</strong> ${escapeReceiptValue(row.value)}`)
+              ],
+              centered: true
             })}
-            <div class="meta">
-              <div><strong>Invoice:</strong> ${escapeReceiptValue(receipt.invoiceNumber)}</div>
-            </div>
             <table>
               <thead>
                 <tr>
@@ -239,14 +256,6 @@ const POS = () => {
               <div><span>Amount Paid</span><strong>KES ${formatReceiptCurrency(receipt.amountPaid)}</strong></div>
               <div><span>Change</span><strong>KES ${formatReceiptCurrency(receipt.changeDue)}</strong></div>
             </div>
-            ${receipt.paymentAccountNumber ? `
-              <div class="totals">
-                <div>
-                  <span>${escapeReceiptValue(receipt.paymentAccountType === 'paybill' ? 'Paybill' : 'Till Number')}</span>
-                  <strong>${escapeReceiptValue(receipt.paymentAccountNumber)}</strong>
-                </div>
-              </div>
-            ` : ''}
             <p class="print-footer">${escapeReceiptValue(receipt.receiptFooter || '')}</p>
           </div>
         </body>
@@ -356,6 +365,9 @@ const POS = () => {
         receiptFooter: resolvedSettings.receipt_footer || '',
         paymentAccountType: resolvedSettings.payment_account_type || '',
         paymentAccountNumber: resolvedSettings.payment_account_number || '',
+        paybillBusinessNumber: resolvedSettings.paybill_business_number || '',
+        paybillAccountNumber: resolvedSettings.paybill_account_number || '',
+        tillNumber: resolvedSettings.till_number || '',
         invoiceNumber: sale.invoice_number,
         createdAt: new Date(sale.createdAt || Date.now()).toLocaleString(),
         customerName: activeCustomer?.name || 'Walk-in Customer',
@@ -743,11 +755,12 @@ const POS = () => {
               </div>
             </div>
             <div className="pos-receipt-body">
-              <div className="receipt-meta">
+              <div className="receipt-meta receipt-meta-centered">
                 <div><strong>Date:</strong> {receiptData.createdAt}</div>
-                <div><strong>Customer:</strong> {receiptData.customerName}</div>
-                <div><strong>Payment:</strong> <span className="receipt-meta-value-capitalize">{receiptData.paymentMethod}</span></div>
-                <div><strong>Price List:</strong> <span className="receipt-meta-value-capitalize">{receiptData.saleType}</span></div>
+                <div><strong>Invoice:</strong> {receiptData.invoiceNumber}</div>
+                {getReceiptPaymentRows(receiptData).map((row) => (
+                  <div key={row.label}><strong>{row.label}:</strong> {row.value}</div>
+                ))}
               </div>
               <table className="data-table receipt-table">
                 <thead>
@@ -779,14 +792,6 @@ const POS = () => {
                 <div><span>Amount Paid</span><strong>KES {receiptData.amountPaid.toLocaleString()}</strong></div>
                 <div><span>Change</span><strong>KES {receiptData.changeDue.toLocaleString()}</strong></div>
               </div>
-              {receiptData.paymentAccountNumber && (
-                <div className="receipt-totals receipt-payment-account">
-                  <div>
-                    <span>{receiptData.paymentAccountType === 'paybill' ? 'Paybill' : 'Till Number'}</span>
-                    <strong>{receiptData.paymentAccountNumber}</strong>
-                  </div>
-                </div>
-              )}
               {receiptData.receiptFooter && (
                 <p className="td-secondary receipt-footer-note">{receiptData.receiptFooter}</p>
               )}

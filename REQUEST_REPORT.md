@@ -12,7 +12,9 @@ Implemented the requested dashboard, receipt, admin, supplier, inventory, notifi
 - Sidebar collapse spacing was adjusted so the collapse button no longer overlaps the logo.
 - "Thank you for your business" is now only kept in sales receipts/POS receipts and receipt settings. It was removed from customer, expense, supplier GRN, and report exports.
 - POS print receipt now uses a hidden print iframe instead of relying on a new popup window, which fixes the checkout print receipt button in browsers that block or mishandle popup printing.
-- Business Identity now has Paybill/Till account type and account number fields. POS and sales receipts print the configured payment account.
+- Business Identity now has Paybill/Till account setup. POS and sales receipts print the configured payment account.
+- Business Identity now separates Paybill business number, Paybill account number, and Till number. Receipts show those payment details in the centered receipt header.
+- Sales receipts no longer print the payment method, price list, or walk-in customer label, and the logo prints larger without a surrounding border.
 - Employee creation is now manual: admins enter username, role, and password directly. Email invite/provisioning and temporary-password generation code were removed.
 - Inventory Control no longer provides restocking/stock-in controls. It only records stock-out adjustments; incoming stock is handled through Suppliers/GRNs.
 - The old `/api/inventory/stock-in` route and manual stock-in controller path were removed.
@@ -24,6 +26,7 @@ Implemented the requested dashboard, receipt, admin, supplier, inventory, notifi
 - Notifications now also highlight average-cost updates from received stock, including quantity received, stock movement, and the weighted cost before/after when available.
 - Supplier/Admin/Inventory/Expenses success and failure messages now use popup toasts instead of inline feedback banners.
 - Reports page report-type buttons were converted to a dropdown. Supplier workspace tabs were also converted to a dropdown.
+- Product Sales reports now support an "All products" scope so admins can see every product sold for a selected day or date range.
 - Report period labels now show the actual month/year or date range instead of generic "This Month".
 - Purchase History now shows previous cost, unit cost, and price change for each SKU purchase row.
 - Report detail panels now have more internal padding so headings and table content do not sit against the box border.
@@ -49,6 +52,7 @@ Yes, these changes intentionally affect some application behavior:
 - Receipt printing behavior changed to a more reliable iframe print flow.
 - Admins now have a new Notifications page for addressing concerns.
 - The Sales Metrics dashboard widget is removed, but trending-product and average-cost detail remain available.
+- Admin overview cards for Active Staff and Current Stock Rule are removed from the Admin Console.
 
 Core POS checkout, product catalog, sales history, reports, suppliers, and inventory viewing remain in place.
 
