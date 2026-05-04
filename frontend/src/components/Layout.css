@@ -10,6 +10,12 @@ html[data-theme='light'] .layout-container {
               var(--bg-main);
 }
 
+html[data-theme='light'] .sidebar,
+html[data-theme='light'] .mobile-header {
+  background: rgba(255, 255, 255, 0.94);
+  border-color: rgba(15, 23, 42, 0.1);
+}
+
 .sidebar {
   width: 260px;
   display: flex;
@@ -89,6 +95,11 @@ html[data-theme='light'] .brand h2 {
   background-clip: initial;
 }
 
+html[data-theme='light'] .brand-icon {
+  background: #ffffff;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+}
+
 .sidebar-collapse-toggle {
   display: inline-flex;
   align-items: center;
@@ -154,6 +165,23 @@ html[data-theme='light'] .brand h2 {
   background: rgba(99, 102, 241, 0.16);
   color: var(--primary-light);
   border-left: 3px solid rgba(129, 140, 248, 0.9);
+}
+
+html[data-theme='light'] .sidebar-collapse-toggle,
+html[data-theme='light'] .theme-toggle-btn {
+  background: #ffffff;
+  border-color: rgba(15, 23, 42, 0.12);
+}
+
+html[data-theme='light'] .nav-item:hover {
+  background: rgba(79, 70, 229, 0.08);
+  color: var(--primary);
+}
+
+html[data-theme='light'] .nav-item.active {
+  background: rgba(79, 70, 229, 0.12);
+  color: var(--primary);
+  border-left-color: var(--primary);
 }
 
 .sidebar-footer {

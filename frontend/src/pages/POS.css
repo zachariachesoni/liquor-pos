@@ -404,7 +404,7 @@
 
 .cart-summary {
   border-top: var(--glass-border);
-  background: rgba(0, 0, 0, 0.22);
+  background: rgba(15, 23, 42, 0.34);
   padding: 0.8rem 1rem 0.95rem;
 }
 
@@ -536,6 +536,68 @@
   background: var(--bg-tertiary);
   color: var(--text-muted);
   cursor: not-allowed;
+}
+
+html[data-theme='light'] .cart-summary {
+  background: #ffffff;
+}
+
+html[data-theme='light'] .cash-panel,
+html[data-theme='light'] .checkout-toggle-btn {
+  background: rgba(255, 255, 255, 0.78);
+}
+
+html[data-theme='light'] .checkout-btn:disabled {
+  background: #f8fafc;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+html[data-theme='light'] .pos-catalog,
+html[data-theme='light'] .pos-cart,
+html[data-theme='light'] .modal-card {
+  background: #ffffff;
+  border-color: rgba(15, 23, 42, 0.1);
+}
+
+html[data-theme='light'] .product-card,
+html[data-theme='light'] .cart-item,
+html[data-theme='light'] .pos-modal-panel,
+html[data-theme='light'] .receipt-meta,
+html[data-theme='light'] .cash-panel {
+  background: #ffffff;
+  border-color: rgba(15, 23, 42, 0.1);
+}
+
+html[data-theme='light'] .product-card:hover {
+  background: #f8fafc;
+}
+
+html[data-theme='light'] .product-category-badge {
+  background: rgba(79, 70, 229, 0.1);
+  color: var(--primary);
+}
+
+html[data-theme='light'] .quantity-control {
+  background: #f8fafc;
+  border-color: rgba(15, 23, 42, 0.1);
+}
+
+html[data-theme='light'] .modal-overlay {
+  background: rgba(15, 23, 42, 0.34);
+}
+
+html[data-theme='light'] .modal-close-btn {
+  background: #ffffff;
+  border-color: rgba(15, 23, 42, 0.12);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12);
+}
+
+html[data-theme='light'] .data-table th {
+  background: #f8fafc;
+}
+
+html[data-theme='light'] .data-table td {
+  border-bottom-color: rgba(15, 23, 42, 0.08);
 }
 
 .checkout-hint {

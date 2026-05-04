@@ -102,6 +102,24 @@ html[data-theme='light'] .report-mode-panel {
   box-shadow: none;
 }
 
+html[data-theme='light'] .report-mode-switch button {
+  background: #ffffff;
+  color: var(--text-primary);
+  border-color: rgba(15, 23, 42, 0.12);
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
+}
+
+html[data-theme='light'] .report-mode-switch button:hover {
+  background: #f8fafc;
+  border-color: rgba(79, 70, 229, 0.3);
+}
+
+html[data-theme='light'] .report-mode-switch button.active {
+  background: linear-gradient(135deg, var(--primary), var(--primary-hover));
+  color: #ffffff;
+  border-color: transparent;
+}
+
 .report-filter-row {
   display: flex;
   gap: 1rem;
@@ -120,6 +138,12 @@ html[data-theme='light'] .report-mode-panel {
   border: 1px solid rgba(148, 163, 184, 0.16);
   background: linear-gradient(180deg, rgba(15, 23, 42, 0.54), rgba(15, 23, 42, 0.34));
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+html[data-theme='light'] .report-filter-row label {
+  background: #ffffff;
+  border-color: rgba(15, 23, 42, 0.1);
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.05);
 }
 
 .report-filter-row label span {
@@ -320,6 +344,12 @@ html[data-theme='light'] .report-mode-panel {
   border: 1px solid rgba(96, 165, 250, 0.18);
 }
 
+html[data-theme='light'] .report-meta-chip {
+  background: rgba(79, 70, 229, 0.1);
+  color: var(--primary);
+  border-color: rgba(79, 70, 229, 0.18);
+}
+
 .report-card-list {
   display: flex;
   flex-direction: column;
@@ -343,6 +373,22 @@ html[data-theme='light'] .report-mode-panel {
     rgba(15, 23, 42, 0.22);
   box-shadow: 0 18px 32px rgba(15, 23, 42, 0.1);
   min-width: 0;
+}
+
+html[data-theme='light'] .report-record-card,
+html[data-theme='light'] .variant-summary-card {
+  background: #ffffff;
+  border-color: rgba(15, 23, 42, 0.1);
+  box-shadow: 0 12px 26px rgba(15, 23, 42, 0.06);
+}
+
+html[data-theme='light'] .report-table th {
+  background: #f8fafc;
+  color: #64748b;
+}
+
+html[data-theme='light'] .report-table td {
+  border-bottom-color: rgba(15, 23, 42, 0.08);
 }
 
 .report-record-top,

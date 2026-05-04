@@ -220,15 +220,22 @@ export const createProduct = async (req, res) => {
       is_active: req.body.is_active
     });
 
+    let createdVariants = [];
     if (req.body.variants && Array.isArray(req.body.variants)) {
       const variantDocs = req.body.variants.map(v => ({
         ...v,
         product_id: product._id
       }));
-      await ProductVariant.create(variantDocs);
+      createdVariants = await ProductVariant.create(variantDocs);
     }
     
-    res.status(201).json({ success: true, data: product });
+    res.status(201).json({
+      success: true,
+      data: {
+        ...product.toObject(),
+        variants: createdVariants.map((variant) => variant.toObject())
+      }
+    });
   } catch (error) {
     logger.error('Create product error:', error);
     if (error.code === 11000) {

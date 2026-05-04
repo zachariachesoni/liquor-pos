@@ -1012,6 +1012,120 @@ textarea {
   gap: 0.3rem;
 }
 
+html[data-theme='light'] .main-panel,
+html[data-theme='light'] .stat-card,
+html[data-theme='light'] .modal-card,
+html[data-theme='light'] .modal-detail-panel,
+html[data-theme='light'] .modal-detail-meta,
+html[data-theme='light'] .supplier-trend-card,
+html[data-theme='light'] .feedback-card,
+html[data-theme='light'] .admin-stat-card,
+html[data-theme='light'] .admin-payment-panel {
+  background: #ffffff;
+  border-color: rgba(15, 23, 42, 0.1);
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.06);
+}
+
+html[data-theme='light'] .main-panel {
+  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.08);
+}
+
+html[data-theme='light'] .modal-overlay {
+  background: rgba(15, 23, 42, 0.34);
+}
+
+html[data-theme='light'] .modal-close-btn {
+  background: #ffffff;
+  color: var(--text-primary);
+  border-color: rgba(15, 23, 42, 0.12);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12);
+}
+
+html[data-theme='light'] .modal-close-btn:hover {
+  background: #f8fafc;
+}
+
+html[data-theme='light'] input,
+html[data-theme='light'] select,
+html[data-theme='light'] textarea {
+  background-color: #ffffff;
+  color: var(--text-primary);
+  border-color: rgba(15, 23, 42, 0.14);
+}
+
+html[data-theme='light'] select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23334155' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+}
+
+html[data-theme='light'] select:hover,
+html[data-theme='light'] input:focus,
+html[data-theme='light'] select:focus,
+html[data-theme='light'] textarea:focus {
+  background-color: #ffffff;
+}
+
+html[data-theme='light'] select option {
+  background: #ffffff;
+  color: var(--text-primary);
+}
+
+html[data-theme='light'] .data-table th {
+  background: #f8fafc;
+  color: #64748b;
+}
+
+html[data-theme='light'] .data-table td {
+  border-bottom-color: rgba(15, 23, 42, 0.08);
+}
+
+html[data-theme='light'] .data-table tbody tr:hover {
+  background: rgba(79, 70, 229, 0.05);
+}
+
+html[data-theme='light'] .badge {
+  background: rgba(79, 70, 229, 0.1);
+  color: #3730a3;
+}
+
+html[data-theme='light'] .badge-active {
+  background: rgba(5, 150, 105, 0.12);
+  color: #047857;
+}
+
+html[data-theme='light'] .badge-warning {
+  background: rgba(217, 119, 6, 0.12);
+  color: #b45309;
+}
+
+html[data-theme='light'] .icon-btn {
+  background: #ffffff;
+  border-color: rgba(15, 23, 42, 0.12);
+  color: var(--text-primary);
+}
+
+html[data-theme='light'] .icon-btn:hover,
+html[data-theme='light'] .action-icon:hover {
+  background: #f1f5f9;
+  color: var(--primary);
+}
+
+html[data-theme='light'] .feedback-code {
+  background: #f8fafc;
+  border-color: rgba(15, 23, 42, 0.1);
+}
+
+html[data-theme='light'] .toast-popup.success {
+  color: #064e3b;
+  background: #d1fae5;
+  border-color: rgba(5, 150, 105, 0.28);
+}
+
+html[data-theme='light'] .toast-popup.error {
+  color: #7f1d1d;
+  background: #fee2e2;
+  border-color: rgba(220, 38, 38, 0.28);
+}
+
 @media (max-width: 768px) {
   .page-container {
     gap: 1.5rem;

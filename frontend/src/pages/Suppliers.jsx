@@ -20,9 +20,13 @@ import {
 import api from '../utils/api';
 import { useSystemSettings } from '../hooks/useSystemSettings';
 import { getPrintBaseStyles, getPrintBrandMarkup } from '../utils/printBranding';
+import PaginationControls from '../components/PaginationControls';
 import './Products.css';
 import './Reports.css';
 import './Suppliers.css';
+
+const TABLE_PAGE_SIZE = 8;
+const CARD_PAGE_SIZE = 4;
 
 const paymentTermsOptions = [
   { value: 0, label: 'Cash on delivery' },
@@ -37,6 +41,20 @@ const paymentTermsLabel = (days = 0) => {
   const normalizedDays = Number(days || 0);
   return paymentTermsOptions.find((option) => option.value === normalizedDays)?.label
     || (normalizedDays > 0 ? `Every ${normalizedDays} day${normalizedDays === 1 ? '' : 's'}` : 'Cash on delivery');
+};
+
+const paginate = (items = [], page = 1, pageSize = CARD_PAGE_SIZE) => (
+  items.slice((page - 1) * pageSize, page * pageSize)
+);
+
+const getVariantSku = (variant) => {
+  const productName = variant?.product?.name || 'SKU';
+  const size = variant?.size || '';
+  return `${productName}-${size}`
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-zA-Z0-9-]/g, '')
+    .toUpperCase();
 };
 
 const createDefaultSupplierForm = () => ({
@@ -110,6 +128,13 @@ const Suppliers = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [sortMode, setSortMode] = useState('owed_desc');
   const [toast, setToast] = useState(null);
+  const [supplierPage, setSupplierPage] = useState(1);
+  const [recentGrnPage, setRecentGrnPage] = useState(1);
+  const [openOrderPage, setOpenOrderPage] = useState(1);
+  const [payablesPage, setPayablesPage] = useState(1);
+  const [linkedProductsPage, setLinkedProductsPage] = useState(1);
+  const [supplierHistoryPage, setSupplierHistoryPage] = useState(1);
+  const [supplierPaymentsPage, setSupplierPaymentsPage] = useState(1);
 
   const [showSupplierModal, setShowSupplierModal] = useState(false);
   const [supplierForm, setSupplierForm] = useState(createDefaultSupplierForm());
@@ -198,6 +223,28 @@ const Suppliers = () => {
     loadPage();
   }, []);
 
+  useEffect(() => {
+    setSupplierPage(1);
+  }, [supplierSearch, statusFilter, sortMode]);
+
+  useEffect(() => {
+    setRecentGrnPage(1);
+  }, [purchaseOrders.length]);
+
+  useEffect(() => {
+    setOpenOrderPage(1);
+  }, [openPurchaseOrders.length]);
+
+  useEffect(() => {
+    setPayablesPage(1);
+  }, [payables.rows?.length]);
+
+  useEffect(() => {
+    setLinkedProductsPage(1);
+    setSupplierHistoryPage(1);
+    setSupplierPaymentsPage(1);
+  }, [selectedSupplierId]);
+
   const filteredSuppliers = useMemo(() => {
     const query = supplierSearch.trim().toLowerCase();
     const rows = suppliers.filter((supplier) => {
@@ -226,9 +273,26 @@ const Suppliers = () => {
   );
 
   const recentGrns = useMemo(
-    () => purchaseOrders.filter((purchaseOrder) => ['received', 'partially_received'].includes(purchaseOrder.status)).slice(0, 6),
+    () => purchaseOrders.filter((purchaseOrder) => ['received', 'partially_received'].includes(purchaseOrder.status)),
     [purchaseOrders]
   );
+
+  const pendingPurchaseOrders = useMemo(
+    () => openPurchaseOrders.filter((purchaseOrder) => ['draft', 'ordered', 'partially_received'].includes(purchaseOrder.status)),
+    [openPurchaseOrders]
+  );
+
+  const paginatedSuppliers = paginate(filteredSuppliers, supplierPage, TABLE_PAGE_SIZE);
+  const paginatedRecentGrns = paginate(recentGrns, recentGrnPage, CARD_PAGE_SIZE);
+  const paginatedOpenOrders = paginate(pendingPurchaseOrders, openOrderPage, CARD_PAGE_SIZE);
+  const payableRows = payables.rows || [];
+  const paginatedPayables = paginate(payableRows, payablesPage, TABLE_PAGE_SIZE);
+  const linkedProducts = selectedSupplierDetail?.linked_products || [];
+  const supplierPurchaseHistory = selectedSupplierDetail?.purchase_orders || [];
+  const supplierPayments = selectedSupplierDetail?.payments || [];
+  const paginatedLinkedProducts = paginate(linkedProducts, linkedProductsPage, TABLE_PAGE_SIZE);
+  const paginatedSupplierHistory = paginate(supplierPurchaseHistory, supplierHistoryPage, CARD_PAGE_SIZE);
+  const paginatedSupplierPayments = paginate(supplierPayments, supplierPaymentsPage, CARD_PAGE_SIZE);
 
   const selectedOpenOrder = useMemo(
     () => availableOpenOrders.find((purchaseOrder) => purchaseOrder._id === purchaseForm.purchase_order_id) || null,
@@ -297,6 +361,7 @@ const Suppliers = () => {
 
   const handleOpenSupplierModal = (supplier = null) => {
     if (supplier) {
+      setShowDetailModal(false);
       setEditingSupplierId(supplier._id);
       setSupplierForm({
         name: supplier.name || '',
@@ -371,8 +436,7 @@ const Suppliers = () => {
     }
   };
 
-  const handleSelectOpenOrder = (purchaseOrderId) => {
-    const purchaseOrder = availableOpenOrders.find((entry) => entry._id === purchaseOrderId);
+  const applyPurchaseOrderToForm = async (purchaseOrder) => {
     if (!purchaseOrder) {
       setPurchaseForm((prev) => ({
         ...prev,
@@ -382,9 +446,14 @@ const Suppliers = () => {
       return;
     }
 
+    const purchaseSupplierId = purchaseOrder.supplier?._id
+      || purchaseOrder.supplier_id
+      || selectedSupplierDetail?.supplier?._id
+      || '';
+
     setPurchaseForm((prev) => ({
       ...prev,
-      supplier_id: purchaseOrder.supplier?._id || prev.supplier_id,
+      supplier_id: purchaseSupplierId || prev.supplier_id,
       purchase_order_id: purchaseOrder._id,
       mode: 'received',
       ordered_at: formatDateInput(purchaseOrder.ordered_at || new Date()),
@@ -403,6 +472,21 @@ const Suppliers = () => {
         is_preferred: false
       }))
     }));
+
+    if (purchaseSupplierId) {
+      await loadSupplierDetail(purchaseSupplierId, { silent: true });
+    }
+  };
+
+  const handleSelectOpenOrder = (purchaseOrderId) => {
+    const purchaseOrder = availableOpenOrders.find((entry) => entry._id === purchaseOrderId);
+    applyPurchaseOrderToForm(purchaseOrder);
+  };
+
+  const handleLoadOpenOrder = async (purchaseOrder) => {
+    setActiveTab('receiving');
+    setShowDetailModal(false);
+    await applyPurchaseOrderToForm(purchaseOrder);
   };
 
   const updatePurchaseItem = (index, field, value) => {
@@ -461,7 +545,7 @@ const Suppliers = () => {
       <tr>
         <td style="padding:10px;border-bottom:1px solid #e5e7eb;">
           <strong>${item.variant?.product?.name || 'Unknown item'}</strong>
-          <div style="font-size:12px;color:#64748b;">${item.variant?.size || ''}</div>
+          <div style="font-size:12px;color:#64748b;">SKU: ${getVariantSku(item.variant)} | ${item.variant?.size || ''}</div>
         </td>
         <td style="padding:10px;border-bottom:1px solid #e5e7eb;text-align:center;">${item.qty_ordered}</td>
         <td style="padding:10px;border-bottom:1px solid #e5e7eb;text-align:center;">${item.qty_received}</td>
@@ -801,7 +885,7 @@ const Suppliers = () => {
                 </tr>
               </thead>
               <tbody>
-                {filteredSuppliers.map((supplier) => (
+                {paginatedSuppliers.map((supplier) => (
                   <tr key={supplier._id}>
                     <td>
                       <div className="td-primary">{supplier.name}</div>
@@ -848,6 +932,13 @@ const Suppliers = () => {
               </tbody>
             </table>
           </div>
+          <PaginationControls
+            totalItems={filteredSuppliers.length}
+            pageSize={TABLE_PAGE_SIZE}
+            currentPage={supplierPage}
+            onPageChange={setSupplierPage}
+            label="suppliers"
+          />
         </div>
       )}
 
@@ -856,7 +947,7 @@ const Suppliers = () => {
           <div className="glass-panel main-panel supplier-receiving-panel">
             <div className="detail-header">
               <div>
-                <h2>Receive Stock / Create PO</h2>
+                <h2>Receive Stock </h2>
                 <p className="page-subtitle">Use the same workspace for draft purchase orders and ad-hoc or PO-based GRNs.</p>
               </div>
               <div className="report-meta-chip">{formatCurrency(purchaseTotals)} projected total</div>
@@ -1003,50 +1094,114 @@ const Suppliers = () => {
           </div>
 
           <div className="glass-panel main-panel supplier-side-panel">
-            <div className="detail-header">
-              <div>
-                <h2>Recent GRNs</h2>
-                <p className="page-subtitle">Latest received or partially received supplier documents.</p>
-              </div>
-            </div>
-            <div className="report-card-list">
-              {recentGrns.map((purchaseOrder) => (
-                <div key={purchaseOrder._id} className="report-record-card supplier-history-card">
-                  <div className="report-record-top supplier-history-header">
-                    <div>
-                      <strong>{purchaseOrder.po_number}</strong>
-                      <div className="td-secondary">{purchaseOrder.supplier?.name || 'Unknown supplier'}</div>
-                    </div>
-                    <div className="supplier-history-status">
-                      <span className="badge text-capitalize">{purchaseOrder.status}</span>
-                    </div>
-                  </div>
-                  <div className="supplier-history-metrics">
-                    <div className="supplier-history-metric">
-                      <span className="supplier-history-label">Received</span>
-                      <strong className="supplier-history-value">
-                        {purchaseOrder.received_at ? new Date(purchaseOrder.received_at).toLocaleDateString() : 'Pending'}
-                      </strong>
-                    </div>
-                    <div className="supplier-history-metric">
-                      <span className="supplier-history-label">Line Total</span>
-                      <strong className="supplier-history-value">{formatCurrency(purchaseOrder.total_amount)}</strong>
-                    </div>
-                    <div className="supplier-history-metric">
-                      <span className="supplier-history-label">Balance</span>
-                      <strong className="supplier-history-value">{formatCurrency(purchaseOrder.balance_outstanding)}</strong>
-                    </div>
-                  </div>
-                  <div className="report-record-footer">
-                    <button className="icon-btn" onClick={() => printGrn(purchaseOrder)}>
-                      <Printer size={16} /> Print
-                    </button>
-                  </div>
+            <div className="supplier-side-section">
+              <div className="detail-header">
+                <div>
+                  <h2>Pending / Draft POs</h2>
+                  <p className="page-subtitle">Draft and open purchase orders waiting to be received.</p>
                 </div>
-              ))}
-              {recentGrns.length === 0 && (
-                <div className="empty-state">No GRNs have been recorded yet.</div>
-              )}
+              </div>
+              <div className="report-card-list">
+                {paginatedOpenOrders.map((purchaseOrder) => (
+                  <div key={purchaseOrder._id} className="report-record-card supplier-history-card">
+                    <div className="report-record-top supplier-history-header">
+                      <div>
+                        <strong>{purchaseOrder.po_number}</strong>
+                        <div className="td-secondary">{purchaseOrder.supplier?.name || 'Unknown supplier'}</div>
+                      </div>
+                      <div className="supplier-history-status">
+                        <span className="badge text-capitalize">{purchaseOrder.status}</span>
+                      </div>
+                    </div>
+                    <div className="supplier-history-metrics">
+                      <div className="supplier-history-metric">
+                        <span className="supplier-history-label">Ordered</span>
+                        <strong className="supplier-history-value">
+                          {new Date(purchaseOrder.ordered_at || purchaseOrder.createdAt).toLocaleDateString()}
+                        </strong>
+                      </div>
+                      <div className="supplier-history-metric">
+                        <span className="supplier-history-label">Items</span>
+                        <strong className="supplier-history-value">{(purchaseOrder.items || []).length}</strong>
+                      </div>
+                      <div className="supplier-history-metric">
+                        <span className="supplier-history-label">Planned</span>
+                        <strong className="supplier-history-value">{formatCurrency(purchaseOrder.total_amount)}</strong>
+                      </div>
+                    </div>
+                    <div className="report-record-footer">
+                      <button className="icon-btn" onClick={() => handleLoadOpenOrder(purchaseOrder)}>
+                        <PackagePlus size={16} /> Receive
+                      </button>
+                    </div>
+                  </div>
+                ))}
+                {pendingPurchaseOrders.length === 0 && (
+                  <div className="empty-state">No draft or pending purchase orders right now.</div>
+                )}
+              </div>
+              <PaginationControls
+                totalItems={pendingPurchaseOrders.length}
+                pageSize={CARD_PAGE_SIZE}
+                currentPage={openOrderPage}
+                onPageChange={setOpenOrderPage}
+                label="purchase orders"
+              />
+            </div>
+
+            <div className="supplier-side-section">
+              <div className="detail-header">
+                <div>
+                  <h2>Recent GRNs</h2>
+                  <p className="page-subtitle">Received or partially received supplier documents.</p>
+                </div>
+              </div>
+              <div className="report-card-list">
+                {paginatedRecentGrns.map((purchaseOrder) => (
+                  <div key={purchaseOrder._id} className="report-record-card supplier-history-card">
+                    <div className="report-record-top supplier-history-header">
+                      <div>
+                        <strong>{purchaseOrder.po_number}</strong>
+                        <div className="td-secondary">{purchaseOrder.supplier?.name || 'Unknown supplier'}</div>
+                      </div>
+                      <div className="supplier-history-status">
+                        <span className="badge text-capitalize">{purchaseOrder.status}</span>
+                      </div>
+                    </div>
+                    <div className="supplier-history-metrics">
+                      <div className="supplier-history-metric">
+                        <span className="supplier-history-label">Received</span>
+                        <strong className="supplier-history-value">
+                          {purchaseOrder.received_at ? new Date(purchaseOrder.received_at).toLocaleDateString() : 'Pending'}
+                        </strong>
+                      </div>
+                      <div className="supplier-history-metric">
+                        <span className="supplier-history-label">Line Total</span>
+                        <strong className="supplier-history-value">{formatCurrency(purchaseOrder.total_amount)}</strong>
+                      </div>
+                      <div className="supplier-history-metric">
+                        <span className="supplier-history-label">Balance</span>
+                        <strong className="supplier-history-value">{formatCurrency(purchaseOrder.balance_outstanding)}</strong>
+                      </div>
+                    </div>
+                    <div className="report-record-footer">
+                      <button className="icon-btn" onClick={() => printGrn(purchaseOrder)}>
+                        <Printer size={16} /> Print
+                      </button>
+                    </div>
+                  </div>
+                ))}
+                {recentGrns.length === 0 && (
+                  <div className="empty-state">No GRNs have been recorded yet.</div>
+                )}
+              </div>
+              <PaginationControls
+                totalItems={recentGrns.length}
+                pageSize={CARD_PAGE_SIZE}
+                currentPage={recentGrnPage}
+                onPageChange={setRecentGrnPage}
+                label="GRNs"
+              />
             </div>
           </div>
         </div>
@@ -1081,7 +1236,7 @@ const Suppliers = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {(payables.rows || []).map((purchaseOrder) => (
+                  {paginatedPayables.map((purchaseOrder) => (
                     <tr key={purchaseOrder._id}>
                       <td>
                         <div className="font-medium">{purchaseOrder.po_number}</div>
@@ -1107,11 +1262,14 @@ const Suppliers = () => {
                           <button className="action-icon" title="Record payment" onClick={() => handleOpenPaymentModal(purchaseOrder)}>
                             <CreditCard size={16} />
                           </button>
+                          <button className="action-icon" title="Print GRN" onClick={() => printGrn(purchaseOrder)}>
+                            <Printer size={16} />
+                          </button>
                         </div>
                       </td>
                     </tr>
                   ))}
-                  {(payables.rows || []).length === 0 && (
+                  {payableRows.length === 0 && (
                     <tr>
                       <td colSpan="6" className="empty-state">No outstanding supplier balances right now.</td>
                     </tr>
@@ -1119,6 +1277,13 @@ const Suppliers = () => {
                 </tbody>
               </table>
             </div>
+            <PaginationControls
+              totalItems={payableRows.length}
+              pageSize={TABLE_PAGE_SIZE}
+              currentPage={payablesPage}
+              onPageChange={setPayablesPage}
+              label="GRNs"
+            />
           </div>
         </>
       )}
@@ -1296,7 +1461,7 @@ const Suppliers = () => {
                     <table className="report-table">
                       <thead>
                         <tr>
-                          <th>SKU</th>
+                          <th>SKU / Product</th>
                           <th>Current Cost</th>
                           <th>MOQ</th>
                           <th>Lead Time</th>
@@ -1305,10 +1470,11 @@ const Suppliers = () => {
                         </tr>
                       </thead>
                       <tbody>
-                        {(selectedSupplierDetail.linked_products || []).map((link) => (
+                        {paginatedLinkedProducts.map((link) => (
                           <tr key={link._id}>
                             <td>
                               <div className="font-medium">{link.variant?.product?.name || 'Unknown product'}</div>
+                              <div className="td-secondary">SKU: {getVariantSku(link.variant)}</div>
                               <div className="td-secondary">{link.variant?.size || ''} {link.variant?.product?.brand ? `| ${link.variant.product.brand}` : ''}</div>
                             </td>
                             <td>{formatCurrency(link.unit_cost)}</td>
@@ -1337,7 +1503,7 @@ const Suppliers = () => {
                             </td>
                           </tr>
                         ))}
-                        {(selectedSupplierDetail.linked_products || []).length === 0 && (
+                        {linkedProducts.length === 0 && (
                           <tr>
                             <td colSpan="6" className="empty-state">No SKUs linked to this supplier yet.</td>
                           </tr>
@@ -1345,6 +1511,13 @@ const Suppliers = () => {
                       </tbody>
                     </table>
                   </div>
+                  <PaginationControls
+                    totalItems={linkedProducts.length}
+                    pageSize={TABLE_PAGE_SIZE}
+                    currentPage={linkedProductsPage}
+                    onPageChange={setLinkedProductsPage}
+                    label="linked products"
+                  />
                 </div>
 
                 <div className="supplier-detail-grid">
@@ -1356,7 +1529,7 @@ const Suppliers = () => {
                       </div>
                     </div>
                     <div className="report-card-list">
-                      {(selectedSupplierDetail.purchase_orders || []).slice(0, 6).map((purchaseOrder) => (
+                      {paginatedSupplierHistory.map((purchaseOrder) => (
                         <div key={purchaseOrder._id} className="report-record-card supplier-history-card">
                           <div className="report-record-top supplier-history-header">
                             <div>
@@ -1383,12 +1556,30 @@ const Suppliers = () => {
                               <strong className="supplier-history-value">{formatCurrency(purchaseOrder.balance_outstanding)}</strong>
                             </div>
                           </div>
+                          <div className="report-record-footer">
+                            {['received', 'partially_received'].includes(purchaseOrder.status) ? (
+                              <button className="icon-btn" onClick={() => printGrn(purchaseOrder)}>
+                                <Printer size={16} /> Print GRN
+                              </button>
+                            ) : (
+                              <button className="icon-btn" onClick={() => handleLoadOpenOrder(purchaseOrder)}>
+                                <PackagePlus size={16} /> Receive
+                              </button>
+                            )}
+                          </div>
                         </div>
                       ))}
-                      {(selectedSupplierDetail.purchase_orders || []).length === 0 && (
+                      {supplierPurchaseHistory.length === 0 && (
                         <div className="empty-state">No purchase history yet.</div>
                       )}
                     </div>
+                    <PaginationControls
+                      totalItems={supplierPurchaseHistory.length}
+                      pageSize={CARD_PAGE_SIZE}
+                      currentPage={supplierHistoryPage}
+                      onPageChange={setSupplierHistoryPage}
+                      label="purchase records"
+                    />
                   </div>
 
                   <div className="glass-panel main-panel report-detail-panel">
@@ -1399,7 +1590,7 @@ const Suppliers = () => {
                       </div>
                     </div>
                     <div className="report-card-list">
-                      {(selectedSupplierDetail.payments || []).slice(0, 6).map((payment) => (
+                      {paginatedSupplierPayments.map((payment) => (
                         <div key={payment._id} className="report-record-card">
                           <div className="report-record-top">
                             <div>
@@ -1411,10 +1602,17 @@ const Suppliers = () => {
                           <div className="td-secondary">Recorded by {payment.recorded_by?.username || 'Unknown'} {payment.notes ? `| ${payment.notes}` : ''}</div>
                         </div>
                       ))}
-                      {(selectedSupplierDetail.payments || []).length === 0 && (
+                      {supplierPayments.length === 0 && (
                         <div className="empty-state">No payments recorded yet.</div>
                       )}
                     </div>
+                    <PaginationControls
+                      totalItems={supplierPayments.length}
+                      pageSize={CARD_PAGE_SIZE}
+                      currentPage={supplierPaymentsPage}
+                      onPageChange={setSupplierPaymentsPage}
+                      label="payments"
+                    />
                   </div>
                 </div>
               </>

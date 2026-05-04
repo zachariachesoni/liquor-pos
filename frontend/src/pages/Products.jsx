@@ -3,8 +3,11 @@ import { Plus, Search, Edit2, Trash2, SlidersHorizontal, ArrowLeftRight, X } fro
 import api from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { canManageCatalog, canSeeProductCosts } from '../utils/accessControl';
+import PaginationControls from '../components/PaginationControls';
 import './Products.css';
 import './Reports.css';
+
+const PRODUCT_PAGE_SIZE = 10;
 
 const initialFormData = {
   name: '',
@@ -17,7 +20,11 @@ const initialFormData = {
   wholesale_price: 0,
   wholesale_threshold: 12,
   current_stock: 0,
-  min_stock_level: 5
+  min_stock_level: 5,
+  supplier_id: '',
+  supplier_unit_cost: '',
+  supplier_min_order_qty: 1,
+  supplier_lead_time_days: 0
 };
 
 const normalizeValue = (value = '') => (
@@ -27,7 +34,9 @@ const normalizeValue = (value = '') => (
 const Products = () => {
   const { user } = useAuth();
   const [products, setProducts] = useState([]);
+  const [suppliers, setSuppliers] = useState([]);
   const [search, setSearch] = useState('');
+  const [productPage, setProductPage] = useState(1);
   const [showFilters, setShowFilters] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [stockFilter, setStockFilter] = useState('all');
@@ -47,6 +56,16 @@ const Products = () => {
   useEffect(() => {
     fetchProducts();
   }, []);
+
+  useEffect(() => {
+    if (canManageProducts) {
+      fetchSuppliers();
+    }
+  }, [canManageProducts]);
+
+  useEffect(() => {
+    setProductPage(1);
+  }, [search, categoryFilter, stockFilter]);
 
   const fetchProducts = async () => {
     try {
@@ -86,6 +105,16 @@ const Products = () => {
       console.error('Failed to load products', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchSuppliers = async () => {
+    try {
+      const res = await api.get('/suppliers');
+      setSuppliers(res.data.data || []);
+    } catch (err) {
+      console.error('Failed to load suppliers', err);
+      setSuppliers([]);
     }
   };
 
@@ -137,8 +166,11 @@ const Products = () => {
 
       const existingProduct = matchingProducts[0] || null;
 
+      let createdVariant = null;
+
       if (existingProduct) {
-        await api.post(`/products/${existingProduct.productId}/variants`, variantPayload);
+        const variantRes = await api.post(`/products/${existingProduct.productId}/variants`, variantPayload);
+        createdVariant = variantRes.data.data;
       } else {
         const payload = {
           name: formData.name,
@@ -147,7 +179,18 @@ const Products = () => {
           is_active: true,
           variants: [variantPayload]
         };
-        await api.post('/products', payload);
+        const productRes = await api.post('/products', payload);
+        createdVariant = productRes.data.data?.variants?.[0] || null;
+      }
+
+      if (formData.supplier_id && createdVariant?._id) {
+        await api.post(`/suppliers/${formData.supplier_id}/links`, {
+          variant_id: createdVariant._id,
+          unit_cost: Number(formData.supplier_unit_cost || formData.buying_price || 0),
+          min_order_qty: Number(formData.supplier_min_order_qty || 1),
+          lead_time_days: Number(formData.supplier_lead_time_days || 0),
+          is_preferred: true
+        });
       }
 
       setShowModal(false);
@@ -219,6 +262,7 @@ const Products = () => {
 
     return matchesSearch && matchesCategory && matchesStock;
   });
+  const paginatedProducts = filtered.slice((productPage - 1) * PRODUCT_PAGE_SIZE, productPage * PRODUCT_PAGE_SIZE);
 
   return (
     <div className="page-container animate-fade-in">
@@ -322,7 +366,7 @@ const Products = () => {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map(product => (
+                {paginatedProducts.map(product => (
                   <tr key={product.id}>
                     <td>
                       <div className="td-primary">{product.name}</div>
@@ -376,6 +420,13 @@ const Products = () => {
             </table>
           )}
         </div>
+        <PaginationControls
+          totalItems={filtered.length}
+          pageSize={PRODUCT_PAGE_SIZE}
+          currentPage={productPage}
+          onPageChange={setProductPage}
+          label="products"
+        />
       </div>
 
       {canManageProducts && showModal && (
@@ -432,6 +483,31 @@ const Products = () => {
                   <label>Wholesale Price</label>
                   <input required type="number" value={formData.wholesale_price} onChange={e => setFormData({ ...formData, wholesale_price: e.target.value })} />
                 </div>
+                <div className="modal-form-field modal-form-field-full">
+                  <label>Preferred Supplier (Optional)</label>
+                  <select value={formData.supplier_id} onChange={e => setFormData({ ...formData, supplier_id: e.target.value })}>
+                    <option value="">Link supplier later</option>
+                    {suppliers.map((supplier) => (
+                      <option key={supplier._id} value={supplier._id}>{supplier.name}</option>
+                    ))}
+                  </select>
+                </div>
+                {formData.supplier_id && (
+                  <>
+                    <div className="modal-form-field">
+                      <label>Supplier Unit Cost</label>
+                      <input type="number" min="0" value={formData.supplier_unit_cost} placeholder={String(formData.buying_price || 0)} onChange={e => setFormData({ ...formData, supplier_unit_cost: e.target.value })} />
+                    </div>
+                    <div className="modal-form-field">
+                      <label>Min Order Qty</label>
+                      <input type="number" min="1" value={formData.supplier_min_order_qty} onChange={e => setFormData({ ...formData, supplier_min_order_qty: e.target.value })} />
+                    </div>
+                    <div className="modal-form-field">
+                      <label>Lead Time (Days)</label>
+                      <input type="number" min="0" value={formData.supplier_lead_time_days} onChange={e => setFormData({ ...formData, supplier_lead_time_days: e.target.value })} />
+                    </div>
+                  </>
+                )}
               </div>
               <div className="modal-actions">
                 <button type="submit" className="primary-btn">Save Product</button>

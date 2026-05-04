@@ -3,8 +3,12 @@ import { UserPlus, Search, Phone, Mail, History, X, Download, BadgePercent } fro
 import api from '../utils/api';
 import { useSystemSettings } from '../hooks/useSystemSettings';
 import { getPrintBaseStyles, getPrintBrandMarkup } from '../utils/printBranding';
+import PaginationControls from '../components/PaginationControls';
 import './Products.css';
 import './Customers.css';
+
+const CUSTOMER_PAGE_SIZE = 10;
+const HISTORY_PAGE_SIZE = 4;
 
 const Customers = () => {
   const [customers, setCustomers] = useState([]);
@@ -14,6 +18,8 @@ const Customers = () => {
   const [historyCustomer, setHistoryCustomer] = useState(null);
   const [purchaseHistory, setPurchaseHistory] = useState([]);
   const [historySearch, setHistorySearch] = useState('');
+  const [customerPage, setCustomerPage] = useState(1);
+  const [historyPage, setHistoryPage] = useState(1);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [formData, setFormData] = useState({ name: '', phone: '', email: '', customer_type: 'retail' });
   const { settings } = useSystemSettings();
@@ -21,6 +27,14 @@ const Customers = () => {
   useEffect(() => {
     fetchCustomers();
   }, []);
+
+  useEffect(() => {
+    setCustomerPage(1);
+  }, [search]);
+
+  useEffect(() => {
+    setHistoryPage(1);
+  }, [historySearch, historyCustomer]);
 
   const fetchCustomers = async () => {
     try {
@@ -85,6 +99,8 @@ const Customers = () => {
       );
     });
   }, [historySearch, purchaseHistory]);
+  const paginatedCustomers = filtered.slice((customerPage - 1) * CUSTOMER_PAGE_SIZE, customerPage * CUSTOMER_PAGE_SIZE);
+  const paginatedHistory = filteredHistory.slice((historyPage - 1) * HISTORY_PAGE_SIZE, historyPage * HISTORY_PAGE_SIZE);
 
   const isWholesaleAccount = formData.customer_type === 'wholesale';
 
@@ -211,7 +227,7 @@ const Customers = () => {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((c) => (
+                {paginatedCustomers.map((c) => (
                   <tr key={c._id}>
                     <td className="font-medium">
                       <div className="inline-cluster">
@@ -246,6 +262,13 @@ const Customers = () => {
             </table>
           )}
         </div>
+        <PaginationControls
+          totalItems={filtered.length}
+          pageSize={CUSTOMER_PAGE_SIZE}
+          currentPage={customerPage}
+          onPageChange={setCustomerPage}
+          label="customers"
+        />
       </div>
 
       {showModal && (
@@ -336,7 +359,7 @@ const Customers = () => {
                 <div className="empty-state">No purchase history matched the current search.</div>
               ) : (
                 <div className="modal-detail-stack">
-                  {filteredHistory.map((sale) => (
+                  {paginatedHistory.map((sale) => (
                     <div key={sale._id} className="glass-panel modal-detail-panel">
                       <div className="modal-detail-panel-header">
                         <div>
@@ -383,6 +406,13 @@ const Customers = () => {
                       </div>
                     </div>
                   ))}
+                  <PaginationControls
+                    totalItems={filteredHistory.length}
+                    pageSize={HISTORY_PAGE_SIZE}
+                    currentPage={historyPage}
+                    onPageChange={setHistoryPage}
+                    label="invoices"
+                  />
                 </div>
               )}
             </div>

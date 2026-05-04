@@ -39,6 +39,17 @@
   background: rgba(15, 23, 42, 0.34);
 }
 
+html[data-theme='light'] .notification-card {
+  background: #ffffff;
+  border-color: rgba(15, 23, 42, 0.1);
+  box-shadow: 0 12px 26px rgba(15, 23, 42, 0.06);
+}
+
+html[data-theme='light'] .notification-info .notification-icon {
+  color: #2563eb;
+  background: rgba(37, 99, 235, 0.1);
+}
+
 .notification-icon {
   width: 44px;
   height: 44px;

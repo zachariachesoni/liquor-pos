@@ -3,7 +3,10 @@ import { Search, ShoppingCart, Minus, Plus, Trash2, CreditCard, Banknote, Printe
 import api from '../utils/api';
 import { useSystemSettings } from '../hooks/useSystemSettings';
 import { getPrintBaseStyles, getPrintBrandMarkup } from '../utils/printBranding';
+import PaginationControls from '../components/PaginationControls';
 import './POS.css';
+
+const POS_PRODUCT_PAGE_SIZE = 9;
 
 const POS = () => {
   const [products, setProducts] = useState([]);
@@ -12,6 +15,7 @@ const POS = () => {
   const [compactCheckout, setCompactCheckout] = useState(() => (typeof window !== 'undefined' ? window.innerWidth <= 900 : false));
   const [checkoutExpanded, setCheckoutExpanded] = useState(() => (typeof window !== 'undefined' ? window.innerWidth > 900 : true));
   const [search, setSearch] = useState('');
+  const [productPage, setProductPage] = useState(1);
   const [paymentMethod, setPaymentMethod] = useState('cash');
   const [cashReceived, setCashReceived] = useState('');
   const [priceList, setPriceList] = useState('retail'); // 'retail' or 'wholesale'
@@ -42,6 +46,10 @@ const POS = () => {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  useEffect(() => {
+    setProductPage(1);
+  }, [search, products.length]);
 
   const fetchCustomers = async () => {
     try {
@@ -235,7 +243,6 @@ const POS = () => {
               subtitle: receipt.invoiceNumber,
               metaRows: [
                 `<strong>Date:</strong> ${escapeReceiptValue(receipt.createdAt)}`,
-                `<strong>Invoice:</strong> ${escapeReceiptValue(receipt.invoiceNumber)}`,
                 ...paymentRows.map((row) => `<strong>${escapeReceiptValue(row.label)}:</strong> ${escapeReceiptValue(row.value)}`)
               ],
               centered: true
@@ -409,6 +416,7 @@ const POS = () => {
   };
 
   const filteredProducts = products.filter(p => p.name.toLowerCase().includes(search.toLowerCase()));
+  const paginatedProducts = filteredProducts.slice((productPage - 1) * POS_PRODUCT_PAGE_SIZE, productPage * POS_PRODUCT_PAGE_SIZE);
 
   return (
     <div className="pos-container animate-fade-in">
@@ -427,7 +435,7 @@ const POS = () => {
         </div>
 
         <div className="product-grid">
-          {loading ? (<div className="catalog-loading">Loading products...</div>) : filteredProducts.map(product => (
+          {loading ? (<div className="catalog-loading">Loading products...</div>) : paginatedProducts.map(product => (
             <div
               key={product.id}
               className={`product-card ${product.stock <= 0 ? 'disabled' : ''}`}
@@ -452,6 +460,13 @@ const POS = () => {
             </div>
           ))}
         </div>
+        <PaginationControls
+          totalItems={filteredProducts.length}
+          pageSize={POS_PRODUCT_PAGE_SIZE}
+          currentPage={productPage}
+          onPageChange={setProductPage}
+          label="products"
+        />
       </div>
 
       <div className="pos-cart glass-panel">
@@ -757,7 +772,6 @@ const POS = () => {
             <div className="pos-receipt-body">
               <div className="receipt-meta receipt-meta-centered">
                 <div><strong>Date:</strong> {receiptData.createdAt}</div>
-                <div><strong>Invoice:</strong> {receiptData.invoiceNumber}</div>
                 {getReceiptPaymentRows(receiptData).map((row) => (
                   <div key={row.label}><strong>{row.label}:</strong> {row.value}</div>
                 ))}

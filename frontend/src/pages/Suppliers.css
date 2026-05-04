@@ -76,6 +76,12 @@
   gap: 0.85rem;
 }
 
+.supplier-side-section + .supplier-side-section {
+  margin-top: 1.4rem;
+  padding-top: 1.2rem;
+  border-top: 1px solid rgba(148, 163, 184, 0.16);
+}
+
 .suppliers-record-meta {
   display: flex;
   justify-content: space-between;
@@ -182,6 +188,18 @@
 .supplier-detail-modal .main-panel {
   padding: 1.2rem;
   min-width: 0;
+}
+
+html[data-theme='light'] .supplier-receiving-panel,
+html[data-theme='light'] .supplier-side-panel,
+html[data-theme='light'] .supplier-detail-modal {
+  background: #ffffff;
+}
+
+html[data-theme='light'] .supplier-receiving-grid .toolbar-control,
+html[data-theme='light'] .suppliers-toolbar .toolbar-control {
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: none;
 }
 
 @media (max-width: 1024px) {

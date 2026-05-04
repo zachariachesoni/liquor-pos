@@ -59,13 +59,16 @@ const buildLowStockConcerns = async () => {
       const productName = variant.product_id?.name || 'Unknown product';
       const size = variant.size || '';
       const stock = Number(variant.current_stock || 0);
+      const isOutOfStock = stock <= 0;
 
       return {
-        source_key: `low-stock:${variant._id}`,
+        source_key: `${isOutOfStock ? 'out-of-stock' : 'low-stock'}:${variant._id}`,
         type: 'inventory',
-        severity: stock <= 0 ? 'critical' : 'warning',
-        title: stock <= 0 ? 'Out of stock' : 'Low stock',
-        message: `${productName} ${size} has ${stock} unit${stock === 1 ? '' : 's'} left. Reorder through Suppliers.`,
+        severity: isOutOfStock ? 'critical' : 'warning',
+        title: isOutOfStock ? 'Out of stock' : 'Low stock',
+        message: isOutOfStock
+          ? `${productName} ${size} is out of stock. Reorder through Suppliers.`
+          : `${productName} ${size} has ${stock} unit${stock === 1 ? '' : 's'} left. Reorder through Suppliers.`,
         metadata: {
           variant_id: variant._id,
           product_id: variant.product_id?._id || null,

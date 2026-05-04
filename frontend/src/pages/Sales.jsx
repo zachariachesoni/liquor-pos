@@ -4,9 +4,12 @@ import api from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { useSystemSettings } from '../hooks/useSystemSettings';
 import { getPrintBaseStyles, getPrintBrandMarkup } from '../utils/printBranding';
+import PaginationControls from '../components/PaginationControls';
 import './Products.css';
 import './Reports.css';
 import './Sales.css';
+
+const SALES_PAGE_SIZE = 10;
 
 const Sales = () => {
   const [sales, setSales] = useState([]);
@@ -14,6 +17,7 @@ const Sales = () => {
   const [period, setPeriod] = useState('All');
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().slice(0, 10));
   const [search, setSearch] = useState('');
+  const [salesPage, setSalesPage] = useState(1);
   const [selectedSale, setSelectedSale] = useState(null);
   const [saleDetails, setSaleDetails] = useState(null);
   const [detailsLoading, setDetailsLoading] = useState(false);
@@ -59,6 +63,10 @@ const Sales = () => {
 
   useEffect(() => {
     fetchSales();
+  }, [period, search, selectedDate]);
+
+  useEffect(() => {
+    setSalesPage(1);
   }, [period, search, selectedDate]);
 
   const escapeInvoiceValue = (value = '') => String(value ?? '')
@@ -138,6 +146,7 @@ const Sales = () => {
   };
 
   const formatCurrency = (value) => `KES ${Number(value || 0).toLocaleString()}`;
+  const paginatedSales = sales.slice((salesPage - 1) * SALES_PAGE_SIZE, salesPage * SALES_PAGE_SIZE);
 
   const downloadInvoice = (sale) => {
     if (!sale) return;
@@ -184,7 +193,6 @@ const Sales = () => {
               subtitle: sale.invoice_number,
               metaRows: [
                 `<strong>Date:</strong> ${escapeInvoiceValue(new Date(sale.createdAt).toLocaleString())}`,
-                `<strong>Invoice:</strong> ${escapeInvoiceValue(sale.invoice_number)}`,
                 `<strong>Served By:</strong> ${escapeInvoiceValue(sale.user_id?.username || 'Unknown')}`,
                 ...paymentRows.map((row) => `<strong>${escapeInvoiceValue(row.label)}:</strong> ${escapeInvoiceValue(row.value)}`)
               ],
@@ -322,7 +330,7 @@ const Sales = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {sales.map((sale) => (
+                  {paginatedSales.map((sale) => (
                     <tr key={sale._id} className="table-clickable" onClick={() => openSaleDetails(sale)}>
                       <td className="font-medium text-primary">
                         <div className="inline-cluster">
@@ -348,6 +356,13 @@ const Sales = () => {
               </table>
             )}
           </div>
+          <PaginationControls
+            totalItems={sales.length}
+            pageSize={SALES_PAGE_SIZE}
+            currentPage={salesPage}
+            onPageChange={setSalesPage}
+            label="sales"
+          />
         </div>
       </div>
 

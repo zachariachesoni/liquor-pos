@@ -24,6 +24,12 @@
   gap: 0.9rem;
 }
 
+html[data-theme='light'] .reorder-suggestion-card {
+  background: #ffffff;
+  border-color: rgba(15, 23, 42, 0.1);
+  box-shadow: 0 12px 26px rgba(15, 23, 42, 0.06);
+}
+
 .reorder-suggestion-copy {
   display: flex;
   flex-direction: column;

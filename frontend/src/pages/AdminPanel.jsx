@@ -399,15 +399,15 @@ const AdminPanel = () => {
                   </div>
                 </div>
                 <div className="form-field">
-                  <label>Default Low-Stock Threshold</label>
+                  <label>Default Low Stock Threshold</label>
                   <input type="number" min="0" value={settings.default_low_stock_level} onChange={(e) => setSettings((prev) => ({ ...prev, default_low_stock_level: e.target.value }))} />
                 </div>
                 <div className="form-field">
-                  <label>High-Value Price Threshold</label>
+                  <label>High Value Price Threshold</label>
                   <input type="number" min="0" value={settings.high_value_price_threshold} onChange={(e) => setSettings((prev) => ({ ...prev, high_value_price_threshold: e.target.value }))} />
                 </div>
                 <div className="form-field">
-                  <label>High-Value Low-Stock Threshold</label>
+                  <label>High Value Low Stock Threshold</label>
                   <input type="number" min="0" value={settings.high_value_low_stock_level} onChange={(e) => setSettings((prev) => ({ ...prev, high_value_low_stock_level: e.target.value }))} />
                 </div>
                 <div className="form-field">

@@ -106,6 +106,17 @@
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
+html[data-theme='light'] .expense-budget-stat,
+html[data-theme='light'] .expense-budget-panel {
+  background: #ffffff;
+  border-color: rgba(15, 23, 42, 0.1);
+  box-shadow: 0 12px 26px rgba(15, 23, 42, 0.06);
+}
+
+html[data-theme='light'] .expense-budget-month-row {
+  border-bottom-color: rgba(15, 23, 42, 0.08);
+}
+
 .expense-budget-table-panel {
   margin-top: 0;
 }
