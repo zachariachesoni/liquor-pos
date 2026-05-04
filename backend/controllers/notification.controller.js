@@ -327,3 +327,29 @@ export const addressNotification = async (req, res) => {
     res.status(500).json({ success: false, message: 'Server error' });
   }
 };
+
+export const addressAllNotifications = async (req, res) => {
+  try {
+    await syncGeneratedConcerns();
+
+    const result = await Notification.updateMany(
+      { status: 'open' },
+      {
+        $set: {
+          status: 'addressed',
+          addressed_by: req.user._id || req.user.id,
+          addressed_at: new Date(),
+          resolution_note: req.body.resolution_note || 'Marked as read by admin.'
+        }
+      }
+    );
+
+    res.json({
+      success: true,
+      modified_count: result.modifiedCount || 0
+    });
+  } catch (error) {
+    logger.error('Address all notifications error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};

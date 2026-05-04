@@ -29,6 +29,44 @@
   background: rgba(30, 41, 59, 0.68);
 }
 
+html[data-theme='light'] .report-mode-panel {
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.report-control-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-start;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.report-control-row .toolbar-control {
+  margin: 0;
+}
+
+.report-control-row .toolbar-control > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--text-secondary);
+  font-size: 0.84rem;
+  font-weight: 500;
+}
+
+.report-type-control,
+.report-filter-control {
+  width: min(260px, 100%);
+  min-width: 220px;
+  flex: 0 1 260px;
+}
+
+.report-type-control .field-select,
+.report-filter-control .filter-select {
+  width: 100%;
+  min-height: 46px;
+}
+
 .report-mode-switch {
   display: flex;
   gap: 0.75rem;
@@ -674,6 +712,18 @@
 
   .report-filter-row label {
     min-width: 100%;
+  }
+
+  .report-control-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .report-type-control,
+  .report-filter-control {
+    width: 100%;
+    min-width: 100%;
+    flex-basis: auto;
   }
 
   .report-table {

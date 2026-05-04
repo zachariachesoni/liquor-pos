@@ -228,11 +228,10 @@ const Products = () => {
           <p className="page-subtitle">
             {canManageProducts
               ? 'Manage your inventory items, costs, pricing margins, and size variants.'
-              : 'Browse your live product catalog, prices, and stock levels in a read-only view.'}
+              : 'Browse your live product catalog, prices, and stock levels.'}
           </p>
         </div>
         <div className="page-header-actions">
-          {!canManageProducts && <div className="report-meta-chip">Read-only access</div>}
           {canManageProducts && (
             <button className="primary-btn" onClick={() => setShowModal(true)}>
               <Plus size={18} /> Add Product

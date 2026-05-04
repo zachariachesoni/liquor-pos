@@ -27,6 +27,8 @@ Implemented the requested dashboard, receipt, admin, supplier, inventory, notifi
 - Supplier/Admin/Inventory/Expenses success and failure messages now use popup toasts instead of inline feedback banners.
 - Reports page report-type buttons were converted to a dropdown. Supplier workspace tabs were also converted to a dropdown.
 - Product Sales reports now support an "All products" scope so admins can see every product sold for a selected day or date range.
+- Customer Sales and Purchase History reports now also support merged "All customers" and "All products" views where the combined report still makes sense.
+- Report filters were tightened into compact, level dropdown controls so report type, product, customer, supplier, and variant selectors use space more cleanly.
 - Report period labels now show the actual month/year or date range instead of generic "This Month".
 - Purchase History now shows previous cost, unit cost, and price change for each SKU purchase row.
 - Report detail panels now have more internal padding so headings and table content do not sit against the box border.
@@ -53,6 +55,9 @@ Yes, these changes intentionally affect some application behavior:
 - Admins now have a new Notifications page for addressing concerns.
 - The Sales Metrics dashboard widget is removed, but trending-product and average-cost detail remain available.
 - Admin overview cards for Active Staff and Current Stock Rule are removed from the Admin Console.
+- The app shell now includes a Light Mode / Dark Mode toggle.
+- Employee-facing product and inventory pages no longer show read-only notice chips.
+- Notifications now include a "Mark All as Read" action for open notifications.
 
 Core POS checkout, product catalog, sales history, reports, suppliers, and inventory viewing remain in place.
 

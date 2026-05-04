@@ -25,7 +25,7 @@
 
 .page-header-actions {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: flex-end;
   gap: 1rem;
   flex-wrap: wrap;
@@ -39,6 +39,13 @@
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
+}
+
+html[data-theme='light'] .page-title {
+  background: none;
+  color: var(--text-primary);
+  -webkit-background-clip: initial;
+  background-clip: initial;
 }
 
 .page-subtitle {
@@ -149,6 +156,7 @@
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
+  min-height: 42px;
   padding: 0.65rem 1.25rem;
   background: linear-gradient(135deg, var(--primary), var(--primary-hover));
   color: white;
@@ -176,6 +184,7 @@
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
+  min-height: 42px;
   padding: 0.5rem 1rem;
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid var(--border-color);
@@ -198,6 +207,10 @@
   padding: 0.25rem;
   box-shadow: 0 24px 50px rgba(15, 23, 42, 0.16);
   min-width: 0;
+}
+
+html[data-theme='light'] .icon-btn {
+  background: rgba(255, 255, 255, 0.72);
 }
 
 .panel-toolbar {
@@ -613,6 +626,14 @@ select.table-select {
     0 8px 20px rgba(15, 23, 42, 0.12);
 }
 
+html[data-theme='light'] select.field-select,
+html[data-theme='light'] select.filter-select,
+html[data-theme='light'] select.table-select {
+  background-color: #ffffff;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23334155' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  box-shadow: var(--shadow-sm);
+}
+
 input.field-select,
 input.filter-select {
   background-image: none;
@@ -892,6 +913,35 @@ textarea {
   align-items: start;
 }
 
+.admin-payment-panel {
+  padding: 1rem;
+  border-radius: 16px;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  background: rgba(15, 23, 42, 0.28);
+}
+
+.admin-payment-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+}
+
+.admin-payment-header > :first-child {
+  min-width: 0;
+}
+
+.admin-payment-header .form-field {
+  min-width: 210px;
+}
+
+.admin-payment-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+}
+
 .admin-preview-card,
 .admin-note-card {
   padding: 1rem;
@@ -1018,8 +1068,17 @@ textarea {
   .admin-page-grid,
   .admin-form-grid,
   .admin-staff-form,
-  .admin-inline-grid {
+  .admin-inline-grid,
+  .admin-payment-grid {
     grid-template-columns: 1fr;
+  }
+
+  .admin-payment-header {
+    flex-direction: column;
+  }
+
+  .admin-payment-header .form-field {
+    width: 100%;
   }
 
   .form-actions,

@@ -5,6 +5,11 @@
               radial-gradient(circle at 85% 30%, rgba(236, 72, 153, 0.05), transparent 25%);
 }
 
+html[data-theme='light'] .layout-container {
+  background: linear-gradient(135deg, rgba(79, 70, 229, 0.05), rgba(14, 165, 233, 0.04)),
+              var(--bg-main);
+}
+
 .sidebar {
   width: 260px;
   display: flex;
@@ -77,6 +82,13 @@
   transition: max-width 0.2s ease, opacity 0.16s ease;
 }
 
+html[data-theme='light'] .brand h2 {
+  background: none;
+  color: var(--text-primary);
+  -webkit-background-clip: initial;
+  background-clip: initial;
+}
+
 .sidebar-collapse-toggle {
   display: inline-flex;
   align-items: center;
@@ -125,6 +137,7 @@
 }
 
 .nav-item span,
+.theme-toggle-btn span,
 .logout-btn span {
   max-width: 140px;
   overflow: hidden;
@@ -146,8 +159,12 @@
 .sidebar-footer {
   padding: 1rem;
   border-top: var(--glass-border);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 
+.theme-toggle-btn,
 .logout-btn {
   width: 100%;
   display: flex;
@@ -159,6 +176,17 @@
   color: var(--text-muted);
   border-radius: var(--radius-md);
   font-weight: 500;
+}
+
+.theme-toggle-btn {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+}
+
+.theme-toggle-btn:hover {
+  background: var(--primary-bg);
+  color: var(--primary-light);
 }
 
 .logout-btn:hover {
@@ -216,6 +244,7 @@
 
 .sidebar-collapsed .brand h2,
 .sidebar-collapsed .nav-item span,
+.sidebar-collapsed .theme-toggle-btn span,
 .sidebar-collapsed .logout-btn span {
   max-width: 0;
   opacity: 0;
@@ -248,6 +277,7 @@
   padding: 0.75rem;
 }
 
+.sidebar-collapsed .theme-toggle-btn,
 .sidebar-collapsed .logout-btn {
   width: 48px;
   height: 48px;
@@ -265,6 +295,18 @@
   position: sticky;
   top: 0;
   z-index: 30;
+}
+
+.mobile-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.theme-toggle-btn.icon-only {
+  width: 40px;
+  height: 40px;
+  padding: 0;
 }
 
 .mobile-toggle {
@@ -322,6 +364,7 @@
 
   .sidebar-collapsed .brand h2,
   .sidebar-collapsed .nav-item span,
+  .sidebar-collapsed .theme-toggle-btn span,
   .sidebar-collapsed .logout-btn span {
     max-width: 160px;
     opacity: 1;
@@ -346,6 +389,7 @@
   }
 
   .sidebar-collapsed .nav-item,
+  .sidebar-collapsed .theme-toggle-btn,
   .sidebar-collapsed .logout-btn {
     width: 100%;
     height: auto;

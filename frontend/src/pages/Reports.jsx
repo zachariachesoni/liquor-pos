@@ -49,7 +49,8 @@ const defaultPurchaseHistory = {
     total_spend: 0,
     supplier_count: 0,
     price_change_count: 0,
-    largest_price_change: 0
+    largest_price_change: 0,
+    product_breakdown: []
   },
   rows: []
 };
@@ -269,10 +270,6 @@ const Reports = () => {
         setProducts(productRows);
         setSuppliers(supplierRows);
 
-        if (!selectedCustomer && customerRows.length > 0) {
-          setSelectedCustomer(customerRows[0]._id);
-        }
-
         if (!selectedSupplier && supplierRows.length > 0) {
           setSelectedSupplier(supplierRows[0]._id);
         }
@@ -314,12 +311,6 @@ const Reports = () => {
   }, [selectedProductRecord, selectedVariant]);
 
   useEffect(() => {
-    if (reportType === 'purchases' && !selectedProduct && products.length > 0) {
-      setSelectedProduct(products[0]._id);
-    }
-  }, [products, reportType, selectedProduct]);
-
-  useEffect(() => {
     const fetchReport = async () => {
       try {
         setLoading(true);
@@ -332,15 +323,10 @@ const Reports = () => {
         }
 
         if (reportType === 'customer') {
-          if (!selectedCustomer) {
-            setCustomerReport({ customer: null, summary: null, sales: [] });
-            return;
-          }
-
           const res = await api.get('/reports/customer-sales', {
             params: {
               ...params,
-              customer_id: selectedCustomer
+              ...(selectedCustomer ? { customer_id: selectedCustomer } : {})
             }
           });
           setCustomerReport(res.data.data || { customer: null, summary: null, sales: [] });
@@ -382,16 +368,11 @@ const Reports = () => {
         }
 
         if (reportType === 'purchases') {
-          if (!selectedProduct) {
-            setPurchaseHistory(defaultPurchaseHistory);
-            return;
-          }
-
           const res = await api.get('/reports/purchase-history', {
             params: {
               ...params,
-              product_id: selectedProduct,
-              ...(selectedVariant ? { variant_id: selectedVariant } : {})
+              ...(selectedProduct ? { product_id: selectedProduct } : {}),
+              ...(selectedProduct && selectedVariant ? { variant_id: selectedVariant } : {})
             }
           });
           setPurchaseHistory(res.data.data || defaultPurchaseHistory);
@@ -635,6 +616,7 @@ const Reports = () => {
   );
 
   const renderCustomerView = () => {
+    const isAllCustomersReport = customerReport.scope === 'all' || !selectedCustomer;
     const reportCustomer = customerReport.customer || selectedCustomerRecord;
     const summary = customerReport.summary || {
       total_sales: 0,
@@ -671,9 +653,11 @@ const Reports = () => {
         <div className="glass-panel main-panel report-detail-panel">
           <div className="detail-header">
             <div>
-              <h2>{reportCustomer?.name || 'Customer sales report'}</h2>
+              <h2>{isAllCustomersReport ? 'All customer sales' : reportCustomer?.name || 'Customer sales report'}</h2>
               <p className="page-subtitle">
-                {reportCustomer?.phone || 'No phone'} {reportCustomer?.email ? ` | ${reportCustomer.email}` : ''}
+                {isAllCustomersReport
+                  ? `Every customer sale in ${periodLabel}`
+                  : `${reportCustomer?.phone || 'No phone'} ${reportCustomer?.email ? ` | ${reportCustomer.email}` : ''}`}
               </p>
             </div>
             <div className="report-meta-chip">Items sold: {summary.total_items || 0}</div>
@@ -1020,13 +1004,15 @@ const Reports = () => {
   };
 
   const renderPurchaseHistoryView = () => {
+    const isAllProductsReport = purchaseHistory.scope === 'all' || !selectedProduct;
     const summary = purchaseHistory.summary || {
       total_qty_ordered: 0,
       total_qty_received: 0,
       total_spend: 0,
       supplier_count: 0,
       price_change_count: 0,
-      largest_price_change: 0
+      largest_price_change: 0,
+      product_breakdown: []
     };
 
     return (
@@ -1041,10 +1027,26 @@ const Reports = () => {
         <div className="glass-panel main-panel report-detail-panel">
           <div className="detail-header">
             <div>
-              <h2>Purchase History by SKU</h2>
-              <p className="page-subtitle">See supplier, quantity, and cost changes over time for the selected product or variant.</p>
+              <h2>{isAllProductsReport ? 'Purchase History for All Products' : 'Purchase History by SKU'}</h2>
+              <p className="page-subtitle">
+                {isAllProductsReport
+                  ? `See supplier purchases and cost changes for every product in ${periodLabel}.`
+                  : 'See supplier, quantity, and cost changes over time for the selected product or variant.'}
+              </p>
             </div>
           </div>
+          {isAllProductsReport && (summary.product_breakdown || []).length > 0 && (
+            <div className="variant-summary-grid">
+              {(summary.product_breakdown || []).map((row) => (
+                <div key={row.product_id || row.product_name} className="variant-summary-card">
+                  <strong>{row.product_name}</strong>
+                  <span>{Number(row.qty_received || 0).toLocaleString()} units received</span>
+                  <span>{formatCurrency(row.total_spend)} spend</span>
+                  <span>{row.category || 'Uncategorized'}</span>
+                </div>
+              ))}
+            </div>
+          )}
           <div className="table-container">
             <table className="report-table">
               <thead>
@@ -1083,7 +1085,7 @@ const Reports = () => {
                 ))}
                 {(purchaseHistory.rows || []).length === 0 && (
                   <tr>
-                    <td colSpan="9" className="empty-state">No purchase history found for the selected SKU.</td>
+                    <td colSpan="9" className="empty-state">No purchase history found for the selected period.</td>
                   </tr>
                 )}
               </tbody>
@@ -1498,7 +1500,7 @@ const Reports = () => {
       </div>
 
       <div className="glass-panel main-panel report-mode-panel">
-        <div className="report-picker-row">
+        <div className="report-control-row">
           <label className="toolbar-control report-type-control">
             <span>Report Type</span>
             <select className="field-select" value={reportType} onChange={(event) => setReportType(event.target.value)}>
@@ -1507,25 +1509,22 @@ const Reports = () => {
               ))}
             </select>
           </label>
-        </div>
 
-        {reportType === 'customer' && (
-          <div className="report-filter-row">
-            <label>
+          {reportType === 'customer' && (
+            <label className="toolbar-control report-filter-control">
               <span><User size={16} /> Customer</span>
               <select className="filter-select" value={selectedCustomer} onChange={(e) => setSelectedCustomer(e.target.value)}>
-                {customers.length === 0 && <option value="">No customers available</option>}
+                <option value="">All customers</option>
+                {customers.length === 0 && <option value="" disabled>No customers available</option>}
                 {customers.map((customer) => (
                   <option key={customer._id} value={customer._id}>{customer.name}</option>
                 ))}
               </select>
             </label>
-          </div>
-        )}
+          )}
 
-        {reportType === 'supplier' && (
-          <div className="report-filter-row">
-            <label>
+          {reportType === 'supplier' && (
+            <label className="toolbar-control report-filter-control">
               <span><Building2 size={16} /> Supplier</span>
               <select className="filter-select" value={selectedSupplier} onChange={(e) => setSelectedSupplier(e.target.value)}>
                 {suppliers.length === 0 && <option value="">No suppliers available</option>}
@@ -1534,23 +1533,22 @@ const Reports = () => {
                 ))}
               </select>
             </label>
-          </div>
-        )}
+          )}
 
-        {isProductScopedReport && (
-          <div className="report-filter-row">
-            <label>
+          {isProductScopedReport && (
+            <>
+              <label className="toolbar-control report-filter-control">
               <span><Package size={16} /> Product</span>
               <select className="filter-select" value={selectedProduct} onChange={(e) => setSelectedProduct(e.target.value)}>
-                {reportType === 'product' && <option value="">All products</option>}
-                {products.length === 0 && <option value="">No products available</option>}
+                <option value="">All products</option>
+                {products.length === 0 && <option value="" disabled>No products available</option>}
                 {products.map((product) => (
                   <option key={product._id} value={product._id}>{product.name}</option>
                 ))}
               </select>
             </label>
-            {selectedProductRecord && (
-              <label>
+              {selectedProductRecord && (
+                <label className="toolbar-control report-filter-control">
                 <span><ShoppingCart size={16} /> Variant</span>
                 <select className="filter-select" value={selectedVariant} onChange={(e) => setSelectedVariant(e.target.value)}>
                   <option value="">All variants</option>
@@ -1559,9 +1557,10 @@ const Reports = () => {
                   ))}
                 </select>
               </label>
-            )}
-          </div>
-        )}
+              )}
+            </>
+          )}
+        </div>
       </div>
 
       {loading ? (
@@ -1671,7 +1670,7 @@ const Reports = () => {
         {reportType === 'customer' && (
           <>
             <div className="report-export-summary">
-              <div className="report-export-card"><span>Customer</span><strong>{(customerReport.customer || selectedCustomerRecord)?.name || 'N/A'}</strong></div>
+              <div className="report-export-card"><span>Customer Scope</span><strong>{selectedCustomer ? (customerReport.customer || selectedCustomerRecord)?.name || 'N/A' : 'All customers'}</strong></div>
               <div className="report-export-card"><span>Total Orders</span><strong>{customerReport.summary?.total_sales || 0}</strong></div>
               <div className="report-export-card"><span>Total Revenue</span><strong>{formatCurrency(customerReport.summary?.total_revenue)}</strong></div>
               <div className="report-export-card"><span>Total Profit</span><strong>{formatCurrency(customerReport.summary?.total_profit)}</strong></div>
@@ -1898,11 +1897,36 @@ const Reports = () => {
         {reportType === 'purchases' && (
           <>
             <div className="report-export-summary">
-              <div className="report-export-card"><span>Product</span><strong>{selectedProductRecord?.name || 'N/A'}</strong></div>
+              <div className="report-export-card"><span>Product Scope</span><strong>{selectedProductRecord?.name || 'All products'}</strong></div>
               <div className="report-export-card"><span>Qty Ordered</span><strong>{purchaseHistory.summary?.total_qty_ordered || 0}</strong></div>
               <div className="report-export-card"><span>Qty Received</span><strong>{purchaseHistory.summary?.total_qty_received || 0}</strong></div>
               <div className="report-export-card"><span>Spend</span><strong>{formatCurrency(purchaseHistory.summary?.total_spend)}</strong></div>
             </div>
+
+            {!selectedProduct && (purchaseHistory.summary?.product_breakdown || []).length > 0 && (
+              <table className="report-export-table">
+                <thead>
+                  <tr>
+                    <th>Product</th>
+                    <th>Category</th>
+                    <th>Qty Received</th>
+                    <th>Suppliers</th>
+                    <th className="text-right">Spend</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(purchaseHistory.summary?.product_breakdown || []).map((row) => (
+                    <tr key={row.product_id || row.product_name}>
+                      <td>{row.product_name}</td>
+                      <td>{row.category || 'Uncategorized'}</td>
+                      <td>{row.qty_received || 0}</td>
+                      <td>{row.supplier_count || 0}</td>
+                      <td className="text-right">{Number(row.total_spend || 0).toLocaleString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
 
             <table className="report-export-table">
               <thead>

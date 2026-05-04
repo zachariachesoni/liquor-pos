@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { LayoutDashboard, ShoppingCart, Package, ClipboardList, FileBarChart, Users, Receipt, PieChart, LogOut, Menu, X, Shield, Truck, PanelLeftClose, PanelLeftOpen, Bell } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, Package, ClipboardList, FileBarChart, Users, Receipt, PieChart, LogOut, Menu, X, Shield, Truck, PanelLeftClose, PanelLeftOpen, Bell, Moon, Sun } from 'lucide-react';
 import { useSystemSettings } from '../hooks/useSystemSettings';
 import { INVENTORY_ROUTE_ROLES, PRODUCTS_ROUTE_ROLES, SALES_ROUTE_ROLES } from '../utils/accessControl';
 import './Layout.css';
@@ -12,6 +12,12 @@ const Layout = ({ children }) => {
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [theme, setTheme] = useState(() => localStorage.getItem('system_theme') || 'dark');
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    localStorage.setItem('system_theme', theme);
+  }, [theme]);
 
   const handleLogout = () => {
     logout();
@@ -42,6 +48,10 @@ const Layout = ({ children }) => {
 
   const toggleMobileMenu = () => {
     setMobileMenuOpen(!mobileMenuOpen);
+  };
+
+  const toggleTheme = () => {
+    setTheme((current) => (current === 'light' ? 'dark' : 'light'));
   };
 
   return (
@@ -81,6 +91,10 @@ const Layout = ({ children }) => {
         </nav>
 
         <div className="sidebar-footer">
+          <button className="theme-toggle-btn" onClick={toggleTheme} title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}>
+            {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
+            <span>{theme === 'light' ? 'Dark Mode' : 'Light Mode'}</span>
+          </button>
           <button className="logout-btn" onClick={handleLogout}>
             <LogOut size={20} />
             <span>Logout</span>
@@ -94,9 +108,14 @@ const Layout = ({ children }) => {
             {renderBrandIcon()}
             <h2>{settings.business_name}</h2>
           </div>
-          <button className="mobile-toggle" onClick={toggleMobileMenu}>
-            <Menu size={24} />
-          </button>
+          <div className="mobile-header-actions">
+            <button className="theme-toggle-btn icon-only" onClick={toggleTheme} title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}>
+              {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
+            </button>
+            <button className="mobile-toggle" onClick={toggleMobileMenu}>
+              <Menu size={24} />
+            </button>
+          </div>
         </header>
 
         <div className="page-content animate-fade-in">

@@ -352,19 +352,26 @@ const AdminPanel = () => {
                     rows="3"
                   />
                 </div>
-                <div className="form-field">
-                  <label>Payment Account Type</label>
-                  <select
-                    value={settings.payment_account_type}
-                    onChange={(e) => setSettings((prev) => ({ ...prev, payment_account_type: e.target.value }))}
-                  >
-                    <option value="">None</option>
-                    <option value="paybill">Paybill</option>
-                    <option value="till">Till Number</option>
-                  </select>
-                </div>
-                {settings.payment_account_type === 'paybill' && (
-                  <>
+                <div className="form-field form-field-full admin-payment-panel">
+                  <div className="admin-payment-header">
+                    <div>
+                      <label>Receipt Payment Details</label>
+                      <span className="td-secondary">Choose which payment account should print at the top of sales receipts.</span>
+                    </div>
+                    <div className="form-field">
+                      <label>Print On Receipt</label>
+                      <select
+                        value={settings.payment_account_type}
+                        onChange={(e) => setSettings((prev) => ({ ...prev, payment_account_type: e.target.value }))}
+                      >
+                        <option value="">Do not show</option>
+                        <option value="paybill">Paybill</option>
+                        <option value="till">Till Number</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="admin-payment-grid">
                     <div className="form-field">
                       <label>Paybill Business Number</label>
                       <input
@@ -381,18 +388,16 @@ const AdminPanel = () => {
                         placeholder="e.g. INV or store account"
                       />
                     </div>
-                  </>
-                )}
-                {settings.payment_account_type === 'till' && (
-                  <div className="form-field">
-                    <label>Till Number</label>
-                    <input
-                      value={settings.till_number}
-                      onChange={(e) => setSettings((prev) => ({ ...prev, till_number: e.target.value }))}
-                      placeholder="e.g. 654321"
-                    />
+                    <div className="form-field">
+                      <label>Till Number</label>
+                      <input
+                        value={settings.till_number}
+                        onChange={(e) => setSettings((prev) => ({ ...prev, till_number: e.target.value }))}
+                        placeholder="e.g. 654321"
+                      />
+                    </div>
                   </div>
-                )}
+                </div>
                 <div className="form-field">
                   <label>Default Low-Stock Threshold</label>
                   <input type="number" min="0" value={settings.default_low_stock_level} onChange={(e) => setSettings((prev) => ({ ...prev, default_low_stock_level: e.target.value }))} />

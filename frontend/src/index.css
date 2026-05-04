@@ -48,6 +48,38 @@
   --radius-xl: 1.8rem;
 }
 
+html[data-theme='light'] {
+  --primary: #4f46e5;
+  --primary-hover: #4338ca;
+  --primary-light: #3730a3;
+  --primary-bg: rgba(79, 70, 229, 0.12);
+  --secondary: #be185d;
+
+  --text-primary: #0f172a;
+  --text-secondary: #334155;
+  --text-muted: #64748b;
+
+  --bg-main: #f8fafc;
+  --bg-secondary: #e2e8f0;
+  --bg-tertiary: #ffffff;
+  --bg-color: var(--bg-main);
+  --input-bg: rgba(255, 255, 255, 0.92);
+  --text-color: var(--text-primary);
+
+  --border-color: rgba(15, 23, 42, 0.12);
+  --glass-bg: rgba(255, 255, 255, 0.86);
+  --glass-bg-hover: rgba(255, 255, 255, 0.96);
+  --glass-border: 1px solid rgba(15, 23, 42, 0.1);
+
+  --success-bg: rgba(16, 185, 129, 0.14);
+  --warning-bg: rgba(245, 158, 11, 0.14);
+  --danger-bg: rgba(239, 68, 68, 0.12);
+
+  --shadow-sm: 0 1px 2px 0 rgba(15, 23, 42, 0.08);
+  --shadow-md: 0 8px 22px -16px rgba(15, 23, 42, 0.28);
+  --shadow-lg: 0 18px 38px -24px rgba(15, 23, 42, 0.34);
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -77,6 +109,14 @@ body {
   backdrop-filter: blur(16px);
   border: var(--glass-border);
   border-radius: var(--radius-lg);
+}
+
+html[data-theme='light'] .loading-skeleton {
+  background: rgba(15, 23, 42, 0.06);
+}
+
+html[data-theme='light'] .loading-skeleton::after {
+  background: linear-gradient(90deg, transparent, rgba(15, 23, 42, 0.08), transparent);
 }
 
 /* Scrollbar Styling */

@@ -30,6 +30,7 @@ const Notifications = () => {
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(null);
   const [addressingId, setAddressingId] = useState('');
+  const [markingAllRead, setMarkingAllRead] = useState(false);
 
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
@@ -82,6 +83,22 @@ const Notifications = () => {
     }
   };
 
+  const handleAddressAll = async () => {
+    try {
+      setMarkingAllRead(true);
+      await api.patch('/notifications/address-all', {
+        resolution_note: 'Marked as read from the notifications tab.'
+      });
+      showToast('All open notifications marked as read.');
+      await fetchNotifications();
+    } catch (error) {
+      console.error('Failed to mark all notifications as read', error);
+      showToast(error.response?.data?.message || 'Failed to mark all notifications as read', 'error');
+    } finally {
+      setMarkingAllRead(false);
+    }
+  };
+
   return (
     <div className="page-container animate-fade-in notifications-page">
       {toast && (
@@ -104,9 +121,14 @@ const Notifications = () => {
               <option value="all">All notifications</option>
             </select>
           </div>
-          <button className="icon-btn" type="button" onClick={fetchNotifications}>
-            <RefreshCw size={18} /> Refresh
-          </button>
+          <div className="notification-toolbar-actions">
+            <button className="icon-btn" type="button" onClick={fetchNotifications}>
+              <RefreshCw size={18} /> Refresh
+            </button>
+            <button className="primary-btn" type="button" onClick={handleAddressAll} disabled={counts.open === 0 || markingAllRead}>
+              <ClipboardCheck size={18} /> {markingAllRead ? 'Marking...' : 'Mark All as Read'}
+            </button>
+          </div>
         </div>
       </div>
 

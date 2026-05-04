@@ -159,7 +159,7 @@ const Inventory = () => {
           <p className="page-subtitle">
             {canManageInventory
               ? 'Monitor stock levels, reorder needs, and record stock-out adjustments. Incoming stock is handled in Suppliers.'
-              : 'Monitor stock levels and low-stock reorder needs in a read-only view.'}
+              : 'Monitor stock levels and low-stock reorder needs.'}
           </p>
         </div>
         <div className="page-header-actions">
@@ -175,7 +175,6 @@ const Inventory = () => {
           <button className="icon-btn icon-btn-warning" onClick={() => setShowSuggestions((prev) => !prev)}>
              <AlertTriangle size={18} /> Reorder ({reorderSuggestions.length || lowStockCount})
           </button>
-          {!canManageInventory && <div className="report-meta-chip">Read-only access</div>}
           {canManageInventory && <div className="report-meta-chip">Purchasing through Suppliers</div>}
         </div>
       </div>
@@ -194,7 +193,7 @@ const Inventory = () => {
               <p className="page-subtitle">
                 {canManageInventory
                   ? 'Preferred supplier, last buy price, lead time, and one-tap draft PO creation for low-stock SKUs.'
-                  : 'A read-only view of the SKUs that need purchasing attention.'}
+                  : 'Low-stock SKUs that need purchasing attention.'}
               </p>
             </div>
             <div className="report-meta-chip">

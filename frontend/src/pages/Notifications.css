@@ -6,6 +6,22 @@
   padding: 1.2rem;
 }
 
+.notifications-page .page-header-actions {
+  align-items: flex-end;
+}
+
+.notification-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.notification-toolbar-actions .icon-btn,
+.notification-toolbar-actions .primary-btn {
+  min-height: 42px;
+}
+
 .notification-list {
   display: flex;
   flex-direction: column;
@@ -75,6 +91,12 @@
 }
 
 @media (max-width: 720px) {
+  .notification-toolbar-actions,
+  .notification-toolbar-actions .icon-btn,
+  .notification-toolbar-actions .primary-btn {
+    width: 100%;
+  }
+
   .notification-card {
     grid-template-columns: 1fr;
   }

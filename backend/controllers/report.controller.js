@@ -209,12 +209,14 @@ export const getCustomerSalesReport = async (req, res) => {
   try {
     const { customer_id, start_date, end_date } = req.query;
 
-    if (!customer_id || !mongoose.Types.ObjectId.isValid(customer_id)) {
+    if (customer_id && !mongoose.Types.ObjectId.isValid(customer_id)) {
       return res.status(400).json({ success: false, message: 'Valid customer_id is required' });
     }
 
     const { saleMatch } = buildDateFilters(start_date, end_date);
-    saleMatch.customer_id = new mongoose.Types.ObjectId(customer_id);
+    if (customer_id) {
+      saleMatch.customer_id = new mongoose.Types.ObjectId(customer_id);
+    }
 
     const sales = await Sale.find(saleMatch)
       .populate('customer_id', 'name phone email customer_type')
@@ -279,11 +281,12 @@ export const getCustomerSalesReport = async (req, res) => {
       totalProfit: 0
     });
 
-    const customer = sales[0]?.customer_id || null;
+    const customer = customer_id ? sales[0]?.customer_id || null : null;
 
     res.json({
       success: true,
       data: {
+        scope: customer_id ? 'single' : 'all',
         customer,
         summary: {
           total_sales: summary.totalSales,
@@ -649,8 +652,6 @@ export const getPurchaseHistoryReport = async (req, res) => {
         return res.status(400).json({ success: false, message: 'Valid product_id is required' });
       }
       variantFilter.product_id = product_id;
-    } else {
-      return res.status(400).json({ success: false, message: 'A product_id or variant_id is required' });
     }
 
     const variants = await ProductVariant.find(variantFilter).populate('product_id', 'name brand category').lean();
@@ -738,6 +739,28 @@ export const getPurchaseHistoryReport = async (req, res) => {
       if (row.supplier?._id) {
         acc.suppliers.add(String(row.supplier._id));
       }
+
+      const productKey = row.variant?.product?._id
+        ? String(row.variant.product._id)
+        : row.variant?.product?.name || 'Unknown item';
+      const productSummary = acc.productsMap.get(productKey) || {
+        product_id: row.variant?.product?._id || null,
+        product_name: row.variant?.product?.name || 'Unknown item',
+        brand: row.variant?.product?.brand || '',
+        category: row.variant?.product?.category || 'other',
+        qty_ordered: 0,
+        qty_received: 0,
+        total_spend: 0,
+        supplier_count: new Set()
+      };
+
+      productSummary.qty_ordered += Number(row.qty_ordered || 0);
+      productSummary.qty_received += Number(row.qty_received || 0);
+      productSummary.total_spend += Number(row.line_total || 0);
+      if (row.supplier?._id) {
+        productSummary.supplier_count.add(String(row.supplier._id));
+      }
+      acc.productsMap.set(productKey, productSummary);
       return acc;
     }, {
       total_qty_ordered: 0,
@@ -745,12 +768,21 @@ export const getPurchaseHistoryReport = async (req, res) => {
       total_spend: 0,
       price_change_count: 0,
       largest_price_change: 0,
-      suppliers: new Set()
+      suppliers: new Set(),
+      productsMap: new Map()
     });
+
+    const productBreakdown = Array.from(summary.productsMap.values())
+      .map((row) => ({
+        ...row,
+        supplier_count: row.supplier_count.size
+      }))
+      .sort((a, b) => b.total_spend - a.total_spend || b.qty_received - a.qty_received);
 
     res.json({
       success: true,
       data: {
+        scope: product_id || variant_id ? 'single' : 'all',
         variants,
         summary: {
           total_qty_ordered: summary.total_qty_ordered,
@@ -758,7 +790,8 @@ export const getPurchaseHistoryReport = async (req, res) => {
           total_spend: summary.total_spend,
           price_change_count: summary.price_change_count,
           largest_price_change: summary.largest_price_change,
-          supplier_count: summary.suppliers.size
+          supplier_count: summary.suppliers.size,
+          product_breakdown: productBreakdown
         },
         rows
       }
