@@ -44,13 +44,15 @@ export const getPrintBaseStyles = (extraStyles = '') => `
   }
 
   .print-logo {
-    width: 96px;
+    width: 108px;
     height: 96px;
     object-fit: contain;
-    border: 0;
-    background: transparent;
-    box-shadow: none;
-    padding: 0;
+    display: block;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    padding: 0 !important;
   }
 
   .print-logo-fallback {

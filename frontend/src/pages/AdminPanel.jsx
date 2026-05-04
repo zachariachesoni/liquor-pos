@@ -156,12 +156,22 @@ const AdminPanel = () => {
     e.preventDefault();
     try {
       setSavingSettings(true);
+      const paymentType = ['paybill', 'till'].includes(settings.payment_account_type)
+        ? settings.payment_account_type
+        : '';
+      const paybillBusinessNumber = String(settings.paybill_business_number || '').trim();
+      const paybillAccountNumber = String(settings.paybill_account_number || '').trim();
+      const tillNumber = String(settings.till_number || '').trim();
       const payload = {
         ...settings,
-        payment_account_number: settings.payment_account_type === 'paybill'
-          ? (settings.paybill_business_number || settings.payment_account_number)
-          : settings.payment_account_type === 'till'
-            ? (settings.till_number || settings.payment_account_number)
+        payment_account_type: paymentType,
+        paybill_business_number: paybillBusinessNumber,
+        paybill_account_number: paybillAccountNumber,
+        till_number: tillNumber,
+        payment_account_number: paymentType === 'paybill'
+          ? paybillBusinessNumber
+          : paymentType === 'till'
+            ? tillNumber
             : '',
         default_low_stock_level: Number(settings.default_low_stock_level),
         high_value_price_threshold: Number(settings.high_value_price_threshold),

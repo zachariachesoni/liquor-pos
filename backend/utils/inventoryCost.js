@@ -1,11 +1,18 @@
+const toPositiveNumber = (value) => {
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.max(0, number) : 0;
+};
+
+const roundCost = (value) => Math.round(toPositiveNumber(value));
+
 export const calculateWeightedAverageCost = (currentStock, currentCost, incomingQuantity, incomingUnitCost) => {
-  const stock = Math.max(0, Number(currentStock || 0));
-  const quantity = Math.max(0, Number(incomingQuantity || 0));
-  const oldCost = Math.max(0, Number(currentCost || 0));
-  const newCost = Math.max(0, Number(incomingUnitCost || 0));
+  const stock = toPositiveNumber(currentStock);
+  const quantity = toPositiveNumber(incomingQuantity);
+  const oldCost = toPositiveNumber(currentCost);
+  const newCost = toPositiveNumber(incomingUnitCost);
 
-  if (quantity <= 0) return oldCost;
-  if (stock <= 0) return newCost;
+  if (quantity <= 0) return roundCost(oldCost);
+  if (stock <= 0) return roundCost(newCost);
 
-  return ((stock * oldCost) + (quantity * newCost)) / (stock + quantity);
+  return roundCost(((stock * oldCost) + (quantity * newCost)) / (stock + quantity));
 };

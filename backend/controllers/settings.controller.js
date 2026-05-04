@@ -1,6 +1,21 @@
 import logger from '../utils/logger.js';
 import { getSystemSettings, serializeSystemSettings } from '../utils/systemSettings.js';
 
+const PAYMENT_ACCOUNT_TYPES = new Set(['', 'paybill', 'till']);
+const NUMERIC_FIELDS = new Set([
+  'default_low_stock_level',
+  'high_value_price_threshold',
+  'high_value_low_stock_level',
+  'minimum_margin_threshold'
+]);
+
+const normalizeText = (value) => String(value ?? '').trim();
+
+const normalizeNumber = (value, fallback = 0) => {
+  const number = Number(value);
+  return Number.isFinite(number) && number >= 0 ? number : fallback;
+};
+
 export const getPublicSettings = async (req, res) => {
   try {
     const settings = await getSystemSettings();
@@ -42,17 +57,47 @@ export const updateSettings = async (req, res) => {
 
     fields.forEach((field) => {
       if (req.body[field] !== undefined) {
-        settings[field] = ['default_low_stock_level', 'high_value_price_threshold', 'high_value_low_stock_level', 'minimum_margin_threshold'].includes(field)
-          ? Number(req.body[field])
-          : req.body[field];
+        settings[field] = NUMERIC_FIELDS.has(field)
+          ? normalizeNumber(req.body[field], settings[field])
+          : normalizeText(req.body[field]);
       }
     });
+
+    settings.payment_account_type = normalizeText(settings.payment_account_type).toLowerCase();
+
+    if (!PAYMENT_ACCOUNT_TYPES.has(settings.payment_account_type)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Payment account type must be Paybill, Till, or not shown.'
+      });
+    }
+
+    const legacyAccountNumber = normalizeText(req.body.payment_account_number ?? settings.payment_account_number);
+    const paybillBusinessNumber = normalizeText(settings.paybill_business_number || (
+      settings.payment_account_type === 'paybill' ? legacyAccountNumber : ''
+    ));
+    const tillNumber = normalizeText(settings.till_number || (
+      settings.payment_account_type === 'till' ? legacyAccountNumber : ''
+    ));
+
+    settings.paybill_business_number = paybillBusinessNumber;
+    settings.paybill_account_number = normalizeText(settings.paybill_account_number);
+    settings.till_number = tillNumber;
+    settings.payment_account_number = settings.payment_account_type === 'paybill'
+      ? paybillBusinessNumber
+      : settings.payment_account_type === 'till'
+        ? tillNumber
+        : '';
 
     await settings.save();
 
     res.json({ success: true, data: serializeSystemSettings(settings) });
   } catch (error) {
     logger.error('Update settings error:', error);
-    res.status(500).json({ success: false, message: 'Server error' });
+    const isValidationError = ['ValidationError', 'CastError'].includes(error.name);
+    res.status(isValidationError ? 400 : 500).json({
+      success: false,
+      message: isValidationError ? error.message : 'Failed to save settings'
+    });
   }
 };

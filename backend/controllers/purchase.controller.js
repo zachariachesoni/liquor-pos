@@ -208,7 +208,7 @@ const applyReceiptInventory = async ({
     const stockBefore = Number(variant.current_stock || 0);
     const receivedQuantity = Number(line.qty_received_delta || 0);
     const stockAfter = stockBefore + receivedQuantity;
-    const previousCost = Number(variant.buying_price || 0);
+    const previousCost = Math.round(Number(variant.buying_price || 0));
     const averageCost = calculateWeightedAverageCost(stockBefore, previousCost, receivedQuantity, line.unit_cost);
 
     variant.current_stock = stockAfter;
@@ -226,7 +226,7 @@ const applyReceiptInventory = async ({
       stock_before: stockBefore,
       stock_after: stockAfter,
       reason: 'restocking',
-      notes: sanitizeText(line.notes) || `Received via ${line.po_number || 'purchase order'} from ${supplier.name}. Average cost ${averageCost.toFixed(2)} from ${previousCost.toFixed(2)}.`,
+      notes: sanitizeText(line.notes) || `Received via ${line.po_number || 'purchase order'} from ${supplier.name}. Average cost ${averageCost} from ${previousCost}.`,
       user_id: userId,
       purchase_order_id: purchaseOrderId
     });
