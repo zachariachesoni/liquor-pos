@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Cell, PieChart, Pie } from 'recharts';
@@ -50,7 +50,6 @@ const Dashboard = () => {
       setStats(response.data.data);
     } catch (error) {
       console.error('Error fetching stats:', error);
-      // Removed mock fallback relying on live database
     } finally {
       setLoading(false);
     }

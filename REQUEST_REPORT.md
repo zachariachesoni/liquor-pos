@@ -20,9 +20,13 @@ Implemented the requested dashboard, receipt, admin, supplier, inventory, notifi
 - Supplier payment terms now read "Every 7 days", "Every 14 days", etc. instead of "Net 7".
 - Supplier detail/modal close buttons are now sticky and accessible inside tall modals.
 - Added an admin-only Notifications tab for low-stock and overdue supplier-payment concerns, with "Mark Addressed" handling.
+- Notifications now also show supplier product cost changes from the last 30 days, including old cost, new cost, and percent movement.
+- Notifications now also highlight average-cost updates from received stock, including quantity received, stock movement, and the weighted cost before/after when available.
 - Supplier/Admin/Inventory/Expenses success and failure messages now use popup toasts instead of inline feedback banners.
 - Reports page report-type buttons were converted to a dropdown. Supplier workspace tabs were also converted to a dropdown.
 - Report period labels now show the actual month/year or date range instead of generic "This Month".
+- Purchase History now shows previous cost, unit cost, and price change for each SKU purchase row.
+- Report detail panels now have more internal padding so headings and table content do not sit against the box border.
 - "Add Product / Variant" wording was changed to "Add Product"; the create modal now uses "Size" wording.
 - Global radius values and modal/card styling were rounded for a softer UI.
 
@@ -34,6 +38,7 @@ Implemented the requested dashboard, receipt, admin, supplier, inventory, notifi
 - Staff onboarding had both manual admin management and email invite provisioning. The invite path was removed and manual password setup is now the single employee-add flow.
 - Report navigation used wide button groups. Report selection and supplier workspace selection are now dropdowns to reduce repeated button clutter.
 - Inline feedback banners appeared across multiple pages. Active user-action feedback now uses toast popups.
+- Follow-up code cleanup removed unused React default imports, unused icons, unused helper exports, one unused permission middleware helper, and a duplicated `App.css` stylesheet. Shared loading styles now live in `frontend/src/index.css`.
 
 ## Functional Impact
 

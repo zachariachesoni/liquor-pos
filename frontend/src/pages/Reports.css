@@ -260,6 +260,10 @@
   min-width: 0;
 }
 
+.report-detail-panel.main-panel {
+  padding: 1.25rem;
+}
+
 .detail-header {
   display: flex;
   justify-content: space-between;
@@ -328,7 +332,7 @@
 .report-table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 640px;
+  min-width: 760px;
 }
 
 .report-table th,
@@ -359,6 +363,33 @@
 
 .report-table tbody tr:hover {
   background: rgba(59, 130, 246, 0.05);
+}
+
+.price-change-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 30px;
+  padding: 0.35rem 0.65rem;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+.price-change-up {
+  color: var(--warning);
+  background: var(--warning-bg);
+}
+
+.price-change-down {
+  color: var(--success);
+  background: var(--success-bg);
+}
+
+.price-change-neutral {
+  color: var(--text-secondary);
+  background: rgba(148, 163, 184, 0.12);
 }
 
 .variant-summary-grid {

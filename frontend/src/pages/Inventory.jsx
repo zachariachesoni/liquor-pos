@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { ClipboardList, ArrowDownRight, AlertTriangle, Truck, X, Search } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { ArrowDownRight, AlertTriangle, Truck, X, Search } from 'lucide-react';
 import api from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { canManageInventory as canManageInventoryAccess } from '../utils/accessControl';

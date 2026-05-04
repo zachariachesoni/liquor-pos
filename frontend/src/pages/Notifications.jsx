@@ -11,6 +11,19 @@ const severityTone = {
   info: 'notification-info'
 };
 
+const typeLabel = {
+  inventory: 'Inventory',
+  supplier: 'Supplier',
+  system: 'System change',
+  custom: 'Admin note'
+};
+
+const isSystemChange = (notification) => (
+  notification.type === 'system'
+  || notification.source_key?.startsWith('price-change:')
+  || notification.source_key?.startsWith('average-cost:')
+);
+
 const Notifications = () => {
   const [notifications, setNotifications] = useState([]);
   const [statusFilter, setStatusFilter] = useState('open');
@@ -49,7 +62,8 @@ const Notifications = () => {
   const counts = useMemo(() => ({
     open: notifications.filter((item) => item.status === 'open').length,
     critical: notifications.filter((item) => item.status === 'open' && item.severity === 'critical').length,
-    addressed: notifications.filter((item) => item.status === 'addressed').length
+    addressed: notifications.filter((item) => item.status === 'addressed').length,
+    changes: notifications.filter(isSystemChange).length
   }), [notifications]);
 
   const handleAddress = async (notification) => {
@@ -78,8 +92,8 @@ const Notifications = () => {
 
       <div className="page-header">
         <div className="page-header-copy">
-          <h1 className="page-title">Notifications</h1>
-          <p className="page-subtitle">Review low-stock, overdue supplier payment, and system concerns from one admin queue.</p>
+          <h1 className="page-title">Notifications & Changes</h1>
+          <p className="page-subtitle">Track admin concerns and important system changes, including supplier price movements and average-cost updates.</p>
         </div>
         <div className="page-header-actions">
           <div className="toolbar-control compact">
@@ -118,6 +132,13 @@ const Notifications = () => {
             <p className="stat-number">{counts.addressed}</p>
           </div>
         </div>
+        <div className="stat-card glass-panel">
+          <div className="report-stat-icon tone-sky"><RefreshCw size={24} /></div>
+          <div className="report-stat-copy">
+            <h3>System Changes</h3>
+            <p className="stat-number">{counts.changes}</p>
+          </div>
+        </div>
       </div>
 
       <div className="glass-panel main-panel notification-list-panel">
@@ -131,12 +152,15 @@ const Notifications = () => {
             {visibleNotifications.map((notification) => (
               <div className={`notification-card ${severityTone[notification.severity] || severityTone.info}`} key={notification._id}>
                 <div className="notification-icon">
-                  {notification.status === 'addressed' ? <CheckCircle2 size={22} /> : <AlertTriangle size={22} />}
+                  {notification.status === 'addressed'
+                    ? <CheckCircle2 size={22} />
+                    : isSystemChange(notification) ? <RefreshCw size={22} /> : <AlertTriangle size={22} />}
                 </div>
                 <div className="notification-copy">
                   <div className="notification-title-row">
                     <h3>{notification.title}</h3>
                     <span className="badge text-capitalize">{notification.severity}</span>
+                    <span className="report-meta-chip">{typeLabel[notification.type] || 'Notification'}</span>
                   </div>
                   <p>{notification.message}</p>
                   <div className="td-secondary">

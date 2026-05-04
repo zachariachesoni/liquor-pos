@@ -19,6 +19,18 @@ const stockAdjustmentSchema = new mongoose.Schema({
     type: Number,
     default: null
   },
+  average_cost_before: {
+    type: Number,
+    default: null
+  },
+  average_cost_after: {
+    type: Number,
+    default: null
+  },
+  average_cost_change: {
+    type: Number,
+    default: null
+  },
   stock_before: {
     type: Number,
     default: null
@@ -50,6 +62,6 @@ const stockAdjustmentSchema = new mongoose.Schema({
 });
 
 stockAdjustmentSchema.index({ variant_id: 1 });
-stockAdjustmentSchema.index({ created_at: -1 });
+stockAdjustmentSchema.index({ createdAt: -1 });
 
 export default mongoose.model('StockAdjustment', stockAdjustmentSchema);

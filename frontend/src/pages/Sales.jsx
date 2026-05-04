@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Download, ReceiptText, ChevronRight, X, Search, DollarSign, Package, TrendingUp, Wallet } from 'lucide-react';
 import api from '../utils/api';
 import { useAuth } from '../context/AuthContext';

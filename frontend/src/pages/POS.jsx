@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Search, ShoppingCart, Minus, Plus, Trash2, CreditCard, Banknote, UserPlus, Printer, X } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Search, ShoppingCart, Minus, Plus, Trash2, CreditCard, Banknote, Printer, X } from 'lucide-react';
 import api from '../utils/api';
 import { useSystemSettings } from '../hooks/useSystemSettings';
 import { getPrintBaseStyles, getPrintBrandMarkup } from '../utils/printBranding';

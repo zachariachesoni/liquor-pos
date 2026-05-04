@@ -101,6 +101,11 @@ const getProductSnapshot = (variant) => getVariantProductSnapshot(variant, {
   unknownProductName: 'Unknown item'
 });
 
+const toFiniteNumber = (value, fallback = 0) => {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : fallback;
+};
+
 const attachPurchaseOrderItems = (purchaseOrders = [], purchaseOrderItems = []) => {
   const itemsByPurchaseOrder = purchaseOrderItems.reduce((map, item) => {
     const key = String(item.po_id?._id || item.po_id);
@@ -646,7 +651,7 @@ export const getPurchaseHistoryReport = async (req, res) => {
     const suppliersById = new Map(suppliers.map((supplier) => [String(supplier._id), supplier]));
     const range = getDateRange(start_date, end_date);
 
-    const rows = purchaseHistory
+    const chronologicalRows = purchaseHistory
       .filter((item) => isWithinDateRange(item.po_id?.received_at || item.po_id?.ordered_at || item.createdAt, range))
       .map((item) => ({
         _id: item._id,
@@ -670,12 +675,41 @@ export const getPurchaseHistoryReport = async (req, res) => {
           } : null
         } : null
       }))
+      .sort((left, right) => new Date(left.received_at || left.ordered_at || 0) - new Date(right.received_at || right.ordered_at || 0));
+
+    const previousCostByVariant = new Map();
+    const rows = chronologicalRows
+      .map((row) => {
+        const variantKey = String(row.variant?._id || row._id);
+        const unitCost = toFiniteNumber(row.unit_cost);
+        const previousUnitCost = previousCostByVariant.has(variantKey)
+          ? previousCostByVariant.get(variantKey)
+          : null;
+        const priceChange = previousUnitCost === null ? null : unitCost - previousUnitCost;
+
+        previousCostByVariant.set(variantKey, unitCost);
+
+        return {
+          ...row,
+          previous_unit_cost: previousUnitCost,
+          price_change: priceChange,
+          price_change_pct: previousUnitCost && previousUnitCost > 0
+            ? (priceChange / previousUnitCost) * 100
+            : null
+        };
+      })
       .sort((left, right) => new Date(right.received_at || right.ordered_at || 0) - new Date(left.received_at || left.ordered_at || 0));
 
     const summary = rows.reduce((acc, row) => {
       acc.total_qty_ordered += Number(row.qty_ordered || 0);
       acc.total_qty_received += Number(row.qty_received || 0);
       acc.total_spend += Number(row.line_total || 0);
+      if (row.price_change !== null) {
+        acc.price_change_count += 1;
+        if (Math.abs(row.price_change) > Math.abs(acc.largest_price_change)) {
+          acc.largest_price_change = row.price_change;
+        }
+      }
       if (row.supplier?._id) {
         acc.suppliers.add(String(row.supplier._id));
       }
@@ -684,6 +718,8 @@ export const getPurchaseHistoryReport = async (req, res) => {
       total_qty_ordered: 0,
       total_qty_received: 0,
       total_spend: 0,
+      price_change_count: 0,
+      largest_price_change: 0,
       suppliers: new Set()
     });
 
@@ -695,6 +731,8 @@ export const getPurchaseHistoryReport = async (req, res) => {
           total_qty_ordered: summary.total_qty_ordered,
           total_qty_received: summary.total_qty_received,
           total_spend: summary.total_spend,
+          price_change_count: summary.price_change_count,
+          largest_price_change: summary.largest_price_change,
           supplier_count: summary.suppliers.size
         },
         rows

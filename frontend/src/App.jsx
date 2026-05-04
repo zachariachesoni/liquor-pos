@@ -15,7 +15,6 @@ import Suppliers from './pages/Suppliers';
 import Notifications from './pages/Notifications';
 import Layout from './components/Layout';
 import { INVENTORY_ROUTE_ROLES, PRODUCTS_ROUTE_ROLES, SALES_ROUTE_ROLES } from './utils/accessControl';
-import './App.css';
 
 // Protected Route Component
 const ProtectedRoute = ({ children, allowedRoles }) => {

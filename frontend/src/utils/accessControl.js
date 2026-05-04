@@ -8,4 +8,3 @@ export const SALES_ROUTE_ROLES = ALL_STAFF_ROLES;
 export const canManageCatalog = (role) => MANAGEMENT_ROLES.includes(role);
 export const canManageInventory = (role) => MANAGEMENT_ROLES.includes(role);
 export const canSeeProductCosts = (role) => MANAGEMENT_ROLES.includes(role);
-export const canViewAllSales = (role) => MANAGEMENT_ROLES.includes(role);

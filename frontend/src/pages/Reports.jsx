@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
   Building2,
@@ -43,7 +43,14 @@ const defaultPayableAging = {
 
 const defaultPurchaseHistory = {
   variants: [],
-  summary: null,
+  summary: {
+    total_qty_ordered: 0,
+    total_qty_received: 0,
+    total_spend: 0,
+    supplier_count: 0,
+    price_change_count: 0,
+    largest_price_change: 0
+  },
   rows: []
 };
 
@@ -169,6 +176,26 @@ const getPeriodLabel = (period, selectedDate) => {
 };
 
 const formatCurrency = (value) => `KES ${Number(value || 0).toLocaleString()}`;
+
+const formatSignedCurrency = (value) => {
+  if (value === null || value === undefined) return 'First recorded cost';
+  const numeric = Number(value || 0);
+  const prefix = numeric > 0 ? '+' : numeric < 0 ? '-' : '';
+  return `${prefix}KES ${Math.abs(numeric).toLocaleString()}`;
+};
+
+const formatPriceChange = (value, percent) => {
+  if (value === null || value === undefined) return 'First recorded cost';
+  const percentLabel = percent === null || percent === undefined
+    ? ''
+    : ` (${Number(percent || 0) >= 0 ? '+' : ''}${Number(percent || 0).toFixed(1)}%)`;
+  return `${formatSignedCurrency(value)}${percentLabel}`;
+};
+
+const getPriceChangeClass = (value) => {
+  if (value === null || value === undefined || Number(value) === 0) return 'price-change-neutral';
+  return Number(value) > 0 ? 'price-change-up' : 'price-change-down';
+};
 
 const csvEscape = (value) => {
   const normalized = value === null || value === undefined ? '' : String(value);
@@ -987,7 +1014,9 @@ const Reports = () => {
       total_qty_ordered: 0,
       total_qty_received: 0,
       total_spend: 0,
-      supplier_count: 0
+      supplier_count: 0,
+      price_change_count: 0,
+      largest_price_change: 0
     };
 
     return (
@@ -996,7 +1025,7 @@ const Reports = () => {
           <ReportStatCard icon={Package} tone="tone-primary" title="Qty Ordered" value={summary.total_qty_ordered || 0} />
           <ReportStatCard icon={Truck} tone="tone-success" title="Qty Received" value={summary.total_qty_received || 0} />
           <ReportStatCard icon={DollarSign} tone="tone-warning" title="Purchase Spend" value={formatCurrency(summary.total_spend)} />
-          <ReportStatCard icon={Building2} tone="tone-danger" title="Suppliers" value={summary.supplier_count || 0} />
+          <ReportStatCard icon={TrendingUp} tone="tone-danger" title="Largest Price Move" value={formatSignedCurrency(summary.largest_price_change)} />
         </div>
 
         <div className="glass-panel main-panel report-detail-panel">
@@ -1015,7 +1044,9 @@ const Reports = () => {
                   <th>SKU</th>
                   <th>Qty Ordered</th>
                   <th>Qty Received</th>
+                  <th>Previous Cost</th>
                   <th>Unit Cost</th>
+                  <th>Price Change</th>
                   <th className="text-right">Line Total</th>
                 </tr>
               </thead>
@@ -1030,13 +1061,19 @@ const Reports = () => {
                     </td>
                     <td>{row.qty_ordered}</td>
                     <td>{row.qty_received}</td>
+                    <td>{row.previous_unit_cost === null || row.previous_unit_cost === undefined ? 'N/A' : formatCurrency(row.previous_unit_cost)}</td>
                     <td>{formatCurrency(row.unit_cost)}</td>
+                    <td>
+                      <span className={`price-change-pill ${getPriceChangeClass(row.price_change)}`}>
+                        {formatPriceChange(row.price_change, row.price_change_pct)}
+                      </span>
+                    </td>
                     <td className="text-right">{formatCurrency(row.line_total)}</td>
                   </tr>
                 ))}
                 {(purchaseHistory.rows || []).length === 0 && (
                   <tr>
-                    <td colSpan="7" className="empty-state">No purchase history found for the selected SKU.</td>
+                    <td colSpan="9" className="empty-state">No purchase history found for the selected SKU.</td>
                   </tr>
                 )}
               </tbody>
@@ -1835,7 +1872,9 @@ const Reports = () => {
                   <th>SKU</th>
                   <th>Qty Ordered</th>
                   <th>Qty Received</th>
+                  <th>Previous Cost</th>
                   <th>Unit Cost</th>
+                  <th>Price Change</th>
                   <th className="text-right">Line Total</th>
                 </tr>
               </thead>
@@ -1847,13 +1886,15 @@ const Reports = () => {
                     <td>{row.variant?.product?.name || 'Unknown item'} {row.variant?.size ? `(${row.variant.size})` : ''}</td>
                     <td>{row.qty_ordered}</td>
                     <td>{row.qty_received}</td>
+                    <td>{row.previous_unit_cost === null || row.previous_unit_cost === undefined ? 'N/A' : Number(row.previous_unit_cost || 0).toLocaleString()}</td>
                     <td>{Number(row.unit_cost || 0).toLocaleString()}</td>
+                    <td>{formatPriceChange(row.price_change, row.price_change_pct)}</td>
                     <td className="text-right">{Number(row.line_total || 0).toLocaleString()}</td>
                   </tr>
                 ))}
                 {(purchaseHistory.rows || []).length === 0 && (
                   <tr>
-                    <td colSpan="7" className="text-right">No purchase history found for the selected SKU.</td>
+                    <td colSpan="9" className="text-right">No purchase history found for the selected SKU.</td>
                   </tr>
                 )}
               </tbody>

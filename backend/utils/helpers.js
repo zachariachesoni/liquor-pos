@@ -25,23 +25,6 @@ export const generateToken = (user) => {
   );
 };
 
-// Validate email format
-export const validateEmail = (email) => {
-  const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return re.test(email);
-};
-
-// Sanitize user input
-export const sanitizeInput = (input) => {
-  if (typeof input !== 'string') return input;
-  return input.replace(/[<>]/g, '');
-};
-
-// Format currency
-export const formatCurrency = (amount) => {
-  return parseFloat(amount).toFixed(2);
-};
-
 // Generate unique invoice number
 export const generateInvoiceNumber = () => {
   const date = new Date();

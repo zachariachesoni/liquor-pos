@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { Plus, Receipt, Calendar, PieChart, X, Download } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { Plus, Calendar, PieChart, X, Download } from 'lucide-react';
 import api from '../utils/api';
 import { useSystemSettings } from '../hooks/useSystemSettings';
 import { getPrintBaseStyles, getPrintBrandMarkup } from '../utils/printBranding';

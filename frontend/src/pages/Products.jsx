@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Package, Plus, Search, Edit2, Trash2, SlidersHorizontal, ArrowLeftRight, X } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Plus, Search, Edit2, Trash2, SlidersHorizontal, ArrowLeftRight, X } from 'lucide-react';
 import api from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { canManageCatalog, canSeeProductCosts } from '../utils/accessControl';
