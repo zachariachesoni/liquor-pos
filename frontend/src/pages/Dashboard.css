@@ -232,7 +232,7 @@ html[data-theme='light'] .sales-kpi-strip svg {
   min-width: 150px;
   min-height: 40px;
   border-radius: var(--radius-md);
-  background: var(--bg-tertiary);
+  background-color: var(--input-bg);
   color: var(--text-primary);
 }
 

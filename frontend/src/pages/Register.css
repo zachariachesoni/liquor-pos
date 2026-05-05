@@ -52,11 +52,24 @@
 .form-group select {
   width: 100%;
   padding: 12px 15px;
+  background-color: #ffffff;
   border: 2px solid #e2e8f0;
   border-radius: 6px;
   font-size: 14px;
   transition: all 0.3s;
   box-sizing: border-box;
+}
+
+.form-group select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  padding-right: 42px;
+  background-image: var(--select-arrow);
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  background-size: 14px 14px;
+  color-scheme: light;
 }
 
 .form-group input:focus,
@@ -68,7 +81,7 @@
 
 .form-group input:disabled,
 .form-group select:disabled {
-  background: #f7fafc;
+  background-color: #f7fafc;
   cursor: not-allowed;
 }
 

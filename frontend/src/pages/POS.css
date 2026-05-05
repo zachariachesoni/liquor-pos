@@ -544,7 +544,7 @@ html[data-theme='light'] .cart-summary {
 
 html[data-theme='light'] .cash-panel,
 html[data-theme='light'] .checkout-toggle-btn {
-  background: rgba(255, 255, 255, 0.78);
+  background: #ffffff;
 }
 
 html[data-theme='light'] .checkout-btn:disabled {
