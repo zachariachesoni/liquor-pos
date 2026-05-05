@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, Bell, CheckCircle2, ClipboardCheck, RefreshCw } from 'lucide-react';
 import api from '../utils/api';
+import PaginationControls from '../components/PaginationControls';
 import './Products.css';
 import './Reports.css';
 import './Notifications.css';
+
+const NOTIFICATION_PAGE_SIZE = 8;
 
 const severityTone = {
   critical: 'notification-critical',
@@ -31,6 +34,7 @@ const Notifications = () => {
   const [toast, setToast] = useState(null);
   const [addressingId, setAddressingId] = useState('');
   const [markingAllRead, setMarkingAllRead] = useState(false);
+  const [notificationPage, setNotificationPage] = useState(1);
 
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
@@ -59,6 +63,17 @@ const Notifications = () => {
       ? notifications
       : notifications.filter((item) => item.status === statusFilter)
   ), [notifications, statusFilter]);
+
+  useEffect(() => {
+    setNotificationPage(1);
+  }, [statusFilter]);
+
+  const notificationTotalPages = Math.max(1, Math.ceil(visibleNotifications.length / NOTIFICATION_PAGE_SIZE));
+  const safeNotificationPage = Math.min(Math.max(notificationPage, 1), notificationTotalPages);
+  const paginatedNotifications = visibleNotifications.slice(
+    (safeNotificationPage - 1) * NOTIFICATION_PAGE_SIZE,
+    safeNotificationPage * NOTIFICATION_PAGE_SIZE
+  );
 
   const counts = useMemo(() => ({
     open: notifications.filter((item) => item.status === 'open').length,
@@ -170,39 +185,48 @@ const Notifications = () => {
             <p>Loading notifications...</p>
           </div>
         ) : visibleNotifications.length ? (
-          <div className="notification-list">
-            {visibleNotifications.map((notification) => (
-              <div className={`notification-card ${severityTone[notification.severity] || severityTone.info}`} key={notification._id}>
-                <div className="notification-icon">
-                  {notification.status === 'addressed'
-                    ? <CheckCircle2 size={22} />
-                    : isSystemChange(notification) ? <RefreshCw size={22} /> : <AlertTriangle size={22} />}
-                </div>
-                <div className="notification-copy">
-                  <div className="notification-title-row">
-                    <h3>{notification.title}</h3>
-                    <span className="badge text-capitalize">{notification.severity}</span>
-                    <span className="report-meta-chip">{typeLabel[notification.type] || 'Notification'}</span>
-                  </div>
-                  <p>{notification.message}</p>
-                  <div className="td-secondary">
+          <>
+            <div className="notification-list">
+              {paginatedNotifications.map((notification) => (
+                <div className={`notification-card ${severityTone[notification.severity] || severityTone.info}`} key={notification._id}>
+                  <div className="notification-icon">
                     {notification.status === 'addressed'
-                      ? `Addressed ${notification.addressed_at ? new Date(notification.addressed_at).toLocaleString() : ''} by ${notification.addressed_by?.username || 'system'}`
-                      : `Updated ${new Date(notification.updatedAt || notification.createdAt).toLocaleString()}`}
+                      ? <CheckCircle2 size={22} />
+                      : isSystemChange(notification) ? <RefreshCw size={22} /> : <AlertTriangle size={22} />}
+                  </div>
+                  <div className="notification-copy">
+                    <div className="notification-title-row">
+                      <h3>{notification.title}</h3>
+                      <span className="badge text-capitalize">{notification.severity}</span>
+                      <span className="report-meta-chip">{typeLabel[notification.type] || 'Notification'}</span>
+                    </div>
+                    <p>{notification.message}</p>
+                    <div className="td-secondary">
+                      {notification.status === 'addressed'
+                        ? `Addressed ${notification.addressed_at ? new Date(notification.addressed_at).toLocaleString() : ''} by ${notification.addressed_by?.username || 'system'}`
+                        : `Updated ${new Date(notification.updatedAt || notification.createdAt).toLocaleString()}`}
+                    </div>
+                  </div>
+                  <div className="notification-actions">
+                    {notification.status === 'open' ? (
+                      <button className="primary-btn" type="button" onClick={() => handleAddress(notification)} disabled={addressingId === notification._id}>
+                        <ClipboardCheck size={18} /> {addressingId === notification._id ? 'Addressing...' : 'Mark Addressed'}
+                      </button>
+                    ) : (
+                      <span className="report-meta-chip">Done</span>
+                    )}
                   </div>
                 </div>
-                <div className="notification-actions">
-                  {notification.status === 'open' ? (
-                    <button className="primary-btn" type="button" onClick={() => handleAddress(notification)} disabled={addressingId === notification._id}>
-                      <ClipboardCheck size={18} /> {addressingId === notification._id ? 'Addressing...' : 'Mark Addressed'}
-                    </button>
-                  ) : (
-                    <span className="report-meta-chip">Done</span>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+            <PaginationControls
+              totalItems={visibleNotifications.length}
+              pageSize={NOTIFICATION_PAGE_SIZE}
+              currentPage={safeNotificationPage}
+              onPageChange={setNotificationPage}
+              label="notifications"
+            />
+          </>
         ) : (
           <div className="empty-state">No notifications in this view.</div>
         )}

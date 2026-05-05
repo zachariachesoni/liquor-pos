@@ -3,9 +3,13 @@ import { ArrowDownRight, AlertTriangle, Truck, X, Search } from 'lucide-react';
 import api from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { canManageInventory as canManageInventoryAccess } from '../utils/accessControl';
+import PaginationControls from '../components/PaginationControls';
 import './Products.css';
 import './Reports.css';
 import './Inventory.css';
+
+const INVENTORY_PAGE_SIZE = 12;
+const REORDER_PAGE_SIZE = 6;
 
 const Inventory = () => {
   const { user } = useAuth();
@@ -16,6 +20,8 @@ const Inventory = () => {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [creatingDraftFor, setCreatingDraftFor] = useState('');
   const [inventorySearch, setInventorySearch] = useState('');
+  const [inventoryPage, setInventoryPage] = useState(1);
+  const [reorderPage, setReorderPage] = useState(1);
   const [toast, setToast] = useState(null);
   const [formData, setFormData] = useState({ variantId: '', quantity: 0, type: 'out', reason: 'damaged', notes: '' });
   const canManageInventory = canManageInventoryAccess(user?.role);
@@ -151,6 +157,25 @@ const Inventory = () => {
     return haystack.includes(normalizedSearch);
   });
 
+  useEffect(() => {
+    setInventoryPage(1);
+    setReorderPage(1);
+  }, [inventorySearch]);
+
+  const inventoryTotalPages = Math.max(1, Math.ceil(filteredInventory.length / INVENTORY_PAGE_SIZE));
+  const safeInventoryPage = Math.min(Math.max(inventoryPage, 1), inventoryTotalPages);
+  const paginatedInventory = filteredInventory.slice(
+    (safeInventoryPage - 1) * INVENTORY_PAGE_SIZE,
+    safeInventoryPage * INVENTORY_PAGE_SIZE
+  );
+
+  const reorderTotalPages = Math.max(1, Math.ceil(filteredReorderSuggestions.length / REORDER_PAGE_SIZE));
+  const safeReorderPage = Math.min(Math.max(reorderPage, 1), reorderTotalPages);
+  const paginatedReorderSuggestions = filteredReorderSuggestions.slice(
+    (safeReorderPage - 1) * REORDER_PAGE_SIZE,
+    safeReorderPage * REORDER_PAGE_SIZE
+  );
+
   return (
     <div className="page-container animate-fade-in">
       <div className="page-header">
@@ -202,7 +227,7 @@ const Inventory = () => {
           </div>
 
           <div className="reorder-suggestion-grid">
-            {filteredReorderSuggestions.map((suggestion) => (
+            {paginatedReorderSuggestions.map((suggestion) => (
               <div key={suggestion.variant_id} className="glass-panel reorder-suggestion-card">
                 <div className="report-record-top">
                   <div>
@@ -255,6 +280,13 @@ const Inventory = () => {
               </div>
             )}
           </div>
+          <PaginationControls
+            totalItems={filteredReorderSuggestions.length}
+            pageSize={REORDER_PAGE_SIZE}
+            currentPage={safeReorderPage}
+            onPageChange={setReorderPage}
+            label="suggestions"
+          />
         </div>
       )}
 
@@ -274,7 +306,7 @@ const Inventory = () => {
               </tr>
             </thead>
             <tbody>
-              {filteredInventory.map(item => {
+              {paginatedInventory.map(item => {
                 const status = getStatus(item);
                 return (
                 <tr key={item._id}>
@@ -305,6 +337,15 @@ const Inventory = () => {
               )}
             </tbody>
           </table>
+          )}
+          {!loading && (
+            <PaginationControls
+              totalItems={filteredInventory.length}
+              pageSize={INVENTORY_PAGE_SIZE}
+              currentPage={safeInventoryPage}
+              onPageChange={setInventoryPage}
+              label="items"
+            />
           )}
         </div>
       </div>

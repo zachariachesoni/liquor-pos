@@ -3,8 +3,11 @@ import { Plus, Calendar, PieChart, X, Download } from 'lucide-react';
 import api from '../utils/api';
 import { useSystemSettings } from '../hooks/useSystemSettings';
 import { getPrintBaseStyles, getPrintBrandMarkup } from '../utils/printBranding';
+import PaginationControls from '../components/PaginationControls';
 import './Products.css';
 import './Expenses.css';
+
+const EXPENSE_PAGE_SIZE = 10;
 
 const calculateBudget = (expenseRows) => {
   const categories = {};
@@ -28,9 +31,16 @@ const Expenses = () => {
   const [showModal, setShowModal] = useState(false);
   const [showBudgetModal, setShowBudgetModal] = useState(false);
   const [toast, setToast] = useState(null);
+  const [expensePage, setExpensePage] = useState(1);
   const [formData, setFormData] = useState({ amount: '', category: 'other', description: '', expenseDate: new Date().toISOString().split('T')[0] });
   const { settings } = useSystemSettings();
   const budget = useMemo(() => calculateBudget(expenses), [expenses]);
+  const expenseTotalPages = Math.max(1, Math.ceil(expenses.length / EXPENSE_PAGE_SIZE));
+  const safeExpensePage = Math.min(Math.max(expensePage, 1), expenseTotalPages);
+  const paginatedExpenses = expenses.slice(
+    (safeExpensePage - 1) * EXPENSE_PAGE_SIZE,
+    safeExpensePage * EXPENSE_PAGE_SIZE
+  );
 
   const showToast = (message = '', error = '') => {
     const text = error || message;
@@ -253,7 +263,7 @@ const Expenses = () => {
               </tr>
             </thead>
             <tbody>
-              {expenses.map(exp => (
+              {paginatedExpenses.map(exp => (
                 <tr key={exp._id}>
                   <td className="td-secondary">
                     <div className="inline-cluster">
@@ -276,6 +286,15 @@ const Expenses = () => {
               )}
             </tbody>
           </table>
+          )}
+          {!loading && (
+            <PaginationControls
+              totalItems={expenses.length}
+              pageSize={EXPENSE_PAGE_SIZE}
+              currentPage={safeExpensePage}
+              onPageChange={setExpensePage}
+              label="expenses"
+            />
           )}
         </div>
       </div>

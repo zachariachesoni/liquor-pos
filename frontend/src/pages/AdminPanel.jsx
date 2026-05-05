@@ -3,7 +3,10 @@ import { ImagePlus, KeyRound, Save, Settings, Shield, Trash2, User, UserPlus } f
 import api from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { getCacheableSettings } from '../hooks/useSystemSettings';
+import PaginationControls from '../components/PaginationControls';
 import './Products.css';
+
+const STAFF_PAGE_SIZE = 8;
 
 const defaultSettings = {
   business_name: 'Liquor POS',
@@ -71,10 +74,17 @@ const AdminPanel = () => {
   const [creatingUser, setCreatingUser] = useState(false);
   const [changingPassword, setChangingPassword] = useState(false);
   const [toast, setToast] = useState(null);
+  const [staffPage, setStaffPage] = useState(1);
 
   const activeEmployees = useMemo(
     () => staff.filter((member) => member.role !== 'admin'),
     [staff]
+  );
+  const staffTotalPages = Math.max(1, Math.ceil(activeEmployees.length / STAFF_PAGE_SIZE));
+  const safeStaffPage = Math.min(Math.max(staffPage, 1), staffTotalPages);
+  const paginatedEmployees = activeEmployees.slice(
+    (safeStaffPage - 1) * STAFF_PAGE_SIZE,
+    safeStaffPage * STAFF_PAGE_SIZE
   );
   const isAdmin = user?.role === 'admin';
 
@@ -583,7 +593,7 @@ const AdminPanel = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {activeEmployees.map((member) => (
+                      {paginatedEmployees.map((member) => (
                         <tr key={member._id}>
                           <td className="font-medium">{member.username}</td>
                           <td>
@@ -606,6 +616,13 @@ const AdminPanel = () => {
                       )}
                     </tbody>
                   </table>
+                  <PaginationControls
+                    totalItems={activeEmployees.length}
+                    pageSize={STAFF_PAGE_SIZE}
+                    currentPage={safeStaffPage}
+                    onPageChange={setStaffPage}
+                    label="staff"
+                  />
                 </div>
               </div>
               )}

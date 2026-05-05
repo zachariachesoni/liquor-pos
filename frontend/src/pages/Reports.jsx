@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import api from '../utils/api';
 import { useSystemSettings } from '../hooks/useSystemSettings';
+import PaginationControls from '../components/PaginationControls';
 import './Products.css';
 import './Reports.css';
 
@@ -97,6 +98,10 @@ const reportOptions = [
   { value: 'inventory', label: 'Inventory Trends' },
   { value: 'top-suppliers', label: 'Top Suppliers' }
 ];
+
+const REPORT_CARD_PAGE_SIZE = 5;
+const REPORT_GRID_PAGE_SIZE = 8;
+const REPORT_TABLE_PAGE_SIZE = 10;
 
 const getPeriodParams = (period, selectedDate) => {
   const params = {};
@@ -251,7 +256,32 @@ const Reports = () => {
   const [marginReport, setMarginReport] = useState(defaultMarginReport);
   const [topSuppliersReport, setTopSuppliersReport] = useState(defaultTopSuppliersReport);
   const [inventoryPerformance, setInventoryPerformance] = useState(defaultInventoryPerformanceReport);
+  const [reportPages, setReportPages] = useState({});
   const { settings } = useSystemSettings();
+
+  const getPagedItems = (pageKey, rows = [], pageSize = REPORT_TABLE_PAGE_SIZE) => {
+    const items = Array.isArray(rows) ? rows : [];
+    const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
+    const currentPage = Math.min(Math.max(reportPages[pageKey] || 1, 1), totalPages);
+    const startIndex = (currentPage - 1) * pageSize;
+
+    return {
+      currentPage,
+      items: items.slice(startIndex, startIndex + pageSize),
+      pageSize,
+      totalItems: items.length
+    };
+  };
+
+  const renderReportPagination = (pageKey, paged, label) => (
+    <PaginationControls
+      totalItems={paged.totalItems}
+      pageSize={paged.pageSize}
+      currentPage={paged.currentPage}
+      onPageChange={(page) => setReportPages((prev) => ({ ...prev, [pageKey]: page }))}
+      label={label}
+    />
+  );
 
   useEffect(() => {
     const fetchLookups = async () => {
@@ -309,6 +339,10 @@ const Reports = () => {
       setSelectedVariant('');
     }
   }, [selectedProductRecord, selectedVariant]);
+
+  useEffect(() => {
+    setReportPages({});
+  }, [period, selectedReportDate, selectedReportRange, reportType, selectedCustomer, selectedProduct, selectedVariant, selectedSupplier]);
 
   useEffect(() => {
     const fetchReport = async () => {
@@ -483,7 +517,10 @@ const Reports = () => {
   const customerMargin = calcMargin(customerReport.summary?.total_profit, customerReport.summary?.total_revenue);
   const productMargin = calcMargin(productReport.summary?.total_profit, productReport.summary?.total_revenue);
 
-  const renderPnLView = () => (
+  const renderPnLView = () => {
+    const expensesPage = getPagedItems('pnl-expenses', pnlData.expenses || [], REPORT_TABLE_PAGE_SIZE);
+
+    return (
     <>
       <div className="reports-grid">
         <ReportStatCard
@@ -589,7 +626,7 @@ const Reports = () => {
                 </tr>
               </thead>
               <tbody>
-                {pnlData.expenses.map((expense) => (
+                {expensesPage.items.map((expense) => (
                   <tr key={expense._id}>
                     <td>{new Date(expense.expenseDate || expense.expense_date || expense.createdAt).toLocaleDateString()}</td>
                     <td>
@@ -607,13 +644,15 @@ const Reports = () => {
                 </tr>
               </tbody>
             </table>
+            {renderReportPagination('pnl-expenses', expensesPage, 'expenses')}
           </div>
         ) : (
           <div className="empty-state">No expenses recorded for this period.</div>
         )}
       </div>
     </>
-  );
+    );
+  };
 
   const renderCustomerView = () => {
     const isAllCustomersReport = customerReport.scope === 'all' || !selectedCustomer;
@@ -624,6 +663,7 @@ const Reports = () => {
       total_items: 0,
       total_profit: 0
     };
+    const customerSalesPage = getPagedItems('customer-sales', customerReport.sales || [], REPORT_CARD_PAGE_SIZE);
 
     return (
       <>
@@ -664,51 +704,54 @@ const Reports = () => {
           </div>
 
           {customerReport.sales?.length ? (
-            <div className="report-card-list">
-              {customerReport.sales.map((sale) => (
-                <div key={sale._id} className="report-record-card">
-                  <div className="report-record-top">
-                    <div>
-                      <strong>{sale.invoice_number}</strong>
-                      <div className="td-secondary">{new Date(sale.createdAt).toLocaleString()}</div>
+            <>
+              <div className="report-card-list">
+                {customerSalesPage.items.map((sale) => (
+                  <div key={sale._id} className="report-record-card">
+                    <div className="report-record-top">
+                      <div>
+                        <strong>{sale.invoice_number}</strong>
+                        <div className="td-secondary">{new Date(sale.createdAt).toLocaleString()}</div>
+                      </div>
+                      <div className="report-record-tags">
+                        <span className="badge text-capitalize">{sale.sale_type || 'retail'}</span>
+                        <span className="badge text-capitalize">{sale.payment_method || 'cash'}</span>
+                      </div>
                     </div>
-                    <div className="report-record-tags">
-                      <span className="badge text-capitalize">{sale.sale_type || 'retail'}</span>
-                      <span className="badge text-capitalize">{sale.payment_method || 'cash'}</span>
-                    </div>
-                  </div>
 
-                  <table className="report-table">
-                    <thead>
-                      <tr>
-                        <th>Item</th>
-                        <th>Qty</th>
-                        <th>Unit Price</th>
-                        <th className="text-right">Subtotal</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(sale.items || []).map((item) => (
-                        <tr key={item.id}>
-                          <td>
-                            <div className="font-medium">{item.productName}</div>
-                            <div className="td-secondary">{item.size} {item.brand ? `| ${item.brand}` : ''}</div>
-                          </td>
-                          <td>{item.quantity}</td>
-                          <td>{formatCurrency(item.unit_price)}</td>
-                          <td className="text-right">{formatCurrency(item.subtotal)}</td>
+                    <table className="report-table">
+                      <thead>
+                        <tr>
+                          <th>Item</th>
+                          <th>Qty</th>
+                          <th>Unit Price</th>
+                          <th className="text-right">Subtotal</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {(sale.items || []).map((item) => (
+                          <tr key={item.id}>
+                            <td>
+                              <div className="font-medium">{item.productName}</div>
+                              <div className="td-secondary">{item.size} {item.brand ? `| ${item.brand}` : ''}</div>
+                            </td>
+                            <td>{item.quantity}</td>
+                            <td>{formatCurrency(item.unit_price)}</td>
+                            <td className="text-right">{formatCurrency(item.subtotal)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
 
-                  <div className="report-record-footer">
-                    <span className="td-secondary">Served by: {sale.user_id?.username || 'Unknown'}</span>
-                    <strong>{formatCurrency(sale.total_amount)}</strong>
+                    <div className="report-record-footer">
+                      <span className="td-secondary">Served by: {sale.user_id?.username || 'Unknown'}</span>
+                      <strong>{formatCurrency(sale.total_amount)}</strong>
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+              {renderReportPagination('customer-sales', customerSalesPage, 'sales')}
+            </>
           ) : (
             <div className="empty-state">No sales recorded for this customer in the selected period.</div>
           )}
@@ -729,6 +772,8 @@ const Reports = () => {
       product_breakdown: []
     };
     const breakdownRows = isAllProductsReport ? summary.product_breakdown || [] : summary.variants || [];
+    const productBreakdownPage = getPagedItems('product-breakdown', breakdownRows, REPORT_GRID_PAGE_SIZE);
+    const productSalesPage = getPagedItems('product-sales', productReport.sales || [], REPORT_TABLE_PAGE_SIZE);
 
     return (
       <>
@@ -769,7 +814,7 @@ const Reports = () => {
           </div>
 
           <div className="variant-summary-grid">
-            {breakdownRows.map((row) => (
+            {productBreakdownPage.items.map((row) => (
               <div key={row.product_id || row.variant_id || row.product_name || row.size} className="variant-summary-card">
                 <strong>{isAllProductsReport ? row.product_name : row.size}</strong>
                 <span>{Number(row.quantity_sold || 0).toLocaleString()} units sold</span>
@@ -781,6 +826,7 @@ const Reports = () => {
               <div className="empty-state">No product sales found for the selected period.</div>
             )}
           </div>
+          {renderReportPagination('product-breakdown', productBreakdownPage, isAllProductsReport ? 'products' : 'variants')}
 
           {productReport.sales?.length > 0 && (
             <div className="table-container">
@@ -797,7 +843,7 @@ const Reports = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {productReport.sales.map((sale) => (
+                  {productSalesPage.items.map((sale) => (
                     <tr key={sale._id}>
                       <td>
                         <div className="font-medium">{sale.sale?.invoice_number}</div>
@@ -818,6 +864,7 @@ const Reports = () => {
                   ))}
                 </tbody>
               </table>
+              {renderReportPagination('product-sales', productSalesPage, 'sales')}
             </div>
           )}
         </div>
@@ -833,6 +880,8 @@ const Reports = () => {
       order_count: 0
     };
     const supplier = supplierStatement.supplier || selectedSupplierRecord;
+    const supplierOrdersPage = getPagedItems('supplier-orders', supplierStatement.purchase_orders || [], REPORT_CARD_PAGE_SIZE);
+    const supplierPaymentsPage = getPagedItems('supplier-payments', supplierStatement.payments || [], REPORT_TABLE_PAGE_SIZE);
 
     return (
       <>
@@ -856,48 +905,51 @@ const Reports = () => {
             </div>
 
             {supplierStatement.purchase_orders?.length ? (
-              <div className="report-card-list">
-                {supplierStatement.purchase_orders.map((purchaseOrder) => (
-                  <div key={purchaseOrder._id} className="report-record-card">
-                    <div className="report-record-top">
-                      <div>
-                        <strong>{purchaseOrder.po_number}</strong>
-                        <div className="td-secondary">{new Date(purchaseOrder.received_at || purchaseOrder.ordered_at || purchaseOrder.createdAt).toLocaleDateString()}</div>
+              <>
+                <div className="report-card-list">
+                  {supplierOrdersPage.items.map((purchaseOrder) => (
+                    <div key={purchaseOrder._id} className="report-record-card">
+                      <div className="report-record-top">
+                        <div>
+                          <strong>{purchaseOrder.po_number}</strong>
+                          <div className="td-secondary">{new Date(purchaseOrder.received_at || purchaseOrder.ordered_at || purchaseOrder.createdAt).toLocaleDateString()}</div>
+                        </div>
+                        <span className="badge text-capitalize">{purchaseOrder.status}</span>
                       </div>
-                      <span className="badge text-capitalize">{purchaseOrder.status}</span>
-                    </div>
-                    <table className="report-table">
-                      <thead>
-                        <tr>
-                          <th>Item</th>
-                          <th>Qty Ordered</th>
-                          <th>Qty Received</th>
-                          <th>Unit Cost</th>
-                          <th className="text-right">Line Total</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {(purchaseOrder.items || []).map((item) => (
-                          <tr key={item._id}>
-                            <td>
-                              <div className="font-medium">{item.variant?.product?.name || 'Unknown item'}</div>
-                              <div className="td-secondary">{item.variant?.size || ''}</div>
-                            </td>
-                            <td>{item.qty_ordered}</td>
-                            <td>{item.qty_received}</td>
-                            <td>{formatCurrency(item.unit_cost)}</td>
-                            <td className="text-right">{formatCurrency(item.line_total)}</td>
+                      <table className="report-table">
+                        <thead>
+                          <tr>
+                            <th>Item</th>
+                            <th>Qty Ordered</th>
+                            <th>Qty Received</th>
+                            <th>Unit Cost</th>
+                            <th className="text-right">Line Total</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                    <div className="report-record-footer">
-                      <span className="td-secondary">Invoice Ref: {purchaseOrder.invoice_reference || 'N/A'}</span>
-                      <strong>{formatCurrency(purchaseOrder.total_amount)}</strong>
+                        </thead>
+                        <tbody>
+                          {(purchaseOrder.items || []).map((item) => (
+                            <tr key={item._id}>
+                              <td>
+                                <div className="font-medium">{item.variant?.product?.name || 'Unknown item'}</div>
+                                <div className="td-secondary">{item.variant?.size || ''}</div>
+                              </td>
+                              <td>{item.qty_ordered}</td>
+                              <td>{item.qty_received}</td>
+                              <td>{formatCurrency(item.unit_cost)}</td>
+                              <td className="text-right">{formatCurrency(item.line_total)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      <div className="report-record-footer">
+                        <span className="td-secondary">Invoice Ref: {purchaseOrder.invoice_reference || 'N/A'}</span>
+                        <strong>{formatCurrency(purchaseOrder.total_amount)}</strong>
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+                {renderReportPagination('supplier-orders', supplierOrdersPage, 'GRNs')}
+              </>
             ) : (
               <div className="empty-state">No GRNs found for this supplier in the selected period.</div>
             )}
@@ -923,7 +975,7 @@ const Reports = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {supplierStatement.payments.map((payment) => (
+                    {supplierPaymentsPage.items.map((payment) => (
                       <tr key={payment._id}>
                         <td>{new Date(payment.paid_at || payment.createdAt).toLocaleDateString()}</td>
                         <td>{payment.po_id?.po_number || 'N/A'}</td>
@@ -933,6 +985,7 @@ const Reports = () => {
                     ))}
                   </tbody>
                 </table>
+                {renderReportPagination('supplier-payments', supplierPaymentsPage, 'payments')}
               </div>
             ) : (
               <div className="empty-state">No payments recorded in the selected period.</div>
@@ -952,6 +1005,7 @@ const Reports = () => {
       due_15_30: 0,
       due_30_plus: 0
     };
+    const payableRowsPage = getPagedItems('payable-aging', payableAging.rows || [], REPORT_TABLE_PAGE_SIZE);
 
     return (
       <>
@@ -981,7 +1035,7 @@ const Reports = () => {
                 </tr>
               </thead>
               <tbody>
-                {(payableAging.rows || []).map((row) => (
+                {payableRowsPage.items.map((row) => (
                   <tr key={row._id}>
                     <td>{row.po_number}</td>
                     <td>{row.supplier?.name || 'Unknown supplier'}</td>
@@ -997,6 +1051,7 @@ const Reports = () => {
                 )}
               </tbody>
             </table>
+            {renderReportPagination('payable-aging', payableRowsPage, 'balances')}
           </div>
         </div>
       </>
@@ -1014,6 +1069,9 @@ const Reports = () => {
       largest_price_change: 0,
       product_breakdown: []
     };
+    const purchaseBreakdownRows = summary.product_breakdown || [];
+    const purchaseBreakdownPage = getPagedItems('purchase-breakdown', purchaseBreakdownRows, REPORT_GRID_PAGE_SIZE);
+    const purchaseRowsPage = getPagedItems('purchase-history', purchaseHistory.rows || [], REPORT_TABLE_PAGE_SIZE);
 
     return (
       <>
@@ -1035,17 +1093,20 @@ const Reports = () => {
               </p>
             </div>
           </div>
-          {isAllProductsReport && (summary.product_breakdown || []).length > 0 && (
-            <div className="variant-summary-grid">
-              {(summary.product_breakdown || []).map((row) => (
-                <div key={row.product_id || row.product_name} className="variant-summary-card">
-                  <strong>{row.product_name}</strong>
-                  <span>{Number(row.qty_received || 0).toLocaleString()} units received</span>
-                  <span>{formatCurrency(row.total_spend)} spend</span>
-                  <span>{row.category || 'Uncategorized'}</span>
-                </div>
-              ))}
-            </div>
+          {isAllProductsReport && purchaseBreakdownRows.length > 0 && (
+            <>
+              <div className="variant-summary-grid">
+                {purchaseBreakdownPage.items.map((row) => (
+                  <div key={row.product_id || row.product_name} className="variant-summary-card">
+                    <strong>{row.product_name}</strong>
+                    <span>{Number(row.qty_received || 0).toLocaleString()} units received</span>
+                    <span>{formatCurrency(row.total_spend)} spend</span>
+                    <span>{row.category || 'Uncategorized'}</span>
+                  </div>
+                ))}
+              </div>
+              {renderReportPagination('purchase-breakdown', purchaseBreakdownPage, 'products')}
+            </>
           )}
           <div className="table-container">
             <table className="report-table">
@@ -1063,7 +1124,7 @@ const Reports = () => {
                 </tr>
               </thead>
               <tbody>
-                {(purchaseHistory.rows || []).map((row) => (
+                {purchaseRowsPage.items.map((row) => (
                   <tr key={row._id}>
                     <td>{new Date(row.received_at || row.ordered_at).toLocaleDateString()}</td>
                     <td>{row.supplier?.name || 'Unknown supplier'}</td>
@@ -1090,13 +1151,17 @@ const Reports = () => {
                 )}
               </tbody>
             </table>
+            {renderReportPagination('purchase-history', purchaseRowsPage, 'purchases')}
           </div>
         </div>
       </>
     );
   };
 
-  const renderMarginErosionView = () => (
+  const renderMarginErosionView = () => {
+    const marginRowsPage = getPagedItems('margin-erosion', marginReport.rows || [], REPORT_TABLE_PAGE_SIZE);
+
+    return (
     <>
       <div className="reports-grid">
         <ReportStatCard icon={AlertTriangle} tone="tone-warning" title="Threshold" value={`${marginReport.threshold || 0}%`} />
@@ -1125,7 +1190,7 @@ const Reports = () => {
               </tr>
             </thead>
             <tbody>
-              {(marginReport.rows || []).map((row) => (
+              {marginRowsPage.items.map((row) => (
                 <tr key={row.variant_id}>
                   <td>
                     <div className="font-medium">{row.product?.name || 'Unknown item'}</div>
@@ -1145,10 +1210,12 @@ const Reports = () => {
               )}
             </tbody>
           </table>
+          {renderReportPagination('margin-erosion', marginRowsPage, 'SKUs')}
         </div>
       </div>
     </>
-  );
+    );
+  };
 
   const renderInventoryPerformanceView = () => {
     const summary = inventoryPerformance.summary || {
@@ -1159,6 +1226,11 @@ const Reports = () => {
       net_movement: 0,
       inventory_value_change: 0
     };
+    const dailySalesPage = getPagedItems('inventory-daily-sales', inventoryPerformance.daily_sales || [], REPORT_TABLE_PAGE_SIZE);
+    const bestSellersPage = getPagedItems('inventory-best-sellers', inventoryPerformance.best_sellers || [], REPORT_TABLE_PAGE_SIZE);
+    const slowMoversPage = getPagedItems('inventory-slow-movers', inventoryPerformance.slow_movers || [], REPORT_TABLE_PAGE_SIZE);
+    const trendingProductsPage = getPagedItems('inventory-trending-products', inventoryPerformance.trending_products || [], REPORT_TABLE_PAGE_SIZE);
+    const stockMovementsPage = getPagedItems('inventory-stock-movements', inventoryPerformance.stock_movements || [], REPORT_TABLE_PAGE_SIZE);
 
     return (
       <>
@@ -1187,7 +1259,7 @@ const Reports = () => {
                 </tr>
               </thead>
               <tbody>
-                {(inventoryPerformance.daily_sales || []).map((day) => (
+                {dailySalesPage.items.map((day) => (
                   <tr key={day.date}>
                     <td>{new Date(`${day.date}T00:00:00`).toLocaleDateString()}</td>
                     <td>{day.sales_count}</td>
@@ -1201,6 +1273,7 @@ const Reports = () => {
                 )}
               </tbody>
             </table>
+            {renderReportPagination('inventory-daily-sales', dailySalesPage, 'days')}
           </div>
         </div>
 
@@ -1223,7 +1296,7 @@ const Reports = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {(inventoryPerformance.best_sellers || []).map((row) => (
+                  {bestSellersPage.items.map((row) => (
                     <tr key={row.variant_id}>
                       <td>
                         <div className="font-medium">{row.product_name}</div>
@@ -1241,6 +1314,7 @@ const Reports = () => {
                   )}
                 </tbody>
               </table>
+              {renderReportPagination('inventory-best-sellers', bestSellersPage, 'SKUs')}
             </div>
           </div>
 
@@ -1262,7 +1336,7 @@ const Reports = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {(inventoryPerformance.slow_movers || []).map((row) => (
+                  {slowMoversPage.items.map((row) => (
                     <tr key={row.variant_id}>
                       <td>
                         <div className="font-medium">{row.product_name}</div>
@@ -1280,6 +1354,7 @@ const Reports = () => {
                   )}
                 </tbody>
               </table>
+              {renderReportPagination('inventory-slow-movers', slowMoversPage, 'SKUs')}
             </div>
           </div>
         </div>
@@ -1303,7 +1378,7 @@ const Reports = () => {
                 </tr>
               </thead>
               <tbody>
-                {(inventoryPerformance.trending_products || []).map((row) => (
+                {trendingProductsPage.items.map((row) => (
                   <tr key={row.variant_id}>
                     <td>
                       <div className="font-medium">{row.product_name}</div>
@@ -1322,6 +1397,7 @@ const Reports = () => {
                 )}
               </tbody>
             </table>
+            {renderReportPagination('inventory-trending-products', trendingProductsPage, 'products')}
           </div>
         </div>
 
@@ -1348,7 +1424,7 @@ const Reports = () => {
                 </tr>
               </thead>
               <tbody>
-                {(inventoryPerformance.stock_movements || []).map((row) => (
+                {stockMovementsPage.items.map((row) => (
                   <tr key={row._id}>
                     <td>{new Date(row.date).toLocaleString()}</td>
                     <td>
@@ -1368,6 +1444,7 @@ const Reports = () => {
                 )}
               </tbody>
             </table>
+            {renderReportPagination('inventory-stock-movements', stockMovementsPage, 'movements')}
           </div>
         </div>
       </>
@@ -1380,6 +1457,7 @@ const Reports = () => {
       outstanding_balance: 0,
       orders_count: 0
     };
+    const topSuppliersPage = getPagedItems('top-suppliers', topSuppliersReport.rows || [], REPORT_TABLE_PAGE_SIZE);
 
     return (
       <>
@@ -1410,7 +1488,7 @@ const Reports = () => {
                 </tr>
               </thead>
               <tbody>
-                {(topSuppliersReport.rows || []).map((row) => (
+                {topSuppliersPage.items.map((row) => (
                   <tr key={row.supplier_id}>
                     <td>
                       <div className="font-medium">{row.supplier_name}</div>
@@ -1430,6 +1508,7 @@ const Reports = () => {
                 )}
               </tbody>
             </table>
+            {renderReportPagination('top-suppliers', topSuppliersPage, 'suppliers')}
           </div>
         </div>
       </>
