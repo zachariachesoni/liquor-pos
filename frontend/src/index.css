@@ -93,7 +93,6 @@ body {
   background-color: var(--bg-main);
   color: var(--text-primary);
   -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
 }
 
 /* Glassmorphism Utilities */
@@ -109,6 +108,7 @@ body {
 .glass-panel {
   background: var(--glass-bg);
   backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border: var(--glass-border);
   border-radius: var(--radius-lg);
 }
@@ -169,19 +169,9 @@ html[data-theme='light'] .loading-skeleton::after {
 }
 
 /* Scrollbar Styling */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-::-webkit-scrollbar-track {
-  background: var(--bg-main);
-}
-::-webkit-scrollbar-thumb {
-  background: var(--bg-tertiary);
-  border-radius: 4px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: var(--text-muted);
+html {
+  scrollbar-width: thin;
+  scrollbar-color: var(--bg-tertiary) var(--bg-main);
 }
 
 /* Common UI Animations */
