@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, Bell, CheckCircle2, ClipboardCheck, RefreshCw } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { AlertTriangle, ArrowRight, Bell, CheckCircle2, ClipboardCheck, RefreshCw } from 'lucide-react';
 import api from '../utils/api';
 import PaginationControls from '../components/PaginationControls';
 import './Products.css';
@@ -27,7 +28,26 @@ const isSystemChange = (notification) => (
   || notification.source_key?.startsWith('average-cost:')
 );
 
+const getNotificationAction = (notification) => {
+  const sourceKey = notification.source_key || '';
+
+  if (sourceKey.startsWith('out-of-stock:') || sourceKey.startsWith('low-stock:') || notification.type === 'inventory') {
+    return { label: 'Open Inventory', path: '/inventory' };
+  }
+
+  if (sourceKey.startsWith('overdue-payable:')) {
+    return { label: 'Open Payables', path: '/suppliers' };
+  }
+
+  if (sourceKey.startsWith('price-change:') || sourceKey.startsWith('average-cost:') || notification.type === 'supplier') {
+    return { label: 'Open Suppliers', path: '/suppliers' };
+  }
+
+  return null;
+};
+
 const Notifications = () => {
+  const navigate = useNavigate();
   const [notifications, setNotifications] = useState([]);
   const [statusFilter, setStatusFilter] = useState('open');
   const [loading, setLoading] = useState(true);
@@ -88,6 +108,7 @@ const Notifications = () => {
       await api.patch(`/notifications/${notification._id}/address`, {
         resolution_note: 'Reviewed and addressed from the notifications tab.'
       });
+      window.dispatchEvent(new Event('notifications:updated'));
       showToast('Notification marked as addressed.');
       await fetchNotifications();
     } catch (error) {
@@ -104,6 +125,7 @@ const Notifications = () => {
       await api.patch('/notifications/address-all', {
         resolution_note: 'Marked as read from the notifications tab.'
       });
+      window.dispatchEvent(new Event('notifications:updated'));
       showToast('All open notifications marked as read.');
       await fetchNotifications();
     } catch (error) {
@@ -112,6 +134,22 @@ const Notifications = () => {
     } finally {
       setMarkingAllRead(false);
     }
+  };
+
+  const handleOpenAction = (notification) => {
+    const action = getNotificationAction(notification);
+    if (!action) {
+      return;
+    }
+
+    navigate(action.path, {
+      state: {
+        fromNotification: true,
+        notificationId: notification._id,
+        sourceKey: notification.source_key,
+        metadata: notification.metadata
+      }
+    });
   };
 
   return (
@@ -187,37 +225,46 @@ const Notifications = () => {
         ) : visibleNotifications.length ? (
           <>
             <div className="notification-list">
-              {paginatedNotifications.map((notification) => (
-                <div className={`notification-card ${severityTone[notification.severity] || severityTone.info}`} key={notification._id}>
-                  <div className="notification-icon">
-                    {notification.status === 'addressed'
-                      ? <CheckCircle2 size={22} />
-                      : isSystemChange(notification) ? <RefreshCw size={22} /> : <AlertTriangle size={22} />}
-                  </div>
-                  <div className="notification-copy">
-                    <div className="notification-title-row">
-                      <h3>{notification.title}</h3>
-                      <span className="badge text-capitalize">{notification.severity}</span>
-                      <span className="report-meta-chip">{typeLabel[notification.type] || 'Notification'}</span>
-                    </div>
-                    <p>{notification.message}</p>
-                    <div className="td-secondary">
+              {paginatedNotifications.map((notification) => {
+                const notificationAction = getNotificationAction(notification);
+
+                return (
+                  <div className={`notification-card ${severityTone[notification.severity] || severityTone.info}`} key={notification._id}>
+                    <div className="notification-icon">
                       {notification.status === 'addressed'
-                        ? `Addressed ${notification.addressed_at ? new Date(notification.addressed_at).toLocaleString() : ''} by ${notification.addressed_by?.username || 'system'}`
-                        : `Updated ${new Date(notification.updatedAt || notification.createdAt).toLocaleString()}`}
+                        ? <CheckCircle2 size={22} />
+                        : isSystemChange(notification) ? <RefreshCw size={22} /> : <AlertTriangle size={22} />}
+                    </div>
+                    <div className="notification-copy">
+                      <div className="notification-title-row">
+                        <h3>{notification.title}</h3>
+                        <span className="badge text-capitalize">{notification.severity}</span>
+                        <span className="report-meta-chip">{typeLabel[notification.type] || 'Notification'}</span>
+                      </div>
+                      <p>{notification.message}</p>
+                      <div className="td-secondary">
+                        {notification.status === 'addressed'
+                          ? `Addressed ${notification.addressed_at ? new Date(notification.addressed_at).toLocaleString() : ''} by ${notification.addressed_by?.username || 'system'}`
+                          : `Updated ${new Date(notification.updatedAt || notification.createdAt).toLocaleString()}`}
+                      </div>
+                    </div>
+                    <div className="notification-actions">
+                      {notificationAction && (
+                        <button className="icon-btn" type="button" onClick={() => handleOpenAction(notification)} disabled={addressingId === notification._id}>
+                          <ArrowRight size={18} /> {notificationAction.label}
+                        </button>
+                      )}
+                      {notification.status === 'open' ? (
+                        <button className="primary-btn" type="button" onClick={() => handleAddress(notification)} disabled={addressingId === notification._id}>
+                          <ClipboardCheck size={18} /> {addressingId === notification._id ? 'Addressing...' : 'Mark Addressed'}
+                        </button>
+                      ) : (
+                        <span className="report-meta-chip">Done</span>
+                      )}
                     </div>
                   </div>
-                  <div className="notification-actions">
-                    {notification.status === 'open' ? (
-                      <button className="primary-btn" type="button" onClick={() => handleAddress(notification)} disabled={addressingId === notification._id}>
-                        <ClipboardCheck size={18} /> {addressingId === notification._id ? 'Addressing...' : 'Mark Addressed'}
-                      </button>
-                    ) : (
-                      <span className="report-meta-chip">Done</span>
-                    )}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
             <PaginationControls
               totalItems={visibleNotifications.length}

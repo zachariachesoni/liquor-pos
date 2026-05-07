@@ -98,7 +98,10 @@ html[data-theme='light'] .notification-info .notification-icon {
 
 .notification-actions {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
+  gap: 0.65rem;
+  flex-wrap: wrap;
 }
 
 @media (max-width: 720px) {
@@ -113,6 +116,7 @@ html[data-theme='light'] .notification-info .notification-icon {
   }
 
   .notification-actions,
+  .notification-actions .icon-btn,
   .notification-actions .primary-btn {
     width: 100%;
   }

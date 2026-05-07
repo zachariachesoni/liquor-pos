@@ -531,89 +531,151 @@ const Suppliers = () => {
     }));
   };
 
-  const printGrn = (purchaseOrder) => {
-    if (!purchaseOrder) {
-      return;
-    }
-
+  const openGrnPrintWindow = () => {
     const printWindow = window.open('', '_blank', 'width=960,height=900');
     if (!printWindow) {
-      return;
+      return null;
     }
-
-    const rows = (purchaseOrder.items || []).map((item) => `
-      <tr>
-        <td style="padding:10px;border-bottom:1px solid #e5e7eb;">
-          <strong>${item.variant?.product?.name || 'Unknown item'}</strong>
-          <div style="font-size:12px;color:#64748b;">SKU: ${getVariantSku(item.variant)} | ${item.variant?.size || ''}</div>
-        </td>
-        <td style="padding:10px;border-bottom:1px solid #e5e7eb;text-align:center;">${item.qty_ordered}</td>
-        <td style="padding:10px;border-bottom:1px solid #e5e7eb;text-align:center;">${item.qty_received}</td>
-        <td style="padding:10px;border-bottom:1px solid #e5e7eb;text-align:right;">${Number(item.unit_cost || 0).toLocaleString()}</td>
-        <td style="padding:10px;border-bottom:1px solid #e5e7eb;text-align:right;">${Number(item.line_total || 0).toLocaleString()}</td>
-      </tr>
-    `).join('');
 
     printWindow.document.write(`
       <html>
         <head>
-          <title>GRN ${purchaseOrder.po_number}</title>
-          <style>
-            ${getPrintBaseStyles(`
-              body { padding: 32px; color: #0f172a; }
-              .print-title { font-size: 30px; }
-              .panel { border:1px solid #e2e8f0; border-radius:16px; padding:16px; background:#f8fafc; }
-              table { margin-top:16px; }
-              th { padding:10px; background:#f8fafc; border-bottom:2px solid #cbd5e1; }
-            `)}
-            .panel { border:1px solid #e2e8f0; border-radius:16px; padding:16px; }
-            .summary { margin-top:20px; text-align:right; font-weight:700; }
-          </style>
+          <title>Preparing GRN</title>
+          <style>${getPrintBaseStyles('body { padding: 32px; } .print-page { text-align:center; padding-top:80px; }')}</style>
         </head>
         <body>
           <div class="print-page">
-            ${getPrintBrandMarkup({
-              businessName: settings.business_name,
-              businessLogoUrl: settings.business_logo_url,
-              documentTitle: 'Goods Received Note',
-              subtitle: 'Received supplier stock and liability summary',
-              metaRows: [
-                `<strong>PO / GRN:</strong> ${purchaseOrder.po_number}`,
-                `<strong>Supplier:</strong> ${purchaseOrder.supplier?.name || 'Unknown supplier'}`,
-                `<strong>Ordered:</strong> ${purchaseOrder.ordered_at ? new Date(purchaseOrder.ordered_at).toLocaleDateString() : 'N/A'}`,
-                `<strong>Received:</strong> ${purchaseOrder.received_at ? new Date(purchaseOrder.received_at).toLocaleDateString() : 'Pending'}`
-              ]
-            })}
-            <div class="panel">
-              <div><strong>Status:</strong> ${purchaseOrder.status}</div>
-              <div><strong>Payment:</strong> ${purchaseOrder.payment_status}</div>
-              <div><strong>Invoice Ref:</strong> ${purchaseOrder.invoice_reference || 'N/A'}</div>
-              <div><strong>Total:</strong> KES ${Number(purchaseOrder.total_amount || 0).toLocaleString()}</div>
-            </div>
-            <table>
-              <thead>
-                <tr>
-                  <th>Item</th>
-                  <th>Qty Ordered</th>
-                  <th>Qty Received</th>
-                  <th>Unit Cost</th>
-                  <th>Line Total</th>
-                </tr>
-              </thead>
-              <tbody>${rows}</tbody>
-            </table>
-            <div class="summary">Outstanding Balance: KES ${Number(purchaseOrder.balance_outstanding || 0).toLocaleString()}</div>
-            <p style="margin-top:24px;color:#64748b;">${purchaseOrder.notes || ''}</p>
+            <h1 class="print-title">Preparing Goods Received Note...</h1>
+            <p class="print-subtitle">Your printable GRN is loading.</p>
           </div>
         </body>
       </html>
     `);
     printWindow.document.close();
-    printWindow.focus();
-    printWindow.print();
+    return printWindow;
+  };
+
+  const printGrn = async (purchaseOrder, event, existingPrintWindow = null) => {
+    event?.preventDefault();
+    event?.stopPropagation();
+
+    if (!purchaseOrder) {
+      return;
+    }
+
+    const printWindow = existingPrintWindow || openGrnPrintWindow();
+    if (!printWindow) {
+      setPageFeedback('', 'Allow pop-ups so the goods received note can open for printing.');
+      return;
+    }
+
+    try {
+      let printableOrder = purchaseOrder;
+      if (purchaseOrder._id) {
+        try {
+          const detailResponse = await api.get(`/purchase-orders/${purchaseOrder._id}`);
+          printableOrder = detailResponse.data.data || purchaseOrder;
+        } catch (detailError) {
+          console.warn('Could not refresh GRN details before printing', detailError);
+        }
+      }
+
+      const rows = (printableOrder.items || []).map((item) => {
+        const lineTotal = Number(item.line_total || 0) || (Number(item.qty_received || 0) * Number(item.unit_cost || 0));
+
+        return `
+          <tr>
+            <td style="padding:10px;border-bottom:1px solid #e5e7eb;">
+              <strong>${item.variant?.product?.name || 'Unknown item'}</strong>
+              <div style="font-size:12px;color:#64748b;">SKU: ${getVariantSku(item.variant)} | ${item.variant?.size || ''}</div>
+            </td>
+            <td style="padding:10px;border-bottom:1px solid #e5e7eb;text-align:center;">${item.qty_ordered}</td>
+            <td style="padding:10px;border-bottom:1px solid #e5e7eb;text-align:center;">${item.qty_received}</td>
+            <td style="padding:10px;border-bottom:1px solid #e5e7eb;text-align:right;">${Number(item.unit_cost || 0).toLocaleString()}</td>
+            <td style="padding:10px;border-bottom:1px solid #e5e7eb;text-align:right;">${lineTotal.toLocaleString()}</td>
+          </tr>
+        `;
+      }).join('') || '<tr><td colspan="5" style="padding:14px;text-align:center;color:#64748b;">No received items found for this GRN.</td></tr>';
+
+      printWindow.document.open();
+      printWindow.document.write(`
+        <html>
+          <head>
+            <title>GRN ${printableOrder.po_number}</title>
+            <style>
+              ${getPrintBaseStyles(`
+                body { padding: 32px; color: #0f172a; }
+                .print-title { font-size: 30px; }
+                .panel { border:1px solid #e2e8f0; border-radius:16px; padding:16px; background:#f8fafc; }
+                table { margin-top:16px; }
+                th { padding:10px; background:#f8fafc; border-bottom:2px solid #cbd5e1; }
+              `)}
+              .panel { border:1px solid #e2e8f0; border-radius:16px; padding:16px; }
+              .summary { margin-top:20px; text-align:right; font-weight:700; }
+            </style>
+          </head>
+          <body>
+            <div class="print-page">
+              ${getPrintBrandMarkup({
+                businessName: settings.business_name,
+                businessLogoUrl: settings.business_logo_url,
+                documentTitle: 'Goods Received Note',
+                subtitle: 'Received supplier stock and liability summary',
+                metaRows: [
+                  `<strong>PO / GRN:</strong> ${printableOrder.po_number}`,
+                  `<strong>Supplier:</strong> ${printableOrder.supplier?.name || 'Unknown supplier'}`,
+                  `<strong>Ordered:</strong> ${printableOrder.ordered_at ? new Date(printableOrder.ordered_at).toLocaleDateString() : 'N/A'}`,
+                  `<strong>Received:</strong> ${printableOrder.received_at ? new Date(printableOrder.received_at).toLocaleDateString() : 'Pending'}`
+                ]
+              })}
+              <div class="panel">
+                <div><strong>Status:</strong> ${printableOrder.status}</div>
+                <div><strong>Payment:</strong> ${printableOrder.payment_status}</div>
+                <div><strong>Invoice Ref:</strong> ${printableOrder.invoice_reference || 'N/A'}</div>
+                <div><strong>Total:</strong> KES ${Number(printableOrder.total_amount || 0).toLocaleString()}</div>
+              </div>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Item</th>
+                    <th>Qty Ordered</th>
+                    <th>Qty Received</th>
+                    <th>Unit Cost</th>
+                    <th>Line Total</th>
+                  </tr>
+                </thead>
+                <tbody>${rows}</tbody>
+              </table>
+              <div class="summary">Outstanding Balance: KES ${Number(printableOrder.balance_outstanding || 0).toLocaleString()}</div>
+              <p style="margin-top:24px;color:#64748b;">${printableOrder.notes || ''}</p>
+            </div>
+          </body>
+        </html>
+      `);
+
+      let hasPrinted = false;
+      const runPrint = () => {
+        if (hasPrinted) return;
+        hasPrinted = true;
+        printWindow.focus();
+        printWindow.print();
+      };
+
+      printWindow.addEventListener('load', () => printWindow.setTimeout(runPrint, 250), { once: true });
+      printWindow.document.close();
+      printWindow.setTimeout(runPrint, 650);
+    } catch (error) {
+      console.error('Failed to print goods received note', error);
+      if (!printWindow.closed) {
+        printWindow.close();
+      }
+      setPageFeedback('', error.response?.data?.message || 'Failed to print goods received note.');
+    }
   };
 
   const handleSavePurchase = async (mode) => {
+    let reservedPrintWindow = null;
+
     try {
       setSavingPurchase(true);
       const payloadItems = purchaseForm.items
@@ -636,6 +698,13 @@ const Suppliers = () => {
 
       if (payloadItems.length === 0) {
         throw new Error('Add at least one line item before saving');
+      }
+
+      if (mode === 'received') {
+        reservedPrintWindow = openGrnPrintWindow();
+        if (!reservedPrintWindow) {
+          throw new Error('Allow pop-ups so the goods received note can open for printing.');
+        }
       }
 
       let response;
@@ -689,10 +758,13 @@ const Suppliers = () => {
       resetPurchaseForm(purchaseForm.supplier_id);
 
       if (mode === 'received') {
-        printGrn(purchaseOrder);
+        await printGrn(purchaseOrder, undefined, reservedPrintWindow);
       }
     } catch (error) {
       console.error('Failed to save purchase order', error);
+      if (reservedPrintWindow && !reservedPrintWindow.closed) {
+        reservedPrintWindow.close();
+      }
       setPageFeedback('', error.response?.data?.message || error.message || 'Failed to save purchase order');
     } finally {
       setSavingPurchase(false);
@@ -1083,10 +1155,10 @@ const Suppliers = () => {
                 <Plus size={18} /> Add Line Item
               </button>
               <div className="action-group">
-                <button className="icon-btn" onClick={() => handleSavePurchase('draft')} disabled={savingPurchase}>
+                <button className="icon-btn" type="button" onClick={() => handleSavePurchase('draft')} disabled={savingPurchase}>
                   <FilePlus2 size={18} /> Save Draft PO
                 </button>
-                <button className="primary-btn" onClick={() => handleSavePurchase('received')} disabled={savingPurchase}>
+                <button className="primary-btn" type="button" onClick={() => handleSavePurchase('received')} disabled={savingPurchase}>
                   <Printer size={18} /> Receive & Print GRN
                 </button>
               </div>
@@ -1185,7 +1257,7 @@ const Suppliers = () => {
                       </div>
                     </div>
                     <div className="report-record-footer">
-                      <button className="icon-btn" onClick={() => printGrn(purchaseOrder)}>
+                      <button className="icon-btn" type="button" onClick={(event) => printGrn(purchaseOrder, event)}>
                         <Printer size={16} /> Print
                       </button>
                     </div>
@@ -1262,7 +1334,7 @@ const Suppliers = () => {
                           <button className="action-icon" title="Record payment" onClick={() => handleOpenPaymentModal(purchaseOrder)}>
                             <CreditCard size={16} />
                           </button>
-                          <button className="action-icon" title="Print GRN" onClick={() => printGrn(purchaseOrder)}>
+                          <button className="action-icon" type="button" title="Print GRN" onClick={(event) => printGrn(purchaseOrder, event)}>
                             <Printer size={16} />
                           </button>
                         </div>
@@ -1558,7 +1630,7 @@ const Suppliers = () => {
                           </div>
                           <div className="report-record-footer">
                             {['received', 'partially_received'].includes(purchaseOrder.status) ? (
-                              <button className="icon-btn" onClick={() => printGrn(purchaseOrder)}>
+                              <button className="icon-btn" type="button" onClick={(event) => printGrn(purchaseOrder, event)}>
                                 <Printer size={16} /> Print GRN
                               </button>
                             ) : (

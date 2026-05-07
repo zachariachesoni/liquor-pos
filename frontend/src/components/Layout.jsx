@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { LayoutDashboard, ShoppingCart, Package, ClipboardList, FileBarChart, Users, Receipt, PieChart, LogOut, Menu, X, Shield, Truck, PanelLeftClose, PanelLeftOpen, Bell, Moon, Sun } from 'lucide-react';
+import api from '../utils/api';
 import { useSystemSettings } from '../hooks/useSystemSettings';
 import { INVENTORY_ROUTE_ROLES, PRODUCTS_ROUTE_ROLES, SALES_ROUTE_ROLES } from '../utils/accessControl';
 import './Layout.css';
@@ -13,11 +14,49 @@ const Layout = ({ children }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [theme, setTheme] = useState(() => localStorage.getItem('system_theme') || 'dark');
+  const [openNotificationCount, setOpenNotificationCount] = useState(0);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
     localStorage.setItem('system_theme', theme);
   }, [theme]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchOpenNotificationCount = async () => {
+      if (!user || user.role !== 'admin') {
+        if (isMounted) {
+          setOpenNotificationCount(0);
+        }
+        return;
+      }
+
+      try {
+        const response = await api.get('/notifications', { params: { status: 'open' } });
+        const notifications = response.data.data || [];
+        if (isMounted) {
+          setOpenNotificationCount(response.data.count ?? notifications.length);
+        }
+      } catch (error) {
+        if (isMounted) {
+          setOpenNotificationCount(0);
+        }
+      }
+    };
+
+    fetchOpenNotificationCount();
+    const intervalId = window.setInterval(fetchOpenNotificationCount, 60000);
+    window.addEventListener('focus', fetchOpenNotificationCount);
+    window.addEventListener('notifications:updated', fetchOpenNotificationCount);
+
+    return () => {
+      isMounted = false;
+      window.clearInterval(intervalId);
+      window.removeEventListener('focus', fetchOpenNotificationCount);
+      window.removeEventListener('notifications:updated', fetchOpenNotificationCount);
+    };
+  }, [user]);
 
   const handleLogout = () => {
     logout();
@@ -33,7 +72,7 @@ const Layout = ({ children }) => {
     { name: 'Reports', path: '/reports', icon: <PieChart size={20} />, roles: ['admin', 'manager'] },
     { name: 'Sales', path: '/sales', icon: <FileBarChart size={20} />, roles: SALES_ROUTE_ROLES },
     { name: 'Customers', path: '/customers', icon: <Users size={20} />, roles: ['admin', 'manager', 'cashier'] },
-    { name: 'Notifications', path: '/notifications', icon: <Bell size={20} />, roles: ['admin'] },
+    { name: 'Notifications', path: '/notifications', icon: <Bell size={20} />, roles: ['admin'], hasAlert: openNotificationCount > 0 },
     { name: 'Admin', path: '/admin', icon: <Shield size={20} />, roles: ['admin', 'manager', 'cashier'] },
     { name: 'Expenses', path: '/expenses', icon: <Receipt size={20} />, roles: ['admin', 'manager'] }
   ].filter((item) => user && item.roles.includes(user.role));
@@ -84,8 +123,11 @@ const Layout = ({ children }) => {
               onClick={() => setMobileMenuOpen(false)}
               title={item.name}
             >
-              {item.icon}
-              <span>{item.name}</span>
+              <span className="nav-icon-wrap">
+                {item.icon}
+                {item.hasAlert && <span className="nav-alert-dot" aria-label="Open notifications" />}
+              </span>
+              <span className="nav-label">{item.name}</span>
             </NavLink>
           ))}
         </nav>

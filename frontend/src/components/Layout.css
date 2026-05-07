@@ -147,7 +147,31 @@ html[data-theme='light'] .brand-icon {
   flex-shrink: 0;
 }
 
-.nav-item span,
+.nav-icon-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.nav-alert-dot {
+  position: absolute;
+  top: -5px;
+  right: -6px;
+  width: 11px;
+  height: 11px;
+  border-radius: 999px;
+  background: #ef4444;
+  border: 2px solid rgba(15, 23, 42, 0.98);
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.14);
+}
+
+html[data-theme='light'] .nav-alert-dot {
+  border-color: #ffffff;
+}
+
+.nav-label,
 .theme-toggle-btn span,
 .logout-btn span {
   max-width: 140px;
@@ -271,7 +295,7 @@ html[data-theme='light'] .nav-item.active {
 }
 
 .sidebar-collapsed .brand h2,
-.sidebar-collapsed .nav-item span,
+.sidebar-collapsed .nav-label,
 .sidebar-collapsed .theme-toggle-btn span,
 .sidebar-collapsed .logout-btn span {
   max-width: 0;
@@ -391,7 +415,7 @@ html[data-theme='light'] .nav-item.active {
   }
 
   .sidebar-collapsed .brand h2,
-  .sidebar-collapsed .nav-item span,
+  .sidebar-collapsed .nav-label,
   .sidebar-collapsed .theme-toggle-btn span,
   .sidebar-collapsed .logout-btn span {
     max-width: 160px;
