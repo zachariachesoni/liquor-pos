@@ -60,7 +60,6 @@ const Dashboard = () => {
   const trendWindow = stats?.trendWindow || { days: trendDays, label: `Last ${trendDays} days` };
   const trendingProduct = stats?.trendingProduct;
   const trendingProducts = stats?.trendingProducts || [];
-  const averageCostUsage = stats?.averageCostUsage;
 
   const COLORS = ['#6366f1', '#ec4899', '#f59e0b', '#10b981'];
 
@@ -227,48 +226,6 @@ const Dashboard = () => {
                 ))}
               </div>
 
-              {canViewCostDetails && averageCostUsage && (
-                <div className="average-cost-audit">
-                  <div className="average-cost-header">
-                    <div>
-                      <h4>Average Cost Usage</h4>
-                      <p>Recent sales and stock movements using the current average buying price.</p>
-                    </div>
-                    <span className="report-meta-chip">
-                      Avg cost {formatCurrency(averageCostUsage.average_buying_price)}
-                    </span>
-                  </div>
-                  <div className="average-cost-summary">
-                    <div>
-                      <span>Units Costed</span>
-                      <strong>{formatNumber(averageCostUsage.summary?.units_costed)}</strong>
-                    </div>
-                    <div>
-                      <span>COGS From Average</span>
-                      <strong>{formatCurrency(averageCostUsage.summary?.cogs_from_average)}</strong>
-                    </div>
-                    <div>
-                      <span>Sales Rows</span>
-                      <strong>{formatNumber(averageCostUsage.summary?.sale_rows)}</strong>
-                    </div>
-                  </div>
-                  <div className="average-cost-list">
-                    {(averageCostUsage.recent_sales || []).slice(0, 4).map((sale) => (
-                      <div className="average-cost-row" key={sale._id}>
-                        <div>
-                          <strong>{sale.invoice_number}</strong>
-                          <small>{formatDate(sale.date)} | Qty {formatNumber(sale.quantity)}</small>
-                        </div>
-                        <span>Cost used {formatCurrency(sale.average_cost_used)}</span>
-                        <span>COGS {formatCurrency(sale.cogs)}</span>
-                      </div>
-                    ))}
-                    {(averageCostUsage.recent_sales || []).length === 0 && (
-                      <div className="td-secondary">No recent sale rows used this average cost in the selected period.</div>
-                    )}
-                  </div>
-                </div>
-              )}
             </>
           ) : (
             <div className="dashboard-empty-state">
