@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Download, ReceiptText, ChevronRight, X, Search, DollarSign, Package, TrendingUp, Wallet } from 'lucide-react';
+import { Download, ReceiptText, ChevronRight, X, Search, DollarSign, Package, TrendingUp, Wallet, Clock3 } from 'lucide-react';
 import api from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { useSystemSettings } from '../hooks/useSystemSettings';
 import { getPrintBaseStyles, getPrintBrandMarkup } from '../utils/printBranding';
+import { getSameDayPreviousMonth } from '../utils/datePeriods';
 import PaginationControls from '../components/PaginationControls';
 import './Products.css';
 import './Reports.css';
@@ -145,6 +146,11 @@ const Sales = () => {
     setSaleDetails(null);
   };
 
+  const handlePreviousMonthMatch = () => {
+    setSelectedDate(getSameDayPreviousMonth(period === 'Day' ? selectedDate : new Date()));
+    setPeriod('Day');
+  };
+
   const formatCurrency = (value) => `KES ${Number(value || 0).toLocaleString()}`;
   const paginatedSales = sales.slice((salesPage - 1) * SALES_PAGE_SIZE, salesPage * SALES_PAGE_SIZE);
 
@@ -272,6 +278,9 @@ const Sales = () => {
                 />
               </div>
             )}
+            <button className="icon-btn period-match-btn" type="button" onClick={handlePreviousMonthMatch}>
+              <Clock3 size={18} /> Same Day Last Month
+            </button>
           </div>
         </div>
 

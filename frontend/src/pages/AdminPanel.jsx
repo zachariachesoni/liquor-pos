@@ -338,38 +338,47 @@ const AdminPanel = () => {
                 </div>
               </div>
 
-              <form onSubmit={handleSaveSettings} className="admin-form-grid">
-                <div className="form-field form-field-full">
-                  <label>Business Name</label>
-                  <input value={settings.business_name} onChange={(e) => setSettings((prev) => ({ ...prev, business_name: e.target.value }))} />
-                </div>
-                <div className="form-field form-field-full">
-                  <label>Business Logo</label>
-                  <div className="logo-upload-row">
-                    <label className="icon-btn logo-upload-btn" htmlFor="businessLogoUpload">
-                      <ImagePlus size={18} /> Choose Logo File
-                    </label>
-                    <input
-                      id="businessLogoUpload"
-                      type="file"
-                      accept="image/png,image/jpeg,image/jpg,image/webp,image/svg+xml"
-                      onChange={handleLogoFileChange}
-                      className="sr-only-input"
-                    />
-                    {settings.business_logo_url && (
-                      <button type="button" className="icon-btn" onClick={handleRemoveLogo}>
-                        Remove Logo
-                      </button>
-                    )}
+              <form onSubmit={handleSaveSettings} className="admin-form-grid admin-settings-form">
+                <div className="form-field form-field-full admin-brand-row">
+                  <div className="form-field admin-business-name-field">
+                    <label>Business Name</label>
+                    <input value={settings.business_name} onChange={(e) => setSettings((prev) => ({ ...prev, business_name: e.target.value }))} />
                   </div>
-                  <span className="td-secondary">Upload a PNG, JPG, WEBP, or SVG file up to 2MB.</span>
+                  <div className="form-field admin-logo-field">
+                    <label>Business Logo</label>
+                    <div className="logo-upload-row">
+                      <div className="admin-logo-thumb" aria-label="Current business logo preview">
+                        {settings.business_logo_url ? (
+                          <img src={settings.business_logo_url} alt={settings.business_name} />
+                        ) : (
+                          <span>No logo</span>
+                        )}
+                      </div>
+                      <label className="icon-btn logo-upload-btn" htmlFor="businessLogoUpload">
+                        <ImagePlus size={18} /> Choose Logo
+                      </label>
+                      <input
+                        id="businessLogoUpload"
+                        type="file"
+                        accept="image/png,image/jpeg,image/jpg,image/webp,image/svg+xml"
+                        onChange={handleLogoFileChange}
+                        className="sr-only-input"
+                      />
+                      {settings.business_logo_url && (
+                        <button type="button" className="icon-btn" onClick={handleRemoveLogo}>
+                          Remove Logo
+                        </button>
+                      )}
+                    </div>
+                    <span className="td-secondary">PNG, JPG, WEBP, or SVG up to 2MB.</span>
+                  </div>
                 </div>
                 <div className="form-field form-field-full">
                   <label>Sales Receipt Footer</label>
                   <textarea
                     value={settings.receipt_footer}
                     onChange={(e) => setSettings((prev) => ({ ...prev, receipt_footer: e.target.value }))}
-                    rows="3"
+                    rows="2"
                   />
                 </div>
                 <div className="form-field form-field-full admin-payment-panel">
@@ -434,25 +443,8 @@ const AdminPanel = () => {
                   <label>Minimum Margin Alert (%)</label>
                   <input type="number" min="0" value={settings.minimum_margin_threshold} onChange={(e) => setSettings((prev) => ({ ...prev, minimum_margin_threshold: e.target.value }))} />
                 </div>
-                <div className="form-field form-field-full admin-inline-grid">
-                  <div className="glass-panel admin-preview-card">
-                    <div className="admin-card-title">
-                      <ImagePlus size={18} />
-                      <strong>Preview</strong>
-                    </div>
-                    {settings.business_logo_url ? (
-                      <img src={settings.business_logo_url} alt={settings.business_name} className="admin-preview-logo" />
-                    ) : (
-                      <div className="admin-preview-logo admin-preview-placeholder">
-                        No logo set
-                      </div>
-                    )}
-                    <div className="preview-summary">
-                      <div className="font-medium">{settings.business_name}</div>
-                      <div className="td-secondary">{getPaymentAccountSummary(settings)}</div>
-                    </div>
-                  </div>
-                  <div className="glass-panel admin-note-card">
+                <div className="form-field form-field-full">
+                  <div className="glass-panel admin-note-card admin-rule-card">
                     <h3 className="section-heading">Stock Alert Rules</h3>
                     <p className="section-note">
                       Variants default to the low-stock level above. If a variant&apos;s retail price meets or exceeds the high-value price threshold,

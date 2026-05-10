@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import api from '../utils/api';
 import { useSystemSettings } from '../hooks/useSystemSettings';
+import { getSameDayPreviousMonth, getSameRangePreviousMonth } from '../utils/datePeriods';
 import PaginationControls from '../components/PaginationControls';
 import './Products.css';
 import './Reports.css';
@@ -450,6 +451,16 @@ const Reports = () => {
     const label = reportLabels[reportType] || 'Report';
     document.title = `${settings.business_name} ${label} - ${getPeriodLabel(period, period === 'Range' ? selectedReportRange : selectedReportDate)}`;
     window.print();
+  };
+
+  const handlePreviousMonthMatch = () => {
+    if (period === 'Range') {
+      setSelectedReportRange((currentRange) => getSameRangePreviousMonth(currentRange));
+      return;
+    }
+
+    setSelectedReportDate(getSameDayPreviousMonth(period === 'Day' ? selectedReportDate : new Date()));
+    setPeriod('Day');
   };
 
   const handleStockMovementCsvExport = () => {
@@ -1572,6 +1583,9 @@ const Reports = () => {
               </div>
             </>
           )}
+          <button className="icon-btn period-match-btn" type="button" onClick={handlePreviousMonthMatch}>
+            <Clock3 size={18} /> {period === 'Range' ? 'Same Dates Last Month' : 'Same Day Last Month'}
+          </button>
           <button className="primary-btn" onClick={handleExport}>
             <Download size={18} /> Export PDF
           </button>

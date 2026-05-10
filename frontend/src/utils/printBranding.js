@@ -25,17 +25,17 @@ export const getPrintBaseStyles = (extraStyles = '') => `
   .print-header {
     display: flex;
     justify-content: space-between;
-    gap: 24px;
+    gap: 18px;
     flex-wrap: wrap;
-    margin-bottom: 28px;
-    padding-bottom: 22px;
+    margin-bottom: 20px;
+    padding-bottom: 16px;
     border-bottom: 1px solid #e5e7eb;
   }
 
   .print-brand {
     display: flex;
-    align-items: center;
-    gap: 16px;
+    align-items: flex-start;
+    gap: 12px;
     min-width: 0;
   }
 
@@ -44,8 +44,8 @@ export const getPrintBaseStyles = (extraStyles = '') => `
   }
 
   .print-logo {
-    width: 108px;
-    height: 96px;
+    width: 86px;
+    height: 70px;
     object-fit: contain;
     display: block;
     border: 0 !important;
@@ -56,22 +56,22 @@ export const getPrintBaseStyles = (extraStyles = '') => `
   }
 
   .print-logo-fallback {
-    width: 72px;
-    height: 72px;
-    border-radius: 18px;
+    width: 58px;
+    height: 58px;
+    border-radius: 14px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     background: linear-gradient(135deg, #312e81, #4f46e5);
     color: #ffffff;
-    font-size: 28px;
+    font-size: 22px;
     font-weight: 700;
     box-shadow: 0 14px 28px rgba(79, 70, 229, 0.22);
   }
 
   .print-kicker {
     display: block;
-    margin-bottom: 6px;
+    margin-bottom: 4px;
     color: #4f46e5;
     font-size: 12px;
     font-weight: 700;
@@ -80,13 +80,13 @@ export const getPrintBaseStyles = (extraStyles = '') => `
   }
 
   .print-title {
-    font-size: 28px;
+    font-size: 24px;
     line-height: 1.1;
     color: #111827;
   }
 
   .print-subtitle {
-    margin-top: 8px;
+    margin-top: 5px;
     max-width: 620px;
     color: #4b5563;
     line-height: 1.55;
@@ -95,9 +95,9 @@ export const getPrintBaseStyles = (extraStyles = '') => `
   .print-meta {
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    font-size: 14px;
-    line-height: 1.65;
+    gap: 4px;
+    font-size: 13px;
+    line-height: 1.5;
     color: #374151;
     text-align: right;
   }
@@ -110,14 +110,14 @@ export const getPrintBaseStyles = (extraStyles = '') => `
     justify-content: center;
     flex-direction: column;
     align-items: center;
-    gap: 12px;
+    gap: 8px;
     text-align: center;
   }
 
   .print-header-center .print-brand {
     flex-direction: column;
     align-items: center;
-    gap: 10px;
+    gap: 7px;
   }
 
   .print-header-center .print-brand-copy {
