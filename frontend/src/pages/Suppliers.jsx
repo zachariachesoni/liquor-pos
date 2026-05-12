@@ -1459,7 +1459,7 @@ const Suppliers = () => {
                   <ReportStatCard icon={CreditCard} tone="tone-warning" title="Overdue" value={formatCurrency(selectedSupplierDetail.summary?.overdue_balance)} />
                 </div>
 
-                <div className="supplier-detail-grid">
+                <div className="supplier-detail-grid supplier-profile-link-grid">
                   <div className="glass-panel modal-detail-panel">
                     <div className="modal-detail-panel-header">
                       <div>
@@ -1522,7 +1522,7 @@ const Suppliers = () => {
                   </div>
                 </div>
 
-                <div className="glass-panel main-panel report-detail-panel">
+                <div className="glass-panel main-panel report-detail-panel supplier-linked-products-panel">
                   <div className="detail-header">
                     <div>
                       <h2>Linked Products</h2>
@@ -1592,7 +1592,7 @@ const Suppliers = () => {
                   />
                 </div>
 
-                <div className="supplier-detail-grid">
+                <div className="supplier-detail-grid supplier-history-payment-grid">
                   <div className="glass-panel main-panel report-detail-panel">
                     <div className="detail-header">
                       <div>

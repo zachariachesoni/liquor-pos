@@ -184,6 +184,39 @@
   margin-bottom: 0;
 }
 
+.supplier-detail-modal > .modal-detail-header {
+  order: 1;
+}
+
+.supplier-detail-modal > .reports-grid {
+  order: 2;
+}
+
+.supplier-linked-products-panel {
+  order: 3;
+  margin-top: 0.2rem;
+  overflow: visible;
+}
+
+.supplier-profile-link-grid {
+  order: 4;
+}
+
+.supplier-history-payment-grid {
+  order: 5;
+}
+
+.supplier-linked-products-panel .detail-header {
+  padding: 0 0 0.85rem;
+  margin-bottom: 0.25rem;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.supplier-linked-products-panel .detail-header h2 {
+  margin: 0;
+  line-height: 1.2;
+}
+
 .supplier-detail-modal .modal-detail-panel,
 .supplier-detail-modal .main-panel {
   padding: 1.2rem;

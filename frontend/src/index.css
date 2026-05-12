@@ -122,20 +122,27 @@ html[data-theme='light'] .glass-panel {
 .pagination-controls {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
+  justify-content: flex-end;
+  gap: 1.15rem;
   margin-top: 0.85rem;
-  padding-top: 0.85rem;
+  padding: 0.85rem 1rem 0;
   border-top: var(--glass-border);
   color: var(--text-muted);
   font-size: 0.82rem;
   flex-wrap: wrap;
 }
 
+.pagination-controls > span {
+  min-width: 0;
+  text-align: right;
+}
+
 .pagination-actions {
   display: inline-flex;
   align-items: center;
-  gap: 0.55rem;
+  gap: 0.65rem;
+  padding: 0.25rem;
+  border-radius: 999px;
 }
 
 .pagination-page {
@@ -144,8 +151,8 @@ html[data-theme='light'] .glass-panel {
 }
 
 .pagination-btn {
-  width: 34px;
-  height: 34px;
+  width: 36px;
+  height: 36px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -153,6 +160,18 @@ html[data-theme='light'] .glass-panel {
   border: 1px solid var(--border-color);
   background: var(--bg-tertiary);
   color: var(--text-primary);
+}
+
+@media (max-width: 640px) {
+  .pagination-controls {
+    justify-content: center;
+    padding-inline: 0.75rem;
+  }
+
+  .pagination-controls > span {
+    width: 100%;
+    text-align: center;
+  }
 }
 
 .pagination-btn:disabled {
