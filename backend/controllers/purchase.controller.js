@@ -18,6 +18,7 @@ import {
   getDaysPastDue
 } from '../utils/purchasing.js';
 import { syncSupplierProductPricing } from '../utils/supplierProducts.js';
+import { buildPaginationMeta, getPagination } from '../utils/pagination.js';
 
 const isValidObjectId = (value) => mongoose.Types.ObjectId.isValid(value);
 
@@ -31,6 +32,34 @@ const toNumber = (value, fallback = 0) => {
 };
 
 const getNormalizedPaymentInput = (value) => Math.max(0, toNumber(value, 0));
+
+const isTransactionError = (error) => error.message?.toLowerCase().includes('transaction');
+
+const runPurchaseWrite = async (action) => {
+  const session = await mongoose.startSession();
+
+  try {
+    session.startTransaction();
+    const result = await action(session);
+    await session.commitTransaction();
+    return result;
+  } catch (error) {
+    try {
+      await session.abortTransaction();
+    } catch (abortError) {
+      logger.warn('Purchase transaction abort warning:', abortError);
+    }
+
+    if (isTransactionError(error)) {
+      logger.warn('Transactions not supported for purchase write. Falling back to guarded writes.');
+      return action(null);
+    }
+
+    throw error;
+  } finally {
+    session.endSession();
+  }
+};
 
 const normalizeCreatePurchaseItems = (items = []) => items.map((item) => {
   const variantId = item.variant_id || item.variantId;
@@ -142,12 +171,17 @@ const attachPurchaseOrderItems = (purchaseOrders = [], purchaseOrderItems = []) 
   });
 };
 
-const fetchPurchaseOrdersWithItems = async (filters = {}, sort = { ordered_at: -1 }) => {
-  const purchaseOrders = await PurchaseOrder.find(filters)
+const fetchPurchaseOrdersWithItems = async (filters = {}, sort = { ordered_at: -1 }, pagination = null) => {
+  let purchaseOrderQuery = PurchaseOrder.find(filters)
     .populate('supplier_id', 'name contact_name phone payment_terms_days active')
     .populate('created_by', 'username')
-    .sort(sort)
-    .lean();
+    .sort(sort);
+
+  if (pagination?.enabled) {
+    purchaseOrderQuery = purchaseOrderQuery.skip(pagination.skip).limit(pagination.limit);
+  }
+
+  const purchaseOrders = await purchaseOrderQuery.lean();
 
   const purchaseOrderIds = purchaseOrders.map((purchaseOrder) => purchaseOrder._id);
   const purchaseOrderItems = purchaseOrderIds.length
@@ -189,14 +223,16 @@ const applyReceiptInventory = async ({
   receiptLines = [],
   purchaseOrderId,
   supplier,
-  userId
+  userId,
+  session = null
 }) => {
   if (!receiptLines.length) {
     return;
   }
 
   const variantIds = receiptLines.map((line) => line.variant_id);
-  const variants = await ProductVariant.find({ _id: { $in: variantIds } });
+  const variantQuery = ProductVariant.find({ _id: { $in: variantIds } });
+  const variants = session ? await variantQuery.session(session) : await variantQuery;
   const variantsById = new Map(variants.map((variant) => [String(variant._id), variant]));
 
   for (const line of receiptLines) {
@@ -213,9 +249,9 @@ const applyReceiptInventory = async ({
 
     variant.current_stock = stockAfter;
     variant.buying_price = averageCost;
-    await variant.save();
+    await variant.save(session ? { session } : undefined);
 
-    await StockAdjustment.create({
+    const adjustment = {
       variant_id: variant._id,
       adjustment_type: 'in',
       quantity: receivedQuantity,
@@ -229,7 +265,13 @@ const applyReceiptInventory = async ({
       notes: sanitizeText(line.notes) || `Received via ${line.po_number || 'purchase order'} from ${supplier.name}. Average cost ${averageCost} from ${previousCost}.`,
       user_id: userId,
       purchase_order_id: purchaseOrderId
-    });
+    };
+
+    if (session) {
+      await StockAdjustment.create([adjustment], { session, ordered: true });
+    } else {
+      await StockAdjustment.create(adjustment);
+    }
 
     await syncSupplierProductPricing({
       supplierId: supplier._id,
@@ -238,7 +280,8 @@ const applyReceiptInventory = async ({
       minOrderQty: line.min_order_qty,
       leadTimeDays: line.lead_time_days,
       isPreferred: line.is_preferred,
-      userId
+      userId,
+      session
     });
   }
 };
@@ -273,8 +316,15 @@ export const getPurchaseOrders = async (req, res) => {
       ];
     }
 
-    const data = await fetchPurchaseOrdersWithItems(filters, { ordered_at: -1, createdAt: -1 });
-    res.json({ success: true, count: data.length, data });
+    const pagination = getPagination(req.query, 25, 100);
+    const total = pagination.enabled ? await PurchaseOrder.countDocuments(filters) : null;
+    const data = await fetchPurchaseOrdersWithItems(filters, { ordered_at: -1, createdAt: -1 }, pagination);
+    res.json({
+      success: true,
+      count: pagination.enabled ? total : data.length,
+      data,
+      ...(pagination.enabled ? { pagination: buildPaginationMeta({ ...pagination, total }) } : {})
+    });
   } catch (error) {
     logger.error('Get purchase orders error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
@@ -296,8 +346,15 @@ export const getOpenPurchaseOrders = async (req, res) => {
       filters.supplier_id = req.query.supplier_id;
     }
 
-    const data = await fetchPurchaseOrdersWithItems(filters, { ordered_at: -1, createdAt: -1 });
-    res.json({ success: true, count: data.length, data });
+    const pagination = getPagination(req.query, 25, 100);
+    const total = pagination.enabled ? await PurchaseOrder.countDocuments(filters) : null;
+    const data = await fetchPurchaseOrdersWithItems(filters, { ordered_at: -1, createdAt: -1 }, pagination);
+    res.json({
+      success: true,
+      count: pagination.enabled ? total : data.length,
+      data,
+      ...(pagination.enabled ? { pagination: buildPaginationMeta({ ...pagination, total }) } : {})
+    });
   } catch (error) {
     logger.error('Get open purchase orders error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
@@ -381,50 +438,80 @@ export const createPurchaseOrder = async (req, res) => {
       );
     });
 
-    const purchaseOrder = await PurchaseOrder.create({
-      po_number: generatePurchaseOrderNumber(),
-      supplier_id: supplier._id,
-      ordered_at: req.body.ordered_at ? new Date(req.body.ordered_at) : new Date(),
-      received_at: orderSnapshot.received_at,
-      status: orderSnapshot.status,
-      payment_status: orderSnapshot.payment_status,
-      total_amount: orderSnapshot.total_amount,
-      amount_paid: orderSnapshot.amount_paid,
-      balance_outstanding: orderSnapshot.balance_outstanding,
-      payment_due_date: orderSnapshot.payment_due_date,
-      notes: sanitizeText(req.body.notes),
-      invoice_reference: sanitizeText(req.body.invoice_reference || req.body.invoiceReference),
-      created_by: req.user._id || req.user.id
+    const purchaseOrderId = await runPurchaseWrite(async (session) => {
+      const purchaseOrderPayload = {
+        po_number: generatePurchaseOrderNumber(),
+        supplier_id: supplier._id,
+        ordered_at: req.body.ordered_at ? new Date(req.body.ordered_at) : new Date(),
+        received_at: orderSnapshot.received_at,
+        status: orderSnapshot.status,
+        payment_status: orderSnapshot.payment_status,
+        total_amount: orderSnapshot.total_amount,
+        amount_paid: orderSnapshot.amount_paid,
+        balance_outstanding: orderSnapshot.balance_outstanding,
+        payment_due_date: orderSnapshot.payment_due_date,
+        notes: sanitizeText(req.body.notes),
+        invoice_reference: sanitizeText(req.body.invoice_reference || req.body.invoiceReference),
+        created_by: req.user._id || req.user.id
+      };
+
+      const purchaseOrder = session
+        ? (await PurchaseOrder.create([purchaseOrderPayload], { session, ordered: true }))[0]
+        : await PurchaseOrder.create(purchaseOrderPayload);
+
+      const purchaseOrderItemPayloads = items.map((item) => ({
+        po_id: purchaseOrder._id,
+        variant_id: item.variant_id,
+        qty_ordered: item.qty_ordered,
+        qty_received: item.qty_received,
+        unit_cost: item.unit_cost,
+        line_total: item.line_total
+      }));
+
+      const purchaseOrderItems = session
+        ? await PurchaseOrderItem.create(purchaseOrderItemPayloads, { session, ordered: true })
+        : await PurchaseOrderItem.create(purchaseOrderItemPayloads);
+
+      if (['received', 'partially_received'].includes(orderSnapshot.status)) {
+        await applyReceiptInventory({
+          receiptLines: purchaseOrderItems.map((item, index) => ({
+            variant_id: item.variant_id,
+            qty_received_delta: item.qty_received,
+            unit_cost: item.unit_cost,
+            min_order_qty: items[index].min_order_qty,
+            lead_time_days: items[index].lead_time_days,
+            is_preferred: items[index].is_preferred,
+            po_number: purchaseOrder.po_number,
+            notes: purchaseOrder.notes
+          })),
+          purchaseOrderId: purchaseOrder._id,
+          supplier,
+          userId: req.user._id || req.user.id,
+          session
+        });
+      }
+
+      if (orderSnapshot.amount_paid > 0) {
+        const payment = {
+          po_id: purchaseOrder._id,
+          supplier_id: supplier._id,
+          amount: orderSnapshot.amount_paid,
+          paid_at: req.body.paid_at ? new Date(req.body.paid_at) : new Date(),
+          recorded_by: req.user._id || req.user.id,
+          notes: sanitizeText(req.body.payment_notes || req.body.paymentNotes || req.body.notes)
+        };
+
+        if (session) {
+          await SupplierPayment.create([payment], { session, ordered: true });
+        } else {
+          await SupplierPayment.create(payment);
+        }
+      }
+
+      return purchaseOrder._id;
     });
 
-    const purchaseOrderItems = await PurchaseOrderItem.create(items.map((item) => ({
-      po_id: purchaseOrder._id,
-      variant_id: item.variant_id,
-      qty_ordered: item.qty_ordered,
-      qty_received: item.qty_received,
-      unit_cost: item.unit_cost,
-      line_total: item.line_total
-    })));
-
-    if (['received', 'partially_received'].includes(orderSnapshot.status)) {
-      await applyReceiptInventory({
-        receiptLines: purchaseOrderItems.map((item, index) => ({
-          variant_id: item.variant_id,
-          qty_received_delta: item.qty_received,
-          unit_cost: item.unit_cost,
-          min_order_qty: items[index].min_order_qty,
-          lead_time_days: items[index].lead_time_days,
-          is_preferred: items[index].is_preferred,
-          po_number: purchaseOrder.po_number,
-          notes: purchaseOrder.notes
-        })),
-        purchaseOrderId: purchaseOrder._id,
-        supplier,
-        userId: req.user._id || req.user.id
-      });
-    }
-
-    const [result] = await fetchPurchaseOrdersWithItems({ _id: purchaseOrder._id });
+    const [result] = await fetchPurchaseOrdersWithItems({ _id: purchaseOrderId });
     res.status(201).json({ success: true, data: result });
   } catch (error) {
     logger.error('Create purchase order error:', error);
@@ -440,47 +527,95 @@ export const receivePurchaseOrder = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Invalid purchase order id' });
     }
 
-    const purchaseOrder = await PurchaseOrder.findById(req.params.id);
-    if (!purchaseOrder) {
-      return res.status(404).json({ success: false, message: 'Purchase order not found' });
-    }
-
-    const supplier = await Supplier.findById(purchaseOrder.supplier_id);
-    if (!supplier) {
-      return res.status(404).json({ success: false, message: 'Supplier not found' });
-    }
-
-    const incomingItems = normalizeReceiveItems(req.body.items);
-    const existingItems = await PurchaseOrderItem.find({ po_id: purchaseOrder._id });
-    const existingItemsById = new Map(existingItems.map((item) => [String(item._id), item]));
-    const existingItemsByVariant = new Map(existingItems.map((item) => [String(item.variant_id), item]));
-
-    const receiptLines = [];
-    for (const incomingItem of incomingItems) {
-      let targetItem = incomingItem.item_id ? existingItemsById.get(String(incomingItem.item_id)) : null;
-      if (!targetItem && incomingItem.variant_id) {
-        targetItem = existingItemsByVariant.get(String(incomingItem.variant_id)) || null;
+    const purchaseOrderId = await runPurchaseWrite(async (session) => {
+      const purchaseOrderQuery = PurchaseOrder.findById(req.params.id);
+      const purchaseOrder = session ? await purchaseOrderQuery.session(session) : await purchaseOrderQuery;
+      if (!purchaseOrder) {
+        const error = new Error('Purchase order not found');
+        error.statusCode = 404;
+        throw error;
       }
 
-      if (targetItem) {
-        if (incomingItem.unit_cost !== undefined) {
-          targetItem.unit_cost = incomingItem.unit_cost;
+      const supplierQuery = Supplier.findById(purchaseOrder.supplier_id);
+      const supplier = session ? await supplierQuery.session(session) : await supplierQuery;
+      if (!supplier) {
+        const error = new Error('Supplier not found');
+        error.statusCode = 404;
+        throw error;
+      }
+
+      const incomingItems = normalizeReceiveItems(req.body.items);
+      const existingItemsQuery = PurchaseOrderItem.find({ po_id: purchaseOrder._id });
+      const existingItems = session ? await existingItemsQuery.session(session) : await existingItemsQuery;
+      const existingItemsById = new Map(existingItems.map((item) => [String(item._id), item]));
+      const existingItemsByVariant = new Map(existingItems.map((item) => [String(item.variant_id), item]));
+
+      const receiptLines = [];
+      for (const incomingItem of incomingItems) {
+        let targetItem = incomingItem.item_id ? existingItemsById.get(String(incomingItem.item_id)) : null;
+        if (!targetItem && incomingItem.variant_id) {
+          targetItem = existingItemsByVariant.get(String(incomingItem.variant_id)) || null;
         }
 
-        if (incomingItem.qty_ordered > targetItem.qty_ordered) {
-          targetItem.qty_ordered = incomingItem.qty_ordered;
-        }
-
-        if (incomingItem.qty_received_now > 0) {
-          targetItem.qty_received += incomingItem.qty_received_now;
-          if (targetItem.qty_received > targetItem.qty_ordered) {
-            targetItem.qty_ordered = targetItem.qty_received;
+        if (targetItem) {
+          if (incomingItem.unit_cost !== undefined) {
+            targetItem.unit_cost = incomingItem.unit_cost;
           }
 
+          if (incomingItem.qty_ordered > targetItem.qty_ordered) {
+            targetItem.qty_ordered = incomingItem.qty_ordered;
+          }
+
+          if (incomingItem.qty_received_now > 0) {
+            targetItem.qty_received += incomingItem.qty_received_now;
+            if (targetItem.qty_received > targetItem.qty_ordered) {
+              targetItem.qty_ordered = targetItem.qty_received;
+            }
+
+            receiptLines.push({
+              variant_id: targetItem.variant_id,
+              qty_received_delta: incomingItem.qty_received_now,
+              unit_cost: targetItem.unit_cost,
+              min_order_qty: incomingItem.min_order_qty,
+              lead_time_days: incomingItem.lead_time_days,
+              is_preferred: incomingItem.is_preferred,
+              po_number: purchaseOrder.po_number,
+              notes: req.body.notes || purchaseOrder.notes
+            });
+          }
+
+          targetItem.line_total = calculateLineTotal(targetItem.qty_received, targetItem.unit_cost);
+        } else {
+          if (!isValidObjectId(incomingItem.variant_id)) {
+            throw new Error('Each new received line requires a valid inventory variant');
+          }
+
+          if (incomingItem.qty_received_now <= 0) {
+            throw new Error('New received items must include a received quantity greater than zero');
+          }
+
+          const variantQuery = ProductVariant.exists({ _id: incomingItem.variant_id });
+          const variantExists = session ? await variantQuery.session(session) : await variantQuery;
+          if (!variantExists) {
+            const error = new Error('One or more inventory variants could not be found');
+            error.statusCode = 404;
+            throw error;
+          }
+
+          const createdItem = new PurchaseOrderItem({
+            po_id: purchaseOrder._id,
+            variant_id: incomingItem.variant_id,
+            qty_ordered: Math.max(incomingItem.qty_ordered, incomingItem.qty_received_now),
+            qty_received: incomingItem.qty_received_now,
+            unit_cost: incomingItem.unit_cost ?? 0,
+            line_total: calculateLineTotal(incomingItem.qty_received_now, incomingItem.unit_cost ?? 0)
+          });
+
+          existingItems.push(createdItem);
           receiptLines.push({
-            variant_id: targetItem.variant_id,
+            variant_id: incomingItem.variant_id,
             qty_received_delta: incomingItem.qty_received_now,
-            unit_cost: targetItem.unit_cost,
+            unit_cost: incomingItem.unit_cost ?? 0,
             min_order_qty: incomingItem.min_order_qty,
             lead_time_days: incomingItem.lead_time_days,
             is_preferred: incomingItem.is_preferred,
@@ -488,98 +623,71 @@ export const receivePurchaseOrder = async (req, res) => {
             notes: req.body.notes || purchaseOrder.notes
           });
         }
+      }
 
-        targetItem.line_total = calculateLineTotal(targetItem.qty_received, targetItem.unit_cost);
-      } else {
-        if (!isValidObjectId(incomingItem.variant_id)) {
-          return res.status(400).json({ success: false, message: 'Each new received line requires a valid inventory variant' });
-        }
+      const amountPaidIncrement = getNormalizedPaymentInput(req.body.amount_paid_increment ?? req.body.amountPaidIncrement);
+      if (!receiptLines.length && amountPaidIncrement <= 0) {
+        throw new Error('Record received quantities or a payment adjustment before saving this GRN');
+      }
 
-        if (incomingItem.qty_received_now <= 0) {
-          return res.status(400).json({ success: false, message: 'New received items must include a received quantity greater than zero' });
-        }
+      if (amountPaidIncrement > Number(purchaseOrder.balance_outstanding || 0)) {
+        throw new Error('Payment amount cannot exceed the outstanding balance');
+      }
 
-        const variantExists = await ProductVariant.exists({ _id: incomingItem.variant_id });
-        if (!variantExists) {
-          return res.status(404).json({ success: false, message: 'One or more inventory variants could not be found' });
-        }
+      const updatedItems = [...existingItems];
+      const orderSnapshot = recalculatePurchaseOrderSnapshot({
+        items: updatedItems,
+        draftStatus: purchaseOrder.status === 'draft' ? 'ordered' : 'ordered',
+        amountPaid: Number(purchaseOrder.amount_paid || 0) + amountPaidIncrement,
+        supplierTermsDays: supplier.payment_terms_days,
+        receivedAt: req.body.received_at ?? req.body.receivedAt ?? purchaseOrder.received_at ?? new Date()
+      });
 
-        const createdItem = new PurchaseOrderItem({
-          po_id: purchaseOrder._id,
-          variant_id: incomingItem.variant_id,
-          qty_ordered: Math.max(incomingItem.qty_ordered, incomingItem.qty_received_now),
-          qty_received: incomingItem.qty_received_now,
-          unit_cost: incomingItem.unit_cost ?? 0,
-          line_total: calculateLineTotal(incomingItem.qty_received_now, incomingItem.unit_cost ?? 0)
-        });
+      purchaseOrder.received_at = orderSnapshot.received_at;
+      purchaseOrder.status = orderSnapshot.status;
+      purchaseOrder.total_amount = orderSnapshot.total_amount;
+      purchaseOrder.amount_paid = orderSnapshot.amount_paid;
+      purchaseOrder.balance_outstanding = orderSnapshot.balance_outstanding;
+      purchaseOrder.payment_status = orderSnapshot.payment_status;
+      purchaseOrder.payment_due_date = orderSnapshot.payment_due_date;
+      purchaseOrder.notes = sanitizeText(req.body.notes) || purchaseOrder.notes;
+      purchaseOrder.invoice_reference = sanitizeText(req.body.invoice_reference || req.body.invoiceReference) || purchaseOrder.invoice_reference;
 
-        existingItems.push(createdItem);
-        receiptLines.push({
-          variant_id: incomingItem.variant_id,
-          qty_received_delta: incomingItem.qty_received_now,
-          unit_cost: incomingItem.unit_cost ?? 0,
-          min_order_qty: incomingItem.min_order_qty,
-          lead_time_days: incomingItem.lead_time_days,
-          is_preferred: incomingItem.is_preferred,
-          po_number: purchaseOrder.po_number,
-          notes: req.body.notes || purchaseOrder.notes
+      await Promise.all(existingItems.map((item) => item.save(session ? { session } : undefined)));
+      await purchaseOrder.save(session ? { session } : undefined);
+
+      if (receiptLines.length) {
+        await applyReceiptInventory({
+          receiptLines,
+          purchaseOrderId: purchaseOrder._id,
+          supplier,
+          userId: req.user._id || req.user.id,
+          session
         });
       }
-    }
 
-    const amountPaidIncrement = getNormalizedPaymentInput(req.body.amount_paid_increment ?? req.body.amountPaidIncrement);
-    if (!receiptLines.length && amountPaidIncrement <= 0) {
-      return res.status(400).json({ success: false, message: 'Record received quantities or a payment adjustment before saving this GRN' });
-    }
+      if (amountPaidIncrement > 0) {
+        const payment = {
+          po_id: purchaseOrder._id,
+          supplier_id: supplier._id,
+          amount: amountPaidIncrement,
+          paid_at: req.body.paid_at ? new Date(req.body.paid_at) : new Date(),
+          recorded_by: req.user._id || req.user.id,
+          notes: sanitizeText(req.body.payment_notes || req.body.paymentNotes || req.body.notes)
+        };
 
-    if (amountPaidIncrement > Number(purchaseOrder.balance_outstanding || 0)) {
-      return res.status(400).json({ success: false, message: 'Payment amount cannot exceed the outstanding balance' });
-    }
+        if (session) {
+          await SupplierPayment.create([payment], { session, ordered: true });
+        } else {
+          await SupplierPayment.create(payment);
+        }
+      }
 
-    const updatedItems = [...existingItems];
-    const orderSnapshot = recalculatePurchaseOrderSnapshot({
-      items: updatedItems,
-      draftStatus: purchaseOrder.status === 'draft' ? 'ordered' : 'ordered',
-      amountPaid: Number(purchaseOrder.amount_paid || 0) + amountPaidIncrement,
-      supplierTermsDays: supplier.payment_terms_days,
-      receivedAt: req.body.received_at ?? req.body.receivedAt ?? purchaseOrder.received_at ?? new Date()
+      return purchaseOrder._id;
     });
 
-    purchaseOrder.received_at = orderSnapshot.received_at;
-    purchaseOrder.status = orderSnapshot.status;
-    purchaseOrder.total_amount = orderSnapshot.total_amount;
-    purchaseOrder.amount_paid = orderSnapshot.amount_paid;
-    purchaseOrder.balance_outstanding = orderSnapshot.balance_outstanding;
-    purchaseOrder.payment_status = orderSnapshot.payment_status;
-    purchaseOrder.payment_due_date = orderSnapshot.payment_due_date;
-    purchaseOrder.notes = sanitizeText(req.body.notes) || purchaseOrder.notes;
-    purchaseOrder.invoice_reference = sanitizeText(req.body.invoice_reference || req.body.invoiceReference) || purchaseOrder.invoice_reference;
-
-    await Promise.all(existingItems.map((item) => item.save()));
-    await purchaseOrder.save();
-
-    if (receiptLines.length) {
-      await applyReceiptInventory({
-        receiptLines,
-        purchaseOrderId: purchaseOrder._id,
-        supplier,
-        userId: req.user._id || req.user.id
-      });
-    }
-
-    if (amountPaidIncrement > 0) {
-      await SupplierPayment.create({
-        po_id: purchaseOrder._id,
-        supplier_id: supplier._id,
-        amount: amountPaidIncrement,
-        paid_at: req.body.paid_at ? new Date(req.body.paid_at) : new Date(),
-        recorded_by: req.user._id || req.user.id,
-        notes: sanitizeText(req.body.payment_notes || req.body.paymentNotes || req.body.notes)
-      });
-    }
-
-    const [result] = await fetchPurchaseOrdersWithItems({ _id: purchaseOrder._id });
-    const payments = await SupplierPayment.find({ po_id: purchaseOrder._id })
+    const [result] = await fetchPurchaseOrdersWithItems({ _id: purchaseOrderId });
+    const payments = await SupplierPayment.find({ po_id: purchaseOrderId })
       .populate('recorded_by', 'username')
       .sort({ paid_at: -1 })
       .lean();
@@ -593,7 +701,7 @@ export const receivePurchaseOrder = async (req, res) => {
     });
   } catch (error) {
     logger.error('Receive purchase order error:', error);
-    res.status(400).json({ success: false, message: error.message || 'Server error' });
+    res.status(error.statusCode || 400).json({ success: false, message: error.message || 'Server error' });
   }
 };
 
@@ -605,40 +713,89 @@ export const recordSupplierPayment = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Invalid purchase order id' });
     }
 
-    const purchaseOrder = await PurchaseOrder.findById(req.params.id);
-    if (!purchaseOrder) {
-      return res.status(404).json({ success: false, message: 'Purchase order not found' });
-    }
-
-    if (!['received', 'partially_received'].includes(purchaseOrder.status) || Number(purchaseOrder.total_amount || 0) <= 0) {
-      return res.status(400).json({ success: false, message: 'Payments can only be recorded against received GRNs' });
-    }
-
     const amount = Math.max(0, toNumber(req.body.amount, 0));
     if (amount <= 0) {
       return res.status(400).json({ success: false, message: 'Payment amount must be greater than zero' });
     }
 
-    if (amount > Number(purchaseOrder.balance_outstanding || 0)) {
-      return res.status(400).json({ success: false, message: 'Payment amount cannot exceed the outstanding balance' });
-    }
+    const paymentId = await runPurchaseWrite(async (session) => {
+      let updatedPurchaseOrder = null;
+      let payment = null;
 
-    const payment = await SupplierPayment.create({
-      po_id: purchaseOrder._id,
-      supplier_id: purchaseOrder.supplier_id,
-      amount,
-      paid_at: req.body.paid_at ? new Date(req.body.paid_at) : new Date(),
-      recorded_by: req.user._id || req.user.id,
-      notes: sanitizeText(req.body.notes)
+      try {
+        updatedPurchaseOrder = await PurchaseOrder.findOneAndUpdate(
+          {
+            _id: req.params.id,
+            status: { $in: ['received', 'partially_received'] },
+            total_amount: { $gt: 0 },
+            balance_outstanding: { $gte: amount }
+          },
+          {
+            $inc: {
+              amount_paid: amount,
+              balance_outstanding: -amount
+            }
+          },
+          { new: true, session }
+        );
+
+        if (!updatedPurchaseOrder) {
+          const currentQuery = PurchaseOrder.findById(req.params.id);
+          const currentPurchaseOrder = session ? await currentQuery.session(session) : await currentQuery;
+
+          if (!currentPurchaseOrder) {
+            const error = new Error('Purchase order not found');
+            error.statusCode = 404;
+            throw error;
+          }
+
+          if (!['received', 'partially_received'].includes(currentPurchaseOrder.status) || Number(currentPurchaseOrder.total_amount || 0) <= 0) {
+            throw new Error('Payments can only be recorded against received GRNs');
+          }
+
+          throw new Error('Payment amount cannot exceed the outstanding balance');
+        }
+
+        updatedPurchaseOrder.balance_outstanding = Math.max(0, Number(updatedPurchaseOrder.balance_outstanding || 0));
+        updatedPurchaseOrder.payment_status = derivePaymentStatus(updatedPurchaseOrder.total_amount, updatedPurchaseOrder.amount_paid);
+        await updatedPurchaseOrder.save(session ? { session } : undefined);
+
+        const paymentPayload = {
+          po_id: updatedPurchaseOrder._id,
+          supplier_id: updatedPurchaseOrder.supplier_id,
+          amount,
+          paid_at: req.body.paid_at ? new Date(req.body.paid_at) : new Date(),
+          recorded_by: req.user._id || req.user.id,
+          notes: sanitizeText(req.body.notes)
+        };
+
+        if (session) {
+          [payment] = await SupplierPayment.create([paymentPayload], { session, ordered: true });
+        } else {
+          payment = await SupplierPayment.create(paymentPayload);
+        }
+
+        return payment._id;
+      } catch (error) {
+        if (!session && updatedPurchaseOrder && !payment) {
+          try {
+            const restoredAmountPaid = Math.max(0, Number(updatedPurchaseOrder.amount_paid || 0) - amount);
+            await PurchaseOrder.findByIdAndUpdate(updatedPurchaseOrder._id, {
+              amount_paid: restoredAmountPaid,
+              balance_outstanding: Math.max(0, Number(updatedPurchaseOrder.total_amount || 0) - restoredAmountPaid),
+              payment_status: derivePaymentStatus(updatedPurchaseOrder.total_amount, restoredAmountPaid)
+            });
+          } catch (rollbackError) {
+            logger.error('Supplier payment rollback failed:', rollbackError);
+          }
+        }
+
+        throw error;
+      }
     });
 
-    purchaseOrder.amount_paid = Number(purchaseOrder.amount_paid || 0) + amount;
-    purchaseOrder.balance_outstanding = Math.max(0, Number(purchaseOrder.total_amount || 0) - Number(purchaseOrder.amount_paid || 0));
-    purchaseOrder.payment_status = derivePaymentStatus(purchaseOrder.total_amount, purchaseOrder.amount_paid);
-    await purchaseOrder.save();
-
-    const [result] = await fetchPurchaseOrdersWithItems({ _id: purchaseOrder._id });
-    const populatedPayment = await SupplierPayment.findById(payment._id).populate('recorded_by', 'username').lean();
+    const [result] = await fetchPurchaseOrdersWithItems({ _id: req.params.id });
+    const populatedPayment = await SupplierPayment.findById(paymentId).populate('recorded_by', 'username').lean();
 
     res.status(201).json({
       success: true,
@@ -649,7 +806,7 @@ export const recordSupplierPayment = async (req, res) => {
     });
   } catch (error) {
     logger.error('Record supplier payment error:', error);
-    res.status(400).json({ success: false, message: error.message || 'Server error' });
+    res.status(error.statusCode || 400).json({ success: false, message: error.message || 'Server error' });
   }
 };
 

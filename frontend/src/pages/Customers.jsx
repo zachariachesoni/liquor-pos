@@ -3,6 +3,7 @@ import { UserPlus, Search, Phone, Mail, History, X, Download, BadgePercent } fro
 import api from '../utils/api';
 import { useSystemSettings } from '../hooks/useSystemSettings';
 import { getPrintBaseStyles, getPrintBrandMarkup } from '../utils/printBranding';
+import { showAppToast } from '../utils/toast';
 import PaginationControls from '../components/PaginationControls';
 import './Products.css';
 import './Customers.css';
@@ -56,7 +57,7 @@ const Customers = () => {
       fetchCustomers();
       setFormData({ name: '', phone: '', email: '', customer_type: 'retail' });
     } catch (err) {
-      alert('Error creating customer');
+      showAppToast(err.response?.data?.message || 'Error creating customer', 'error');
       console.error(err);
     }
   };

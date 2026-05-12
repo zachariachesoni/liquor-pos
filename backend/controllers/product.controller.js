@@ -3,6 +3,7 @@ import ProductVariant from '../models/ProductVariant.js';
 import SupplierProduct from '../models/SupplierProduct.js';
 import logger from '../utils/logger.js';
 import { calculateEffectiveLowStockLevel, getSystemSettings, serializeSystemSettings } from '../utils/systemSettings.js';
+import { buildPaginationMeta, getPagination } from '../utils/pagination.js';
 
 const normalizeProductName = (name = '') => (
   typeof name === 'string' ? name.trim().replace(/\s+/g, ' ') : ''
@@ -14,7 +15,7 @@ const normalizeVariantSize = (size = '') => (
 
 const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-const findExistingProductByName = async (name, excludeId = null) => {
+const findExistingProductByName = async (name, excludeId = null, activeOnly = true) => {
   const normalizedName = normalizeProductName(name);
 
   if (!normalizedName) {
@@ -30,6 +31,10 @@ const findExistingProductByName = async (name, excludeId = null) => {
     name: new RegExp(`^${pattern}$`, 'i'),
   };
 
+  if (activeOnly) {
+    query.is_active = { $ne: false };
+  }
+
   if (excludeId) {
     query._id = { $ne: excludeId };
   }
@@ -37,7 +42,7 @@ const findExistingProductByName = async (name, excludeId = null) => {
   return Product.findOne(query);
 };
 
-const findExistingVariantBySize = async (productId, size, excludeId = null) => {
+const findExistingVariantBySize = async (productId, size, excludeId = null, activeOnly = true) => {
   const normalizedSize = normalizeVariantSize(size);
 
   if (!normalizedSize) {
@@ -54,6 +59,10 @@ const findExistingVariantBySize = async (productId, size, excludeId = null) => {
     size: new RegExp(`^${pattern}$`, 'i')
   };
 
+  if (activeOnly) {
+    query.is_active = { $ne: false };
+  }
+
   if (excludeId) {
     query._id = { $ne: excludeId };
   }
@@ -65,19 +74,31 @@ const findExistingVariantBySize = async (productId, size, excludeId = null) => {
 // @route   GET /api/products
 export const getProducts = async (req, res) => {
   try {
-    const filters = {};
+    const filters = req.query.include_inactive === 'true' ? {} : { is_active: { $ne: false } };
     if (req.query.q) filters.name = { $regex: req.query.q, $options: 'i' };
     if (req.query.category) filters.category = req.query.category;
     if (req.query.is_active !== undefined) filters.is_active = req.query.is_active === 'true';
 
+    const pagination = getPagination(req.query, 25, 100);
+    let productQuery = Product.find(filters).sort({ name: 1, createdAt: -1 });
+    const total = pagination.enabled ? await Product.countDocuments(filters) : null;
+
+    if (pagination.enabled) {
+      productQuery = productQuery.skip(pagination.skip).limit(pagination.limit);
+    }
+
     const [settingsDoc, products] = await Promise.all([
       getSystemSettings(),
-      Product.find(filters)
+      productQuery
     ]);
     const settings = serializeSystemSettings(settingsDoc);
     
     // Fetch variants and map them inside the product objects
-    const variants = await ProductVariant.find({ product_id: { $in: products.map(p => p._id) }});
+    const variantFilters = {
+      product_id: { $in: products.map(p => p._id) },
+      ...(req.query.include_inactive === 'true' ? {} : { is_active: { $ne: false } })
+    };
+    const variants = await ProductVariant.find(variantFilters);
     const supplierLinks = variants.length
       ? await SupplierProduct.find({ variant_id: { $in: variants.map((variant) => variant._id) } })
           .populate('supplier_id', 'name')
@@ -124,7 +145,12 @@ export const getProducts = async (req, res) => {
       return { ...product.toObject(), variants: pVariants };
     });
 
-    res.json({ success: true, count: productsData.length, data: productsData });
+    res.json({
+      success: true,
+      count: pagination.enabled ? total : productsData.length,
+      data: productsData,
+      ...(pagination.enabled ? { pagination: buildPaginationMeta({ ...pagination, total }) } : {})
+    });
   } catch (error) {
     logger.error('Get products error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
@@ -289,11 +315,14 @@ export const updateProduct = async (req, res) => {
 // @route   DELETE /api/products/:id
 export const deleteProduct = async (req, res) => {
   try {
-    const product = await Product.findByIdAndDelete(req.params.id);
+    const product = await Product.findByIdAndUpdate(
+      req.params.id,
+      { is_active: false },
+      { new: true }
+    );
     if (!product) return res.status(404).json({ success: false, message: 'Product not found' });
-    // Cleanup variants
-    await ProductVariant.deleteMany({ product_id: req.params.id });
-    res.json({ success: true, data: {} });
+    await ProductVariant.updateMany({ product_id: req.params.id }, { $set: { is_active: false } });
+    res.json({ success: true, data: product });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Server error' });
   }
@@ -319,6 +348,21 @@ export const createVariant = async (req, res) => {
         success: false,
         message: 'This size already exists for the selected product. Edit the existing SKU instead.'
       });
+    }
+
+    const inactiveVariant = await findExistingVariantBySize(req.params.productId, normalizedSize, null, false);
+    if (inactiveVariant && inactiveVariant.is_active === false) {
+      const variant = await ProductVariant.findByIdAndUpdate(
+        inactiveVariant._id,
+        {
+          ...req.body,
+          size: normalizedSize,
+          product_id: req.params.productId,
+          is_active: true
+        },
+        { new: true, runValidators: true }
+      );
+      return res.status(200).json({ success: true, data: variant, reactivated: true });
     }
 
     const variant = await ProductVariant.create({
@@ -380,8 +424,13 @@ export const updateVariant = async (req, res) => {
 // @route   DELETE /api/products/variants/:id
 export const deleteVariant = async (req, res) => {
   try {
-    await ProductVariant.findByIdAndDelete(req.params.id);
-    res.json({ success: true, data: {} });
+    const variant = await ProductVariant.findByIdAndUpdate(
+      req.params.id,
+      { is_active: false },
+      { new: true }
+    );
+    if (!variant) return res.status(404).json({ success: false, message: 'Variant not found' });
+    res.json({ success: true, data: variant });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Server error' });
   }

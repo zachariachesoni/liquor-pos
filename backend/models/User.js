@@ -12,12 +12,6 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: true
   },
-  email: {
-    type: String,
-    unique: true,
-    sparse: true,
-    trim: true
-  },
   role: {
     type: String,
     enum: ['admin', 'manager', 'cashier'],

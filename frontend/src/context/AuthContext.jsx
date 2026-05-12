@@ -49,11 +49,10 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const register = async (username, email, password, role = 'admin') => {
+  const register = async (username, password, role = 'admin') => {
     try {
       const response = await api.post('/auth/register', { 
         username, 
-        email, 
         password,
         role 
       });

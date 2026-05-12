@@ -24,6 +24,10 @@ const customerSchema = new mongoose.Schema({
   },
   notes: {
     type: String
+  },
+  is_active: {
+    type: Boolean,
+    default: true
   }
 }, {
   timestamps: true

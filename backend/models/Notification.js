@@ -50,6 +50,15 @@ const notificationSchema = new mongoose.Schema({
     type: Date,
     default: null
   },
+  read_by: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
+  },
+  read_at: {
+    type: Date,
+    default: null
+  },
   resolution_note: {
     type: String,
     default: '',
@@ -60,5 +69,6 @@ const notificationSchema = new mongoose.Schema({
 });
 
 notificationSchema.index({ status: 1, severity: 1, updatedAt: -1 });
+notificationSchema.index({ status: 1, read_at: 1, updatedAt: -1 });
 
 export default mongoose.model('Notification', notificationSchema);

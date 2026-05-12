@@ -6,6 +6,12 @@ const saleSchema = new mongoose.Schema({
     required: true,
     unique: true
   },
+  idempotency_key: {
+    type: String,
+    unique: true,
+    sparse: true,
+    trim: true
+  },
   customer_id: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Customer',
@@ -59,7 +65,7 @@ const saleSchema = new mongoose.Schema({
   timestamps: true
 });
 
-saleSchema.index({ created_at: -1 });
+saleSchema.index({ createdAt: -1 });
 saleSchema.index({ customer_id: 1 });
 saleSchema.index({ user_id: 1 });
 saleSchema.index({ invoice_number: 1 });

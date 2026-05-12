@@ -15,11 +15,41 @@ const Layout = ({ children }) => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [theme, setTheme] = useState(() => localStorage.getItem('system_theme') || 'dark');
   const [openNotificationCount, setOpenNotificationCount] = useState(0);
+  const [toast, setToast] = useState(null);
+  const [confirmRequest, setConfirmRequest] = useState(null);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
     localStorage.setItem('system_theme', theme);
   }, [theme]);
+
+  useEffect(() => {
+    const handleToast = (event) => {
+      const detail = event.detail || {};
+      setToast({
+        message: detail.message || 'Action completed.',
+        type: detail.type === 'error' ? 'error' : 'success'
+      });
+      window.setTimeout(() => setToast(null), 3200);
+    };
+
+    window.addEventListener('app:toast', handleToast);
+    return () => window.removeEventListener('app:toast', handleToast);
+  }, []);
+
+  useEffect(() => {
+    const handleConfirm = (event) => {
+      setConfirmRequest(event.detail || null);
+    };
+
+    window.addEventListener('app:confirm', handleConfirm);
+    return () => window.removeEventListener('app:confirm', handleConfirm);
+  }, []);
+
+  const resolveConfirm = (accepted) => {
+    confirmRequest?.resolve?.(accepted);
+    setConfirmRequest(null);
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -33,7 +63,7 @@ const Layout = ({ children }) => {
       }
 
       try {
-        const response = await api.get('/notifications', { params: { status: 'open' } });
+        const response = await api.get('/notifications', { params: { status: 'open', unread: 'true', page: 1, limit: 1 } });
         const notifications = response.data.data || [];
         if (isMounted) {
           setOpenNotificationCount(response.data.count ?? notifications.length);
@@ -164,6 +194,29 @@ const Layout = ({ children }) => {
           {children}
         </div>
       </main>
+
+      {toast && (
+        <div className={`toast-popup global-toast ${toast.type === 'error' ? 'error' : 'success'}`}>
+          {toast.message}
+        </div>
+      )}
+
+      {confirmRequest && (
+        <div className="modal-overlay app-confirm-overlay">
+          <div className="glass-panel app-confirm-card">
+            <h2>{confirmRequest.title || 'Confirm action'}</h2>
+            <p>{confirmRequest.message}</p>
+            <div className="app-confirm-actions">
+              <button className="icon-btn" type="button" onClick={() => resolveConfirm(false)}>
+                {confirmRequest.cancelLabel || 'Cancel'}
+              </button>
+              <button className="primary-btn" type="button" onClick={() => resolveConfirm(true)}>
+                {confirmRequest.confirmLabel || 'Continue'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {mobileMenuOpen && <div className="sidebar-overlay" onClick={toggleMobileMenu}></div>}
     </div>

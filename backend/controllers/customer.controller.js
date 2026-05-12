@@ -2,12 +2,51 @@ import Customer from '../models/Customer.js';
 import Sale from '../models/Sale.js';
 import SaleItem from '../models/SaleItem.js';
 import logger from '../utils/logger.js';
+import { buildPaginationMeta, getPagination } from '../utils/pagination.js';
+
+const cleanText = (value = '') => (typeof value === 'string' ? value.trim() : value);
+
+const buildCustomerPayload = (body = {}, { partial = false } = {}) => ({
+  name: cleanText(body.name),
+  phone: cleanText(body.phone) || undefined,
+  email: cleanText(body.email) || undefined,
+  customer_type: body.customer_type || (partial ? undefined : 'retail'),
+  address: cleanText(body.address),
+  notes: cleanText(body.notes),
+  is_active: body.is_active !== undefined ? body.is_active : (partial ? undefined : true)
+});
+
+const stripUndefinedFields = (payload) => Object.fromEntries(
+  Object.entries(payload).filter(([, value]) => value !== undefined)
+);
+
+const assertNoDuplicateCustomer = async ({ phone, email, excludeId = null }) => {
+  const duplicateFilters = [];
+  if (phone) duplicateFilters.push({ phone, is_active: { $ne: false } });
+  if (email) duplicateFilters.push({ email, is_active: { $ne: false } });
+
+  if (!duplicateFilters.length) {
+    return;
+  }
+
+  const query = { $or: duplicateFilters };
+  if (excludeId) {
+    query._id = { $ne: excludeId };
+  }
+
+  const duplicate = await Customer.findOne(query).lean();
+  if (duplicate) {
+    const error = new Error('A customer with that phone or email already exists');
+    error.statusCode = 409;
+    throw error;
+  }
+};
 
 // @desc    Get all customers
 // @route   GET /api/customers
 export const getCustomers = async (req, res) => {
   try {
-    const filters = {};
+    const filters = req.query.include_inactive === 'true' ? {} : { is_active: { $ne: false } };
     if (req.query.q) {
       filters.$or = [
         { name: { $regex: req.query.q, $options: 'i' } },
@@ -15,7 +54,15 @@ export const getCustomers = async (req, res) => {
         { email: { $regex: req.query.q, $options: 'i' } }
       ];
     }
-    const customers = await Customer.find(filters).sort({ createdAt: -1 }).lean();
+    const pagination = getPagination(req.query, 25, 100);
+    let customerQuery = Customer.find(filters).sort({ createdAt: -1 });
+    const total = pagination.enabled ? await Customer.countDocuments(filters) : null;
+
+    if (pagination.enabled) {
+      customerQuery = customerQuery.skip(pagination.skip).limit(pagination.limit);
+    }
+
+    const customers = await customerQuery.lean();
     const customerIds = customers.map((customer) => customer._id);
 
     const purchaseStats = await Sale.aggregate([
@@ -42,7 +89,12 @@ export const getCustomers = async (req, res) => {
       };
     });
 
-    res.json({ success: true, count: enrichedCustomers.length, data: enrichedCustomers });
+    res.json({
+      success: true,
+      count: pagination.enabled ? total : enrichedCustomers.length,
+      data: enrichedCustomers,
+      ...(pagination.enabled ? { pagination: buildPaginationMeta({ ...pagination, total }) } : {})
+    });
   } catch (error) {
     logger.error('Get customers error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
@@ -65,14 +117,13 @@ export const getCustomer = async (req, res) => {
 // @route   POST /api/customers
 export const createCustomer = async (req, res) => {
   try {
-    const customer = await Customer.create({
-      ...req.body,
-      loyaltyPoints: req.body.loyalty_points || 0
-    });
+    const payload = stripUndefinedFields(buildCustomerPayload(req.body, { partial: true }));
+    await assertNoDuplicateCustomer(payload);
+    const customer = await Customer.create(payload);
     res.status(201).json({ success: true, data: customer });
   } catch (error) {
-    if (error.code === 11000) {
-      return res.status(400).json({ success: false, message: 'Customer phone or email already exists' });
+    if (error.statusCode || error.code === 11000) {
+      return res.status(error.statusCode || 409).json({ success: false, message: error.message || 'Customer phone or email already exists' });
     }
     res.status(500).json({ success: false, message: 'Server error' });
   }
@@ -82,7 +133,9 @@ export const createCustomer = async (req, res) => {
 // @route   PUT /api/customers/:id
 export const updateCustomer = async (req, res) => {
   try {
-    const customer = await Customer.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
+    const payload = buildCustomerPayload(req.body);
+    await assertNoDuplicateCustomer({ ...payload, excludeId: req.params.id });
+    const customer = await Customer.findByIdAndUpdate(req.params.id, payload, { new: true, runValidators: true });
     if (!customer) return res.status(404).json({ success: false, message: 'Customer not found' });
     res.json({ success: true, data: customer });
   } catch (error) {
@@ -94,7 +147,7 @@ export const updateCustomer = async (req, res) => {
 // @route   DELETE /api/customers/:id
 export const deleteCustomer = async (req, res) => {
   try {
-    const customer = await Customer.findByIdAndDelete(req.params.id);
+    const customer = await Customer.findByIdAndUpdate(req.params.id, { is_active: false }, { new: true });
     if (!customer) return res.status(404).json({ success: false, message: 'Customer not found' });
     res.json({ success: true, data: {} });
   } catch (error) {
@@ -107,9 +160,17 @@ export const deleteCustomer = async (req, res) => {
 export const getCustomerPurchaseHistory = async (req, res) => {
   try {
     const query = req.query.q?.trim().toLowerCase();
-    const history = await Sale.find({ customer_id: req.params.id })
+    const pagination = getPagination(req.query, 25, 100);
+    let historyQuery = Sale.find({ customer_id: req.params.id })
       .populate('user_id', 'username')
       .sort({ createdAt: -1 });
+
+    const total = pagination.enabled ? await Sale.countDocuments({ customer_id: req.params.id }) : null;
+    if (pagination.enabled && !query) {
+      historyQuery = historyQuery.skip(pagination.skip).limit(pagination.limit);
+    }
+
+    const history = await historyQuery;
 
     const historyWithItems = await Promise.all(
       history.map(async (sale) => {
@@ -156,7 +217,21 @@ export const getCustomerPurchaseHistory = async (req, res) => {
         })
       : historyWithItems;
 
-    res.json({ success: true, count: filteredHistory.length, data: filteredHistory });
+    const paginatedFilteredHistory = pagination.enabled && query
+      ? filteredHistory.slice(pagination.skip, pagination.skip + pagination.limit)
+      : filteredHistory;
+
+    res.json({
+      success: true,
+      count: pagination.enabled ? (query ? filteredHistory.length : total) : filteredHistory.length,
+      data: paginatedFilteredHistory,
+      ...(pagination.enabled ? {
+        pagination: buildPaginationMeta({
+          ...pagination,
+          total: query ? filteredHistory.length : total
+        })
+      } : {})
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Server error' });
   }

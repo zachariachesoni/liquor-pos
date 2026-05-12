@@ -1,6 +1,5 @@
 import { hashPassword, comparePassword, generateToken } from '../utils/helpers.js';
 import logger from '../utils/logger.js';
-import { sendRegistrationEmail } from '../utils/email.js';
 import { getAuthCookieOptions } from '../utils/authCookies.js';
 
 // Import User model directly to ensure schema is registered
@@ -21,7 +20,7 @@ const clearAuthCookie = (res) => {
 // @route   POST /api/auth/register
 // @access  Public (should be restricted in production)
 export const register = async (req, res) => {
-  const { username, password, email } = req.body;
+  const { username, password } = req.body;
 
   try {
     const existingUserCount = await User.countDocuments();
@@ -42,14 +41,12 @@ export const register = async (req, res) => {
     }
 
     // Check if user already exists
-    const existingUser = await User.findOne({ 
-      $or: [{ username }, { email }] 
-    });
+    const existingUser = await User.findOne({ username });
 
     if (existingUser) {
       return res.status(400).json({
         success: false,
-        message: 'Username or email already exists'
+        message: 'Username already exists'
       });
     }
 
@@ -60,16 +57,9 @@ export const register = async (req, res) => {
     const user = await User.create({
       username,
       password: hashedPassword,
-      email,
       role: 'admin',
       permissions: {}
     });
-
-    let emailResult = null;
-    if (email) {
-      const loginLink = `${process.env.FRONTEND_URL || `${req.protocol}://${req.get('host')}`}/login?username=${encodeURIComponent(username)}`;
-      emailResult = await sendRegistrationEmail(email, username, user.role, loginLink);
-    }
 
     // Generate token
     const token = generateToken(user);
@@ -84,14 +74,9 @@ export const register = async (req, res) => {
         user: {
           id: user._id,
           username: user.username,
-          email: user.email,
           role: user.role
         },
-        token,
-        emailSent: emailResult ? emailResult.success : false,
-        emailResponse: emailResult?.mocked
-          ? emailResult.message
-          : emailResult?.error || (emailResult ? 'Sent successfully' : 'No email provided')
+        token
       }
     });
   } catch (error) {
@@ -117,20 +102,14 @@ export const login = async (req, res) => {
     if (!identifier || !password) {
       return res.status(400).json({
         success: false,
-        message: 'Username or email and password are required'
+        message: 'Username and password are required'
       });
     }
 
     const escapedIdentifier = identifier.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const identifierRegex = new RegExp(`^${escapedIdentifier}$`, 'i');
 
-    // Find user by username or email
-    const user = await User.findOne({
-      $or: [
-        { username: identifierRegex },
-        { email: identifierRegex }
-      ]
-    }).select('+password');
+    const user = await User.findOne({ username: identifierRegex }).select('+password');
 
     if (!user || !user.is_active) {
       return res.status(401).json({
@@ -162,7 +141,6 @@ export const login = async (req, res) => {
         user: {
           id: user._id,
           username: user.username,
-          email: user.email,
           role: user.role,
           permissions: user.permissions
         },
@@ -191,7 +169,6 @@ export const getMe = async (req, res) => {
       data: {
         id: user._id,
         username: user.username,
-        email: user.email,
         role: user.role,
         permissions: user.permissions
       }

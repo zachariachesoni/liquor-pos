@@ -387,6 +387,117 @@ html[data-theme='light'] .nav-item.active {
   flex: 1;
 }
 
+.toast-popup {
+  max-width: min(360px, calc(100vw - 2rem));
+  padding: 0.9rem 1rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid transparent;
+  color: var(--text-primary);
+  background: var(--glass-bg-hover);
+  box-shadow: var(--shadow-lg);
+}
+
+.toast-popup.success {
+  border-color: rgba(16, 185, 129, 0.4);
+  background: rgba(6, 78, 59, 0.92);
+}
+
+.toast-popup.error {
+  border-color: rgba(239, 68, 68, 0.45);
+  background: rgba(127, 29, 29, 0.94);
+}
+
+html[data-theme='light'] .toast-popup.success {
+  color: #064e3b;
+  background: #d1fae5;
+  border-color: rgba(5, 150, 105, 0.28);
+}
+
+html[data-theme='light'] .toast-popup.error {
+  color: #7f1d1d;
+  background: #fee2e2;
+  border-color: rgba(220, 38, 38, 0.28);
+}
+
+.global-toast {
+  position: fixed;
+  right: 1.25rem;
+  top: 1.25rem;
+  z-index: 1000;
+}
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: clamp(1.5rem, 4vh, 3rem) 1.25rem;
+  z-index: 1000;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+html[data-theme='light'] .modal-overlay {
+  background: rgba(15, 23, 42, 0.34);
+}
+
+.app-confirm-overlay {
+  z-index: 1200;
+}
+
+.app-confirm-card {
+  width: min(420px, calc(100vw - 2rem));
+  padding: 1.4rem;
+  border-radius: var(--radius-xl);
+}
+
+.app-confirm-card h2 {
+  margin: 0 0 0.65rem;
+  font-size: 1.25rem;
+}
+
+.app-confirm-card p {
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.app-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+}
+
+.app-confirm-actions .primary-btn,
+.app-confirm-actions .icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 0.65rem 1.15rem;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+}
+
+.app-confirm-actions .primary-btn {
+  background: linear-gradient(135deg, var(--primary), var(--primary-hover));
+  color: #ffffff;
+}
+
+.app-confirm-actions .icon-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+}
+
+html[data-theme='light'] .app-confirm-actions .icon-btn {
+  background: #ffffff;
+  border-color: rgba(15, 23, 42, 0.12);
+}
+
 /* Responsive */
 @media (max-width: 1024px) {
   .sidebar {

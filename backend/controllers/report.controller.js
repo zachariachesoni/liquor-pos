@@ -808,10 +808,22 @@ export const getMarginErosionReport = async (req, res) => {
     const settingsDoc = await getSystemSettings();
     const settings = serializeSystemSettings(settingsDoc);
     const threshold = Number(req.query.threshold ?? settings.minimum_margin_threshold ?? 15);
+    const { start_date, end_date } = req.query;
+    const historyFilter = {};
+
+    if (start_date || end_date) {
+      historyFilter.changed_at = {};
+      if (start_date) {
+        historyFilter.changed_at.$gte = new Date(start_date);
+      }
+      if (end_date) {
+        historyFilter.changed_at.$lte = new Date(end_date);
+      }
+    }
 
     const [variants, priceHistory] = await Promise.all([
       ProductVariant.find().populate('product_id', 'name brand category').lean(),
-      SupplierProductPriceHistory.find().sort({ changed_at: -1 }).lean()
+      SupplierProductPriceHistory.find(historyFilter).sort({ changed_at: -1 }).lean()
     ]);
 
     const latestHistoryByVariant = priceHistory.reduce((map, entry) => {

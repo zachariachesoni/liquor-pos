@@ -3,6 +3,7 @@ import { Plus, Search, Edit2, Trash2, SlidersHorizontal, ArrowLeftRight, X } fro
 import api from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { canManageCatalog, canSeeProductCosts } from '../utils/accessControl';
+import { confirmAppAction, showAppToast } from '../utils/toast';
 import PaginationControls from '../components/PaginationControls';
 import './Products.css';
 import './Reports.css';
@@ -132,7 +133,7 @@ const Products = () => {
       setComparisonData(response.data.data || null);
     } catch (err) {
       console.error('Failed to load supplier comparison', err);
-      alert(err.response?.data?.message || 'Failed to load supplier comparison');
+      showAppToast(err.response?.data?.message || 'Failed to load supplier comparison', 'error');
       setShowComparisonModal(false);
       setComparisonData(null);
     } finally {
@@ -149,7 +150,7 @@ const Products = () => {
       const existingVariant = matchingProducts.find((product) => normalizeValue(product.variant) === normalizedSize);
 
       if (existingVariant) {
-        alert(`${formData.name} ${formData.size} already exists. Edit the existing SKU instead.`);
+        showAppToast(`${formData.name} ${formData.size} already exists. Edit the existing SKU instead.`, 'error');
         return;
       }
 
@@ -197,7 +198,7 @@ const Products = () => {
       setFormData({ ...initialFormData });
       fetchProducts();
     } catch (err) {
-      alert(err.response?.data?.message || 'Error creating product');
+      showAppToast(err.response?.data?.message || 'Error creating product', 'error');
       console.error(err);
     }
   };
@@ -208,7 +209,13 @@ const Products = () => {
       ? `Are you sure you want to delete ${product.name}?`
       : `Are you sure you want to delete the ${product.variant} variant from ${product.name}? Other variants will stay in the catalog.`;
 
-    if (window.confirm(message)) {
+    const confirmed = await confirmAppAction({
+      title: 'Remove product',
+      message,
+      confirmLabel: 'Remove'
+    });
+
+    if (confirmed) {
       try {
         if (isLastVariant) {
           await api.delete(`/products/${product.productId}`);
@@ -217,7 +224,7 @@ const Products = () => {
         }
         fetchProducts();
       } catch (err) {
-        alert("Error deleting product");
+        showAppToast(err.response?.data?.message || 'Error deleting product', 'error');
         console.error(err);
       }
     }
@@ -241,7 +248,7 @@ const Products = () => {
       setShowEditModal(false);
       fetchProducts();
     } catch (err) {
-      alert(err.response?.data?.message || 'Error updating product details');
+      showAppToast(err.response?.data?.message || 'Error updating product details', 'error');
       console.error(err);
     }
   };

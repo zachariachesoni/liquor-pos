@@ -3,6 +3,7 @@ import { ImagePlus, KeyRound, Save, Settings, Shield, Trash2, User, UserPlus } f
 import api from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { getCacheableSettings } from '../hooks/useSystemSettings';
+import { confirmAppAction } from '../utils/toast';
 import PaginationControls from '../components/PaginationControls';
 import './Products.css';
 
@@ -148,7 +149,13 @@ const AdminPanel = () => {
   };
 
   const handleDeleteUser = async (member) => {
-    if (!window.confirm(`Remove ${member.username} from the system entirely?`)) {
+    const confirmed = await confirmAppAction({
+      title: 'Remove staff member',
+      message: `Remove ${member.username} from the system entirely?`,
+      confirmLabel: 'Remove'
+    });
+
+    if (!confirmed) {
       return;
     }
 
@@ -485,10 +492,6 @@ const AdminPanel = () => {
                     <div className="account-summary-row">
                       <span className="admin-stat-label">Username</span>
                       <strong>{user?.username || 'Unknown user'}</strong>
-                    </div>
-                    <div className="account-summary-row">
-                      <span className="admin-stat-label">Email</span>
-                      <span className="td-secondary">{user?.email || 'No email on file'}</span>
                     </div>
                     <div className="account-summary-row">
                       <span className="admin-stat-label">Role</span>

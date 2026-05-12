@@ -82,12 +82,19 @@ app.use(cors(corsOptions));
 app.options(/.*/, cors(corsOptions));
 
 // Rate limiting
-const limiter = rateLimit({
+const appLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 100,
+  max: 900,
   message: 'Too many requests from this IP, please try again later.'
 });
-app.use('/api', limiter);
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 40,
+  message: 'Too many sign-in attempts from this IP, please try again later.'
+});
+
+app.use('/api', appLimiter);
 
 // Body parser middleware
 app.use(express.json({ limit: '10mb' }));
@@ -131,7 +138,7 @@ app.get('/api/health', async (req, res) => {
 });
 
 // API Routes
-app.use('/api/auth', authRoutes);
+app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/inventory', inventoryRoutes);

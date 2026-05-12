@@ -36,29 +36,42 @@
   margin-bottom: 20px;
 }
 
-.form-group {
+.login-card .form-group {
   margin-bottom: 20px;
 }
 
-.form-group label {
+.login-card .form-group label {
   display: block;
   margin-bottom: 8px;
-  color: #333;
+  color: #111827;
   font-weight: 500;
 }
 
-.form-group input {
+.login-card .form-group input {
   width: 100%;
   padding: 12px;
+  background-color: #ffffff;
   border: 2px solid #e0e0e0;
   border-radius: 5px;
+  color: #111827;
   font-size: 14px;
   transition: border-color 0.3s;
+  color-scheme: light;
 }
 
-.form-group input:focus {
+.login-card .form-group input::placeholder {
+  color: #64748b;
+}
+
+.login-card .form-group input:focus {
   outline: none;
   border-color: #667eea;
+}
+
+.login-card .form-group input:disabled {
+  background-color: #f8fafc;
+  color: #334155;
+  -webkit-text-fill-color: #334155;
 }
 
 .error-message {

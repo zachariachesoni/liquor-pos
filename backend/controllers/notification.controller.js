@@ -5,8 +5,15 @@ import StockAdjustment from '../models/StockAdjustment.js';
 import SupplierProductPriceHistory from '../models/SupplierProductPriceHistory.js';
 import logger from '../utils/logger.js';
 import { calculateEffectiveLowStockLevel, getSystemSettings, serializeSystemSettings } from '../utils/systemSettings.js';
+import { buildPaginationMeta, getPagination } from '../utils/pagination.js';
 
 const formatCurrency = (value) => `KES ${Number(value || 0).toLocaleString()}`;
+
+const isPersistentGeneratedConcern = (sourceKey = '') => (
+  sourceKey.startsWith('out-of-stock:')
+  || sourceKey.startsWith('low-stock:')
+  || sourceKey.startsWith('overdue-payable:')
+);
 
 const parseAverageCostFromNotes = (notes = '') => {
   const match = String(notes).match(/Average cost\s+([\d,.]+)\s+from\s+([\d,.]+)/i);
@@ -45,11 +52,12 @@ const getAverageCostSnapshot = (adjustment) => {
 const buildLowStockConcerns = async () => {
   const settingsDoc = await getSystemSettings();
   const settings = serializeSystemSettings(settingsDoc);
-  const variants = await ProductVariant.find()
-    .populate('product_id', 'name brand category')
+  const variants = await ProductVariant.find({ is_active: { $ne: false } })
+    .populate('product_id', 'name brand category is_active')
     .lean();
 
   return variants
+    .filter((variant) => variant.product_id?.is_active !== false)
     .map((variant) => ({
       variant,
       effectiveLowStockLevel: calculateEffectiveLowStockLevel(variant, settings)
@@ -275,12 +283,25 @@ const syncGeneratedConcerns = async () => {
       return;
     }
 
-    if (existing.status === 'open') {
+    const shouldReopen = existing.generated && isPersistentGeneratedConcern(concern.source_key);
+    const wasResolved = existing.status !== 'open';
+
+    if (existing.status === 'open' || shouldReopen) {
       existing.type = concern.type;
       existing.severity = concern.severity;
       existing.title = concern.title;
       existing.message = concern.message;
       existing.metadata = concern.metadata;
+      if (shouldReopen) {
+        existing.status = 'open';
+        existing.addressed_by = null;
+        existing.addressed_at = null;
+        existing.resolution_note = '';
+        if (wasResolved) {
+          existing.read_by = null;
+          existing.read_at = null;
+        }
+      }
       await existing.save();
     }
   }));
@@ -295,12 +316,29 @@ export const getNotifications = async (req, res) => {
       filters.status = req.query.status;
     }
 
-    const notifications = await Notification.find(filters)
-      .populate('addressed_by', 'username')
-      .sort({ status: 1, severity: 1, updatedAt: -1 })
-      .lean();
+    if (req.query.unread === 'true') {
+      filters.read_at = null;
+    }
 
-    res.json({ success: true, count: notifications.length, data: notifications });
+    const pagination = getPagination(req.query, 25, 100);
+    let notificationsQuery = Notification.find(filters)
+      .populate('addressed_by', 'username')
+      .populate('read_by', 'username')
+      .sort({ status: 1, severity: 1, updatedAt: -1 });
+
+    const total = pagination.enabled ? await Notification.countDocuments(filters) : null;
+    if (pagination.enabled) {
+      notificationsQuery = notificationsQuery.skip(pagination.skip).limit(pagination.limit);
+    }
+
+    const notifications = await notificationsQuery.lean();
+
+    res.json({
+      success: true,
+      count: pagination.enabled ? total : notifications.length,
+      data: notifications,
+      ...(pagination.enabled ? { pagination: buildPaginationMeta({ ...pagination, total }) } : {})
+    });
   } catch (error) {
     logger.error('Get notifications error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
@@ -317,11 +355,14 @@ export const addressNotification = async (req, res) => {
     notification.status = 'addressed';
     notification.addressed_by = req.user._id || req.user.id;
     notification.addressed_at = new Date();
+    notification.read_by = req.user._id || req.user.id;
+    notification.read_at = new Date();
     notification.resolution_note = req.body.resolution_note || 'Addressed by admin.';
     await notification.save();
 
     const populatedNotification = await Notification.findById(notification._id)
       .populate('addressed_by', 'username')
+      .populate('read_by', 'username')
       .lean();
 
     res.json({ success: true, data: populatedNotification });
@@ -339,9 +380,8 @@ export const addressAllNotifications = async (req, res) => {
       { status: 'open' },
       {
         $set: {
-          status: 'addressed',
-          addressed_by: req.user._id || req.user.id,
-          addressed_at: new Date(),
+          read_by: req.user._id || req.user.id,
+          read_at: new Date(),
           resolution_note: req.body.resolution_note || 'Marked as read by admin.'
         }
       }

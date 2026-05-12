@@ -38,7 +38,7 @@ export const getUser = async (req, res) => {
 // @access  Private/Admin
 export const createUser = async (req, res) => {
   try {
-    const { username, email, password, role } = req.body;
+    const { username, password, role } = req.body;
 
     if (!['manager', 'cashier'].includes(role)) {
       return res.status(400).json({ success: false, message: 'Only manager and cashier accounts can be created here' });
@@ -64,7 +64,6 @@ export const createUser = async (req, res) => {
 
     const user = await User.create({
       username,
-      email: email || undefined,
       password: hashedPassword,
       role,
       permissions: req.body.permissions || {},
@@ -81,7 +80,7 @@ export const createUser = async (req, res) => {
   } catch (error) {
     logger.error('Create user error:', error);
     if (error.code === 11000) {
-      return res.status(400).json({ success: false, message: 'Username or email already exists' });
+      return res.status(400).json({ success: false, message: 'Username already exists' });
     }
     res.status(500).json({ success: false, message: 'Server error' });
   }
@@ -92,7 +91,7 @@ export const createUser = async (req, res) => {
 // @access  Private/Admin
 export const updateUser = async (req, res) => {
   try {
-    const { username, email, role, isActive, permissions } = req.body;
+    const { username, role, isActive, permissions } = req.body;
     let user = await User.findById(req.params.id);
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
@@ -101,7 +100,6 @@ export const updateUser = async (req, res) => {
     }
 
     user.username = username || user.username;
-    user.email = email || user.email;
     user.role = role || user.role;
     if (isActive !== undefined) user.is_active = isActive;
     if (permissions) user.permissions = permissions;

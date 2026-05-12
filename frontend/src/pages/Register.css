@@ -36,11 +36,11 @@
   width: 100%;
 }
 
-.form-group {
+.register-card .form-group {
   margin-bottom: 20px;
 }
 
-.form-group label {
+.register-card .form-group label {
   display: block;
   margin-bottom: 8px;
   color: #4a5568;
@@ -48,19 +48,25 @@
   font-size: 14px;
 }
 
-.form-group input,
-.form-group select {
+.register-card .form-group input,
+.register-card .form-group select {
   width: 100%;
   padding: 12px 15px;
   background-color: #ffffff;
   border: 2px solid #e2e8f0;
   border-radius: 6px;
+  color: #111827;
   font-size: 14px;
   transition: all 0.3s;
   box-sizing: border-box;
+  color-scheme: light;
 }
 
-.form-group select {
+.register-card .form-group input::placeholder {
+  color: #64748b;
+}
+
+.register-card .form-group select {
   appearance: none;
   -webkit-appearance: none;
   -moz-appearance: none;
@@ -72,16 +78,18 @@
   color-scheme: light;
 }
 
-.form-group input:focus,
-.form-group select:focus {
+.register-card .form-group input:focus,
+.register-card .form-group select:focus {
   outline: none;
   border-color: #667eea;
   box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
-.form-group input:disabled,
-.form-group select:disabled {
+.register-card .form-group input:disabled,
+.register-card .form-group select:disabled {
   background-color: #f7fafc;
+  color: #334155;
+  -webkit-text-fill-color: #334155;
   cursor: not-allowed;
 }
 

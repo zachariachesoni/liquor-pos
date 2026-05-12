@@ -6,7 +6,6 @@ import './Register.css';
 const Register = () => {
   const [formData, setFormData] = useState({
     username: '',
-    email: '',
     password: '',
     confirmPassword: '',
     role: 'admin'
@@ -29,7 +28,7 @@ const Register = () => {
     setError('');
 
     // Validation
-    if (!formData.username || !formData.email || !formData.password) {
+    if (!formData.username || !formData.password) {
       setError('All fields are required');
       return;
     }
@@ -46,7 +45,7 @@ const Register = () => {
 
     setLoading(true);
 
-    const result = await register(formData.username, formData.email, formData.password, formData.role);
+    const result = await register(formData.username, formData.password, formData.role);
 
     if (result.success) {
       navigate('/dashboard');
@@ -77,20 +76,6 @@ const Register = () => {
               value={formData.username}
               onChange={handleChange}
               placeholder="Enter username"
-              disabled={loading}
-              required
-            />
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="email">Email *</label>
-            <input
-              type="email"
-              id="email"
-              name="email"
-              value={formData.email}
-              onChange={handleChange}
-              placeholder="Enter email address"
               disabled={loading}
               required
             />

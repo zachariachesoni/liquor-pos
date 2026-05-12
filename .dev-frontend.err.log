@@ -1,0 +1,24 @@
+[2m3:08:29 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mFailed to load system settings AxiosError: Network Error
+    at XMLHttpRequest.handleError (http://127.0.0.1:5176/node_modules/.vite/deps/axios.js?v=fa55a946:1979:16)
+    at Axios$1.request (http://127.0.0.1:5176/node_modules/.vite/deps/axios.js?v=fa55a946:2520:37)
+    at async fetchSettings (http://127.0.0.1:5176/src/hooks/useSystemSettings.js:74:22)
+[2m3:08:31 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mFailed to load system settings AxiosError: Network Error
+    at XMLHttpRequest.handleError (http://127.0.0.1:5176/node_modules/.vite/deps/axios.js?v=fa55a946:1979:16)
+    at Axios$1.request (http://127.0.0.1:5176/node_modules/.vite/deps/axios.js?v=fa55a946:2520:37)
+    at async fetchSettings (http://127.0.0.1:5176/src/hooks/useSystemSettings.js:74:22)
+[2m3:08:56 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mFailed to load system settings AxiosError: Network Error
+    at XMLHttpRequest.handleError (http://127.0.0.1:5176/node_modules/.vite/deps/axios.js?v=fa55a946:1979:16)
+    at Axios$1.request (http://127.0.0.1:5176/node_modules/.vite/deps/axios.js?v=fa55a946:2520:37)
+    at async fetchSettings (http://127.0.0.1:5176/src/hooks/useSystemSettings.js:74:22)
+[2m3:08:57 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mFailed to load system settings AxiosError: Network Error
+    at XMLHttpRequest.handleError (http://127.0.0.1:5176/node_modules/.vite/deps/axios.js?v=fa55a946:1979:16)
+    at Axios$1.request (http://127.0.0.1:5176/node_modules/.vite/deps/axios.js?v=fa55a946:2520:37)
+    at async fetchSettings (http://127.0.0.1:5176/src/hooks/useSystemSettings.js:74:22)
+[2m3:14:41 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mFailed to load system settings AxiosError: Network Error
+    at XMLHttpRequest.handleError (http://127.0.0.1:5176/node_modules/.vite/deps/axios.js?v=fa55a946:1979:16)
+    at Axios$1.request (http://127.0.0.1:5176/node_modules/.vite/deps/axios.js?v=fa55a946:2520:37)
+    at async fetchSettings (http://127.0.0.1:5176/src/hooks/useSystemSettings.js:74:22)
+[2m3:14:42 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mFailed to load system settings AxiosError: Network Error
+    at XMLHttpRequest.handleError (http://127.0.0.1:5176/node_modules/.vite/deps/axios.js?v=fa55a946:1979:16)
+    at Axios$1.request (http://127.0.0.1:5176/node_modules/.vite/deps/axios.js?v=fa55a946:2520:37)
+    at async fetchSettings (http://127.0.0.1:5176/src/hooks/useSystemSettings.js:74:22)

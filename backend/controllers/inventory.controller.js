@@ -7,6 +7,7 @@ import logger from '../utils/logger.js';
 import { mongoose } from '../config/database.js';
 import { calculateWeightedAverageCost } from '../utils/inventoryCost.js';
 import { calculateEffectiveLowStockLevel, getSystemSettings, serializeSystemSettings } from '../utils/systemSettings.js';
+import { buildPaginationMeta, getPagination } from '../utils/pagination.js';
 
 const createInventoryError = (message, statusCode = 400) => {
   const error = new Error(message);
@@ -124,9 +125,12 @@ export const getStockLevels = async (req, res) => {
   try {
     const settingsDoc = await getSystemSettings();
     const settings = serializeSystemSettings(settingsDoc);
-    const variants = await ProductVariant.find().populate('product_id', 'name category');
+    const variants = await ProductVariant.find({ is_active: { $ne: false } })
+      .populate('product_id', 'name category is_active');
 
-    const enrichedVariants = variants.map((variant) => {
+    const enrichedVariants = variants
+      .filter((variant) => variant.product_id?.is_active !== false)
+      .map((variant) => {
       const doc = variant.toObject();
       const effectiveLowStockLevel = calculateEffectiveLowStockLevel(doc, settings);
 
@@ -150,8 +154,10 @@ export const getLowStock = async (req, res) => {
   try {
     const settingsDoc = await getSystemSettings();
     const settings = serializeSystemSettings(settingsDoc);
-    const variants = await ProductVariant.find().populate('product_id', 'name');
+    const variants = await ProductVariant.find({ is_active: { $ne: false } })
+      .populate('product_id', 'name is_active');
     const lowStock = variants
+      .filter((variant) => variant.product_id?.is_active !== false)
       .map((variant) => {
         const doc = variant.toObject();
         return {
@@ -173,9 +179,11 @@ export const getReorderSuggestions = async (req, res) => {
   try {
     const settingsDoc = await getSystemSettings();
     const settings = serializeSystemSettings(settingsDoc);
-    const variants = await ProductVariant.find().populate('product_id', 'name brand category');
+    const variants = await ProductVariant.find({ is_active: { $ne: false } })
+      .populate('product_id', 'name brand category is_active');
 
     const lowStockVariants = variants
+      .filter((variant) => variant.product_id?.is_active !== false)
       .map((variant) => {
         const doc = variant.toObject();
         const effectiveLowStockLevel = calculateEffectiveLowStockLevel(doc, settings);
@@ -303,8 +311,21 @@ export const getReorderSuggestions = async (req, res) => {
 // @route   GET /api/inventory/history
 export const getHistory = async (req, res) => {
   try {
-    const history = await StockAdjustment.find().sort({ createdAt: -1 }).populate('variant_id');
-    res.json({ success: true, count: history.length, data: history });
+    const pagination = getPagination(req.query, 25, 100);
+    let historyQuery = StockAdjustment.find().sort({ createdAt: -1 }).populate('variant_id');
+    const total = pagination.enabled ? await StockAdjustment.countDocuments() : null;
+
+    if (pagination.enabled) {
+      historyQuery = historyQuery.skip(pagination.skip).limit(pagination.limit);
+    }
+
+    const history = await historyQuery;
+    res.json({
+      success: true,
+      count: pagination.enabled ? total : history.length,
+      data: history,
+      ...(pagination.enabled ? { pagination: buildPaginationMeta({ ...pagination, total }) } : {})
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Server error' });
   }

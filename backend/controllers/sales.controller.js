@@ -5,6 +5,7 @@ import StockAdjustment from '../models/StockAdjustment.js';
 import logger from '../utils/logger.js';
 import { generateInvoiceNumber } from '../utils/helpers.js';
 import { mongoose } from '../config/database.js';
+import { buildPaginationMeta, getPagination } from '../utils/pagination.js';
 
 const getSalesAccessFilter = (req) => (
   req.user?.role === 'cashier'
@@ -12,11 +13,25 @@ const getSalesAccessFilter = (req) => (
     : {}
 );
 
+const normalizeIdempotencyKey = (value) => (
+  typeof value === 'string' ? value.trim().slice(0, 120) : ''
+);
+
+const getExistingSaleByKey = async (idempotencyKey) => (
+  idempotencyKey ? Sale.findOne({ idempotency_key: idempotencyKey }) : null
+);
+
 // @desc    Process a sale (checkout)
 // @route   POST /api/sales
 export const createSale = async (req, res) => {
   const session = await mongoose.startSession();
+  const idempotencyKey = normalizeIdempotencyKey(req.body.idempotencyKey || req.body.idempotency_key);
   try {
+    const existingSale = await getExistingSaleByKey(idempotencyKey);
+    if (existingSale) {
+      return res.status(200).json({ success: true, data: existingSale, duplicate: true });
+    }
+
     session.startTransaction();
     const { items, customerId, paymentMethod, amountPaid, priceList } = req.body;
     const normalizedAmountPaid = Number(amountPaid ?? 0);
@@ -40,7 +55,7 @@ export const createSale = async (req, res) => {
       }
 
       const variant = await ProductVariant.findById(item.variantId).session(session);
-      if (!variant || variant.current_stock < quantity) {
+      if (!variant || variant.is_active === false || variant.current_stock < quantity) {
         throw new Error(`Insufficient stock for ${variant ? variant._id : 'Unknown item'}`);
       }
       
@@ -90,6 +105,7 @@ export const createSale = async (req, res) => {
 
     const sale = await Sale.create([{
       invoice_number: generateInvoiceNumber(),
+      idempotency_key: idempotencyKey || undefined,
       customer_id: customerId || null,
       total_amount: totalAmount,
       subtotal: totalAmount, // Assuming no tax/discount applied for now
@@ -109,6 +125,13 @@ export const createSale = async (req, res) => {
 
   } catch (error) {
     await session.abortTransaction();
+    if (error.code === 11000 && idempotencyKey) {
+      const existingSale = await getExistingSaleByKey(idempotencyKey);
+      if (existingSale) {
+        return res.status(200).json({ success: true, data: existingSale, duplicate: true });
+      }
+    }
+
     if (error.message.includes('Transaction') || error.message.includes('transaction')) {
       logger.warn('Transactions not supported. Falling back to non-transactional sale.');
       let variantSnapshots = [];
@@ -129,7 +152,7 @@ export const createSale = async (req, res) => {
           }
 
           const variant = await ProductVariant.findById(item.variantId);
-          if (!variant || variant.current_stock < quantity) {
+          if (!variant || variant.is_active === false || variant.current_stock < quantity) {
              return res.status(400).json({ success: false, message: `Insufficient stock` });
           }
 
@@ -165,6 +188,7 @@ export const createSale = async (req, res) => {
 
         createdSale = await Sale.create({
           invoice_number: generateInvoiceNumber(), 
+          idempotency_key: idempotencyKey || undefined,
           customer_id: customerId || null,
           total_amount: totalAmount, 
           subtotal: totalAmount,
@@ -207,6 +231,13 @@ export const createSale = async (req, res) => {
         return res.status(201).json({ success: true, data: createdSale });
       } catch (fallbackErr) {
         logger.error('Fallback sale creation failed:', fallbackErr);
+
+        if (fallbackErr.code === 11000 && idempotencyKey) {
+          const existingSale = await getExistingSaleByKey(idempotencyKey);
+          if (existingSale) {
+            return res.status(200).json({ success: true, data: existingSale, duplicate: true });
+          }
+        }
 
         try {
           if (saleItemsCreated && createdSale?._id) {
@@ -255,7 +286,15 @@ export const getSales = async (req, res) => {
       filters.createdAt = filters.createdAt || {};
       filters.createdAt.$lte = new Date(req.query.end_date);
     }
-    const sales = await Sale.find(filters).populate('user_id', 'username').sort({ createdAt: -1 }).lean();
+    const pagination = getPagination(req.query, 25, 100);
+    let salesQuery = Sale.find(filters).populate('user_id', 'username').sort({ createdAt: -1 });
+    const total = pagination.enabled ? await Sale.countDocuments(filters) : null;
+
+    if (pagination.enabled) {
+      salesQuery = salesQuery.skip(pagination.skip).limit(pagination.limit);
+    }
+
+    const sales = await salesQuery.lean();
     const saleIds = sales.map((sale) => sale._id);
     const saleItemSummaries = saleIds.length
       ? await SaleItem.aggregate([
@@ -284,7 +323,12 @@ export const getSales = async (req, res) => {
       };
     });
 
-    res.json({ success: true, count: enrichedSales.length, data: enrichedSales });
+    res.json({
+      success: true,
+      count: pagination.enabled ? total : enrichedSales.length,
+      data: enrichedSales,
+      ...(pagination.enabled ? { pagination: buildPaginationMeta({ ...pagination, total }) } : {})
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Server error' });
   }

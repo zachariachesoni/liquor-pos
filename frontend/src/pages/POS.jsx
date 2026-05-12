@@ -3,6 +3,7 @@ import { Search, ShoppingCart, Minus, Plus, Trash2, CreditCard, Banknote, Printe
 import api from '../utils/api';
 import { useSystemSettings } from '../hooks/useSystemSettings';
 import { getPrintBaseStyles, getPrintBrandMarkup } from '../utils/printBranding';
+import { showAppToast } from '../utils/toast';
 import PaginationControls from '../components/PaginationControls';
 import './POS.css';
 
@@ -20,6 +21,8 @@ const POS = () => {
   const [cashReceived, setCashReceived] = useState('');
   const [priceList, setPriceList] = useState('retail'); // 'retail' or 'wholesale'
   const [loading, setLoading] = useState(true);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [checkoutIdempotencyKey, setCheckoutIdempotencyKey] = useState('');
   const [customers, setCustomers] = useState([]);
   const [selectedCustomerId, setSelectedCustomerId] = useState('');
   const [showWholesaleModal, setShowWholesaleModal] = useState(false);
@@ -326,7 +329,14 @@ const POS = () => {
   };
 
   const handleCheckout = async () => {
+    if (checkoutLoading) {
+      return;
+    }
+
     try {
+      setCheckoutLoading(true);
+      const idempotencyKey = checkoutIdempotencyKey || `checkout-${Date.now()}-${crypto.randomUUID?.() || Math.random().toString(36).slice(2)}`;
+      setCheckoutIdempotencyKey(idempotencyKey);
       const receiptItems = cart.map((item) => {
         const wholesaleApplied = calculateWholesaleApplies(item);
         const unitPrice = wholesaleApplied ? item.wholesale_price : item.price;
@@ -350,7 +360,8 @@ const POS = () => {
         })),
         paymentMethod: paymentMethod,
         priceList: priceList,
-        amountPaid: computedAmountPaid
+        amountPaid: computedAmountPaid,
+        idempotencyKey
       };
 
       const res = await api.post('/sales', payload);
@@ -391,10 +402,13 @@ const POS = () => {
       setSelectedCustomerId('');
       setPriceList('retail');
       setCashReceived('');
+      setCheckoutIdempotencyKey('');
       fetchCatalog(); // Refresh stock
     } catch (err) {
-      alert(err.response?.data?.message || 'Checkout failed');
+      showAppToast(err.response?.data?.message || 'Checkout failed', 'error');
       console.error(err);
+    } finally {
+      setCheckoutLoading(false);
     }
   };
 
@@ -410,7 +424,7 @@ const POS = () => {
       setShowWholesaleModal(false);
       setNewCustomer({ name: '', phone: '' });
     } catch (err) {
-      alert('Error creating customer');
+      showAppToast(err.response?.data?.message || 'Error creating customer', 'error');
       console.error(err);
     }
   };
@@ -680,10 +694,10 @@ const POS = () => {
 
               <button
                 className="checkout-btn"
-                disabled={cart.length === 0 || isCashShort}
+                disabled={cart.length === 0 || isCashShort || checkoutLoading}
                 onClick={handleCheckout}
               >
-                {checkoutButtonLabel}
+                {checkoutLoading ? 'Processing Sale...' : checkoutButtonLabel}
               </button>
               {cart.length === 0 && (
                 <div className="checkout-hint">Add at least one item to continue.</div>

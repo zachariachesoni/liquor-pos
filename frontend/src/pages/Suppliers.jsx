@@ -20,6 +20,7 @@ import {
 import api from '../utils/api';
 import { useSystemSettings } from '../hooks/useSystemSettings';
 import { getPrintBaseStyles, getPrintBrandMarkup } from '../utils/printBranding';
+import { confirmAppAction } from '../utils/toast';
 import PaginationControls from '../components/PaginationControls';
 import './Products.css';
 import './Reports.css';
@@ -415,7 +416,13 @@ const Suppliers = () => {
   };
 
   const handleDeleteSupplier = async (supplier) => {
-    if (!window.confirm(`Delete ${supplier.name}? Suppliers with linked products or GRNs must be marked inactive instead.`)) {
+    const confirmed = await confirmAppAction({
+      title: 'Remove supplier',
+      message: `Delete ${supplier.name}? Suppliers with linked products or GRNs must be marked inactive instead.`,
+      confirmLabel: 'Remove'
+    });
+
+    if (!confirmed) {
       return;
     }
 
@@ -841,7 +848,13 @@ const Suppliers = () => {
   };
 
   const handleDeleteLink = async (link) => {
-    if (!window.confirm(`Remove ${link.variant?.product?.name || 'this SKU'} from ${selectedSupplierDetail?.supplier?.name || 'supplier'}?`)) {
+    const confirmed = await confirmAppAction({
+      title: 'Remove linked SKU',
+      message: `Remove ${link.variant?.product?.name || 'this SKU'} from ${selectedSupplierDetail?.supplier?.name || 'supplier'}?`,
+      confirmLabel: 'Remove'
+    });
+
+    if (!confirmed) {
       return;
     }
 
