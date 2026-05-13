@@ -1,6 +1,11 @@
 import mongoose from 'mongoose';
 
 const stockAdjustmentSchema = new mongoose.Schema({
+  business_id: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Business',
+    index: true
+  },
   variant_id: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'ProductVariant',
@@ -62,6 +67,6 @@ const stockAdjustmentSchema = new mongoose.Schema({
 });
 
 stockAdjustmentSchema.index({ variant_id: 1 });
-stockAdjustmentSchema.index({ createdAt: -1 });
+stockAdjustmentSchema.index({ business_id: 1, createdAt: -1 });
 
 export default mongoose.model('StockAdjustment', stockAdjustmentSchema);

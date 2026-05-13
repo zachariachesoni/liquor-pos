@@ -1,6 +1,11 @@
 import mongoose from 'mongoose';
 
 const saleItemSchema = new mongoose.Schema({
+  business_id: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Business',
+    index: true
+  },
   sale_id: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Sale',
@@ -40,6 +45,6 @@ const saleItemSchema = new mongoose.Schema({
 });
 
 saleItemSchema.index({ sale_id: 1 });
-saleItemSchema.index({ variant_id: 1 });
+saleItemSchema.index({ business_id: 1, variant_id: 1 });
 
 export default mongoose.model('SaleItem', saleItemSchema);

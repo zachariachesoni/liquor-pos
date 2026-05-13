@@ -3,6 +3,7 @@ import Sale from '../models/Sale.js';
 import SaleItem from '../models/SaleItem.js';
 import logger from '../utils/logger.js';
 import { buildPaginationMeta, getPagination } from '../utils/pagination.js';
+import { attachBusinessId, getBusinessId, scopeToBusiness } from '../utils/tenant.js';
 
 const cleanText = (value = '') => (typeof value === 'string' ? value.trim() : value);
 
@@ -20,7 +21,7 @@ const stripUndefinedFields = (payload) => Object.fromEntries(
   Object.entries(payload).filter(([, value]) => value !== undefined)
 );
 
-const assertNoDuplicateCustomer = async ({ phone, email, excludeId = null }) => {
+const assertNoDuplicateCustomer = async ({ businessId, phone, email, excludeId = null }) => {
   const duplicateFilters = [];
   if (phone) duplicateFilters.push({ phone, is_active: { $ne: false } });
   if (email) duplicateFilters.push({ email, is_active: { $ne: false } });
@@ -29,7 +30,7 @@ const assertNoDuplicateCustomer = async ({ phone, email, excludeId = null }) => 
     return;
   }
 
-  const query = { $or: duplicateFilters };
+  const query = { business_id: businessId, $or: duplicateFilters };
   if (excludeId) {
     query._id = { $ne: excludeId };
   }
@@ -46,7 +47,7 @@ const assertNoDuplicateCustomer = async ({ phone, email, excludeId = null }) => 
 // @route   GET /api/customers
 export const getCustomers = async (req, res) => {
   try {
-    const filters = req.query.include_inactive === 'true' ? {} : { is_active: { $ne: false } };
+    const filters = scopeToBusiness(req, req.query.include_inactive === 'true' ? {} : { is_active: { $ne: false } });
     if (req.query.q) {
       filters.$or = [
         { name: { $regex: req.query.q, $options: 'i' } },
@@ -66,7 +67,7 @@ export const getCustomers = async (req, res) => {
     const customerIds = customers.map((customer) => customer._id);
 
     const purchaseStats = await Sale.aggregate([
-      { $match: { customer_id: { $in: customerIds } } },
+      { $match: scopeToBusiness(req, { customer_id: { $in: customerIds } }) },
       {
         $group: {
           _id: '$customer_id',
@@ -105,7 +106,7 @@ export const getCustomers = async (req, res) => {
 // @route   GET /api/customers/:id
 export const getCustomer = async (req, res) => {
   try {
-    const customer = await Customer.findById(req.params.id);
+    const customer = await Customer.findOne(scopeToBusiness(req, { _id: req.params.id }));
     if (!customer) return res.status(404).json({ success: false, message: 'Customer not found' });
     res.json({ success: true, data: customer });
   } catch (error) {
@@ -118,8 +119,8 @@ export const getCustomer = async (req, res) => {
 export const createCustomer = async (req, res) => {
   try {
     const payload = stripUndefinedFields(buildCustomerPayload(req.body, { partial: true }));
-    await assertNoDuplicateCustomer(payload);
-    const customer = await Customer.create(payload);
+    await assertNoDuplicateCustomer({ ...payload, businessId: getBusinessId(req) });
+    const customer = await Customer.create(attachBusinessId(req, payload));
     res.status(201).json({ success: true, data: customer });
   } catch (error) {
     if (error.statusCode || error.code === 11000) {
@@ -133,9 +134,9 @@ export const createCustomer = async (req, res) => {
 // @route   PUT /api/customers/:id
 export const updateCustomer = async (req, res) => {
   try {
-    const payload = buildCustomerPayload(req.body);
-    await assertNoDuplicateCustomer({ ...payload, excludeId: req.params.id });
-    const customer = await Customer.findByIdAndUpdate(req.params.id, payload, { new: true, runValidators: true });
+    const payload = stripUndefinedFields(buildCustomerPayload(req.body, { partial: true }));
+    await assertNoDuplicateCustomer({ ...payload, businessId: getBusinessId(req), excludeId: req.params.id });
+    const customer = await Customer.findOneAndUpdate(scopeToBusiness(req, { _id: req.params.id }), payload, { new: true, runValidators: true });
     if (!customer) return res.status(404).json({ success: false, message: 'Customer not found' });
     res.json({ success: true, data: customer });
   } catch (error) {
@@ -147,7 +148,7 @@ export const updateCustomer = async (req, res) => {
 // @route   DELETE /api/customers/:id
 export const deleteCustomer = async (req, res) => {
   try {
-    const customer = await Customer.findByIdAndUpdate(req.params.id, { is_active: false }, { new: true });
+    const customer = await Customer.findOneAndUpdate(scopeToBusiness(req, { _id: req.params.id }), { is_active: false }, { new: true });
     if (!customer) return res.status(404).json({ success: false, message: 'Customer not found' });
     res.json({ success: true, data: {} });
   } catch (error) {
@@ -161,11 +162,11 @@ export const getCustomerPurchaseHistory = async (req, res) => {
   try {
     const query = req.query.q?.trim().toLowerCase();
     const pagination = getPagination(req.query, 25, 100);
-    let historyQuery = Sale.find({ customer_id: req.params.id })
+    let historyQuery = Sale.find(scopeToBusiness(req, { customer_id: req.params.id }))
       .populate('user_id', 'username')
       .sort({ createdAt: -1 });
 
-    const total = pagination.enabled ? await Sale.countDocuments({ customer_id: req.params.id }) : null;
+    const total = pagination.enabled ? await Sale.countDocuments(scopeToBusiness(req, { customer_id: req.params.id })) : null;
     if (pagination.enabled && !query) {
       historyQuery = historyQuery.skip(pagination.skip).limit(pagination.limit);
     }
@@ -174,7 +175,7 @@ export const getCustomerPurchaseHistory = async (req, res) => {
 
     const historyWithItems = await Promise.all(
       history.map(async (sale) => {
-        const items = await SaleItem.find({ sale_id: sale._id })
+        const items = await SaleItem.find(scopeToBusiness(req, { sale_id: sale._id }))
           .populate({
             path: 'variant_id',
             populate: {

@@ -1,6 +1,14 @@
 import { hashPassword, comparePassword, generateToken } from '../utils/helpers.js';
 import logger from '../utils/logger.js';
 import { getAuthCookieOptions } from '../utils/authCookies.js';
+import Business from '../models/Business.js';
+import SystemSettings from '../models/SystemSettings.js';
+import {
+  createBusiness,
+  dropLegacyGlobalTenantIndexes,
+  ensureLegacyBusinessForUser,
+  normalizeBusinessSlug
+} from '../utils/tenant.js';
 
 // Import User model directly to ensure schema is registered
 import User from '../models/User.js';
@@ -21,28 +29,22 @@ const clearAuthCookie = (res) => {
 // @access  Public (should be restricted in production)
 export const register = async (req, res) => {
   const { username, password } = req.body;
+  const businessName = req.body.business_name || req.body.businessName;
+  const businessSlug = req.body.business_slug || req.body.businessSlug || req.body.businessCode;
 
   try {
-    const existingUserCount = await User.countDocuments();
-
-    if (existingUserCount > 0) {
-      return res.status(403).json({
-        success: false,
-        message: 'Public registration is disabled. Ask an admin to create your account.'
-      });
-    }
+    await dropLegacyGlobalTenantIndexes();
 
     // Validate required fields
-    if (!username || !password) {
+    if (!businessName || !username || !password) {
       return res.status(400).json({
         success: false,
-        message: 'Username and password are required'
+        message: 'Business name, username, and password are required'
       });
     }
 
-    // Check if user already exists
-    const existingUser = await User.findOne({ username });
-
+    const business = await createBusiness({ name: businessName, slug: businessSlug });
+    const existingUser = await User.findOne({ business_id: business._id, username });
     if (existingUser) {
       return res.status(400).json({
         success: false,
@@ -55,10 +57,16 @@ export const register = async (req, res) => {
 
     // Create user
     const user = await User.create({
+      business_id: business._id,
       username,
       password: hashedPassword,
       role: 'admin',
       permissions: {}
+    });
+
+    await SystemSettings.create({
+      business_id: business._id,
+      business_name: business.name
     });
 
     // Generate token
@@ -73,17 +81,23 @@ export const register = async (req, res) => {
       data: {
         user: {
           id: user._id,
+          business_id: business._id,
           username: user.username,
-          role: user.role
+          role: user.role,
+          business: {
+            id: business._id,
+            name: business.name,
+            slug: business.slug
+          }
         },
         token
       }
     });
   } catch (error) {
     logger.error('Registration error:', error);
-    res.status(500).json({
+    res.status(error.statusCode || 500).json({
       success: false,
-      message: 'Server error during registration',
+      message: error.statusCode ? error.message : 'Server error during registration',
       error: error.message
     });
   }
@@ -94,6 +108,7 @@ export const register = async (req, res) => {
 // @access  Public
 export const login = async (req, res) => {
   const { username, password } = req.body;
+  const businessCode = normalizeBusinessSlug(req.body.businessCode || req.body.business_code || req.body.businessSlug || req.body.business_slug);
 
   try {
     const identifier = typeof username === 'string' ? username.trim() : '';
@@ -109,7 +124,29 @@ export const login = async (req, res) => {
     const escapedIdentifier = identifier.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const identifierRegex = new RegExp(`^${escapedIdentifier}$`, 'i');
 
-    const user = await User.findOne({ username: identifierRegex }).select('+password');
+    const userFilters = { username: identifierRegex };
+    let business = null;
+
+    if (businessCode) {
+      business = await Business.findOne({ slug: businessCode, is_active: true });
+      if (!business) {
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid business code or credentials'
+        });
+      }
+      userFilters.business_id = business._id;
+    }
+
+    const users = await User.find(userFilters).select('+password').populate('business_id', 'name slug is_active');
+    if (!businessCode && users.length > 1) {
+      return res.status(400).json({
+        success: false,
+        message: 'Enter your business code to continue'
+      });
+    }
+
+    const user = users[0] || null;
 
     if (!user || !user.is_active) {
       return res.status(401).json({
@@ -128,6 +165,14 @@ export const login = async (req, res) => {
       });
     }
 
+    business = business || await ensureLegacyBusinessForUser(user);
+    if (!business || business.is_active === false) {
+      return res.status(401).json({
+        success: false,
+        message: 'Business account is inactive'
+      });
+    }
+
     // Generate token
     const token = generateToken(user);
     attachAuthCookie(res, token);
@@ -140,9 +185,15 @@ export const login = async (req, res) => {
       data: {
         user: {
           id: user._id,
+          business_id: business._id,
           username: user.username,
           role: user.role,
-          permissions: user.permissions
+          permissions: user.permissions,
+          business: {
+            id: business._id,
+            name: business.name,
+            slug: business.slug
+          }
         },
         token
       }
@@ -163,14 +214,21 @@ export const login = async (req, res) => {
 export const getMe = async (req, res) => {
   try {
     const user = req.user;
+    const business = req.business;
     
     res.json({
       success: true,
       data: {
         id: user._id,
+        business_id: business?._id || user.business_id,
         username: user.username,
         role: user.role,
-        permissions: user.permissions
+        permissions: user.permissions,
+        business: business ? {
+          id: business._id,
+          name: business.name,
+          slug: business.slug
+        } : null
       }
     });
   } catch (error) {

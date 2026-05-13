@@ -4,6 +4,7 @@ import SupplierProduct from '../models/SupplierProduct.js';
 import logger from '../utils/logger.js';
 import { calculateEffectiveLowStockLevel, getSystemSettings, serializeSystemSettings } from '../utils/systemSettings.js';
 import { buildPaginationMeta, getPagination } from '../utils/pagination.js';
+import { attachBusinessId, getBusinessId, scopeToBusiness } from '../utils/tenant.js';
 
 const normalizeProductName = (name = '') => (
   typeof name === 'string' ? name.trim().replace(/\s+/g, ' ') : ''
@@ -15,7 +16,7 @@ const normalizeVariantSize = (size = '') => (
 
 const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-const findExistingProductByName = async (name, excludeId = null, activeOnly = true) => {
+const findExistingProductByName = async (businessId, name, excludeId = null, activeOnly = true) => {
   const normalizedName = normalizeProductName(name);
 
   if (!normalizedName) {
@@ -28,6 +29,7 @@ const findExistingProductByName = async (name, excludeId = null, activeOnly = tr
     .join('\\s+');
 
   const query = {
+    business_id: businessId,
     name: new RegExp(`^${pattern}$`, 'i'),
   };
 
@@ -42,7 +44,7 @@ const findExistingProductByName = async (name, excludeId = null, activeOnly = tr
   return Product.findOne(query);
 };
 
-const findExistingVariantBySize = async (productId, size, excludeId = null, activeOnly = true) => {
+const findExistingVariantBySize = async (businessId, productId, size, excludeId = null, activeOnly = true) => {
   const normalizedSize = normalizeVariantSize(size);
 
   if (!normalizedSize) {
@@ -55,6 +57,7 @@ const findExistingVariantBySize = async (productId, size, excludeId = null, acti
     .join('\\s+');
 
   const query = {
+    business_id: businessId,
     product_id: productId,
     size: new RegExp(`^${pattern}$`, 'i')
   };
@@ -74,7 +77,7 @@ const findExistingVariantBySize = async (productId, size, excludeId = null, acti
 // @route   GET /api/products
 export const getProducts = async (req, res) => {
   try {
-    const filters = req.query.include_inactive === 'true' ? {} : { is_active: { $ne: false } };
+    const filters = scopeToBusiness(req, req.query.include_inactive === 'true' ? {} : { is_active: { $ne: false } });
     if (req.query.q) filters.name = { $regex: req.query.q, $options: 'i' };
     if (req.query.category) filters.category = req.query.category;
     if (req.query.is_active !== undefined) filters.is_active = req.query.is_active === 'true';
@@ -88,7 +91,7 @@ export const getProducts = async (req, res) => {
     }
 
     const [settingsDoc, products] = await Promise.all([
-      getSystemSettings(),
+      getSystemSettings(getBusinessId(req)),
       productQuery
     ]);
     const settings = serializeSystemSettings(settingsDoc);
@@ -96,11 +99,12 @@ export const getProducts = async (req, res) => {
     // Fetch variants and map them inside the product objects
     const variantFilters = {
       product_id: { $in: products.map(p => p._id) },
+      business_id: getBusinessId(req),
       ...(req.query.include_inactive === 'true' ? {} : { is_active: { $ne: false } })
     };
     const variants = await ProductVariant.find(variantFilters);
     const supplierLinks = variants.length
-      ? await SupplierProduct.find({ variant_id: { $in: variants.map((variant) => variant._id) } })
+      ? await SupplierProduct.find(scopeToBusiness(req, { variant_id: { $in: variants.map((variant) => variant._id) } }))
           .populate('supplier_id', 'name')
           .lean()
       : [];
@@ -161,17 +165,17 @@ export const getProducts = async (req, res) => {
 // @route   GET /api/products/:id
 export const getProduct = async (req, res) => {
   try {
-    const product = await Product.findById(req.params.id);
+    const product = await Product.findOne(scopeToBusiness(req, { _id: req.params.id }));
     if (!product) return res.status(404).json({ success: false, message: 'Product not found' });
     
     // fetch variants
     const [settingsDoc, variants] = await Promise.all([
-      getSystemSettings(),
-      ProductVariant.find({ product_id: product._id })
+      getSystemSettings(getBusinessId(req)),
+      ProductVariant.find(scopeToBusiness(req, { product_id: product._id }))
     ]);
     const settings = serializeSystemSettings(settingsDoc);
     const supplierLinks = variants.length
-      ? await SupplierProduct.find({ variant_id: { $in: variants.map((variant) => variant._id) } })
+      ? await SupplierProduct.find(scopeToBusiness(req, { variant_id: { $in: variants.map((variant) => variant._id) } }))
           .populate('supplier_id', 'name')
           .lean()
       : [];
@@ -227,7 +231,8 @@ export const createProduct = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Product name is required' });
     }
 
-    const existingProduct = await findExistingProductByName(normalizedName);
+    const businessId = getBusinessId(req);
+    const existingProduct = await findExistingProductByName(businessId, normalizedName);
     if (existingProduct) {
       return res.status(409).json({
         success: false,
@@ -236,7 +241,7 @@ export const createProduct = async (req, res) => {
     }
 
     // Expected to receive basic product details + optionally variants array
-    const product = await Product.create({
+    const product = await Product.create(attachBusinessId(req, {
       name: normalizedName,
       brand: req.body.brand,
       category: req.body.category,
@@ -244,12 +249,13 @@ export const createProduct = async (req, res) => {
       barcode: req.body.barcode,
       image_url: req.body.image_url,
       is_active: req.body.is_active
-    });
+    }));
 
     let createdVariants = [];
     if (req.body.variants && Array.isArray(req.body.variants)) {
       const variantDocs = req.body.variants.map(v => ({
         ...v,
+        business_id: businessId,
         product_id: product._id
       }));
       createdVariants = await ProductVariant.create(variantDocs);
@@ -275,7 +281,7 @@ export const createProduct = async (req, res) => {
 // @route   PUT /api/products/:id
 export const updateProduct = async (req, res) => {
   try {
-    const existingProduct = await Product.findById(req.params.id);
+    const existingProduct = await Product.findOne(scopeToBusiness(req, { _id: req.params.id }));
     if (!existingProduct) return res.status(404).json({ success: false, message: 'Product not found' });
 
     const nextName = req.body.name !== undefined
@@ -286,7 +292,7 @@ export const updateProduct = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Product name is required' });
     }
 
-    const duplicateProduct = await findExistingProductByName(nextName, existingProduct._id);
+    const duplicateProduct = await findExistingProductByName(getBusinessId(req), nextName, existingProduct._id);
     if (duplicateProduct) {
       return res.status(409).json({
         success: false,
@@ -294,8 +300,8 @@ export const updateProduct = async (req, res) => {
       });
     }
 
-    const product = await Product.findByIdAndUpdate(
-      req.params.id,
+    const product = await Product.findOneAndUpdate(
+      scopeToBusiness(req, { _id: req.params.id }),
       { ...req.body, name: nextName },
       { new: true }
     );
@@ -315,13 +321,13 @@ export const updateProduct = async (req, res) => {
 // @route   DELETE /api/products/:id
 export const deleteProduct = async (req, res) => {
   try {
-    const product = await Product.findByIdAndUpdate(
-      req.params.id,
+    const product = await Product.findOneAndUpdate(
+      scopeToBusiness(req, { _id: req.params.id }),
       { is_active: false },
       { new: true }
     );
     if (!product) return res.status(404).json({ success: false, message: 'Product not found' });
-    await ProductVariant.updateMany({ product_id: req.params.id }, { $set: { is_active: false } });
+    await ProductVariant.updateMany(scopeToBusiness(req, { product_id: req.params.id }), { $set: { is_active: false } });
     res.json({ success: true, data: product });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Server error' });
@@ -332,7 +338,8 @@ export const deleteProduct = async (req, res) => {
 // @route   POST /api/products/:productId/variants
 export const createVariant = async (req, res) => {
   try {
-    const product = await Product.findById(req.params.productId);
+    const businessId = getBusinessId(req);
+    const product = await Product.findOne(scopeToBusiness(req, { _id: req.params.productId }));
     if (!product) {
       return res.status(404).json({ success: false, message: 'Product not found' });
     }
@@ -342,7 +349,7 @@ export const createVariant = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Variant size is required' });
     }
 
-    const existingVariant = await findExistingVariantBySize(req.params.productId, normalizedSize);
+    const existingVariant = await findExistingVariantBySize(businessId, req.params.productId, normalizedSize);
     if (existingVariant) {
       return res.status(409).json({
         success: false,
@@ -350,13 +357,14 @@ export const createVariant = async (req, res) => {
       });
     }
 
-    const inactiveVariant = await findExistingVariantBySize(req.params.productId, normalizedSize, null, false);
+    const inactiveVariant = await findExistingVariantBySize(businessId, req.params.productId, normalizedSize, null, false);
     if (inactiveVariant && inactiveVariant.is_active === false) {
-      const variant = await ProductVariant.findByIdAndUpdate(
-        inactiveVariant._id,
+      const variant = await ProductVariant.findOneAndUpdate(
+        scopeToBusiness(req, { _id: inactiveVariant._id }),
         {
           ...req.body,
           size: normalizedSize,
+          business_id: businessId,
           product_id: req.params.productId,
           is_active: true
         },
@@ -368,6 +376,7 @@ export const createVariant = async (req, res) => {
     const variant = await ProductVariant.create({
       ...req.body,
       size: normalizedSize,
+      business_id: businessId,
       product_id: req.params.productId
     });
     res.status(201).json({ success: true, data: variant });
@@ -384,7 +393,7 @@ export const createVariant = async (req, res) => {
 // @route   PUT /api/products/variants/:id
 export const updateVariant = async (req, res) => {
   try {
-    const existingVariant = await ProductVariant.findById(req.params.id);
+    const existingVariant = await ProductVariant.findOne(scopeToBusiness(req, { _id: req.params.id }));
     if (!existingVariant) {
       return res.status(404).json({ success: false, message: 'Variant not found' });
     }
@@ -397,7 +406,7 @@ export const updateVariant = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Variant size is required' });
     }
 
-    const duplicateVariant = await findExistingVariantBySize(existingVariant.product_id, nextSize, existingVariant._id);
+    const duplicateVariant = await findExistingVariantBySize(getBusinessId(req), existingVariant.product_id, nextSize, existingVariant._id);
     if (duplicateVariant) {
       return res.status(409).json({
         success: false,
@@ -405,8 +414,8 @@ export const updateVariant = async (req, res) => {
       });
     }
 
-    const variant = await ProductVariant.findByIdAndUpdate(
-      req.params.id,
+    const variant = await ProductVariant.findOneAndUpdate(
+      scopeToBusiness(req, { _id: req.params.id }),
       { ...req.body, size: nextSize },
       { new: true }
     );
@@ -424,8 +433,8 @@ export const updateVariant = async (req, res) => {
 // @route   DELETE /api/products/variants/:id
 export const deleteVariant = async (req, res) => {
   try {
-    const variant = await ProductVariant.findByIdAndUpdate(
-      req.params.id,
+    const variant = await ProductVariant.findOneAndUpdate(
+      scopeToBusiness(req, { _id: req.params.id }),
       { is_active: false },
       { new: true }
     );

@@ -15,11 +15,15 @@ const DEFAULT_SETTINGS = {
   minimum_margin_threshold: 15
 };
 
-export const getSystemSettings = async () => {
-  let settings = await SystemSettings.findOne();
+export const getSystemSettings = async (businessId = null) => {
+  const filters = businessId ? { business_id: businessId } : {};
+  let settings = await SystemSettings.findOne(filters);
 
   if (!settings) {
-    settings = await SystemSettings.create(DEFAULT_SETTINGS);
+    settings = await SystemSettings.create({
+      ...DEFAULT_SETTINGS,
+      ...(businessId ? { business_id: businessId } : {})
+    });
   }
 
   return settings;

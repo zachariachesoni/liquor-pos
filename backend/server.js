@@ -31,11 +31,14 @@ import { connectDB, mongoose } from './config/database.js';
 
 // Import logger
 import logger from './utils/logger.js';
+import { dropLegacyGlobalTenantIndexes } from './utils/tenant.js';
 
 const app = express();
 
 // Connect to MongoDB
-connectDB();
+connectDB()
+  .then(() => dropLegacyGlobalTenantIndexes())
+  .catch((error) => logger.error('Tenant index migration warning:', error));
 
 // Security middleware
 app.use(helmet());

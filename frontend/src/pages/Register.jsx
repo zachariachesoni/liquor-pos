@@ -5,6 +5,8 @@ import './Register.css';
 
 const Register = () => {
   const [formData, setFormData] = useState({
+    businessName: '',
+    businessCode: '',
     username: '',
     password: '',
     confirmPassword: '',
@@ -28,8 +30,8 @@ const Register = () => {
     setError('');
 
     // Validation
-    if (!formData.username || !formData.password) {
-      setError('All fields are required');
+    if (!formData.businessName || !formData.username || !formData.password) {
+      setError('Business name, username, and password are required');
       return;
     }
 
@@ -45,7 +47,13 @@ const Register = () => {
 
     setLoading(true);
 
-    const result = await register(formData.username, formData.password, formData.role);
+    const result = await register({
+      businessName: formData.businessName,
+      businessCode: formData.businessCode,
+      username: formData.username,
+      password: formData.password,
+      role: formData.role
+    });
 
     if (result.success) {
       navigate('/dashboard');
@@ -60,12 +68,39 @@ const Register = () => {
     <div className="register-container">
       <div className="register-card">
         <div className="register-header">
-          <h1>Create First Admin</h1>
-          <p>Only available during initial system setup.</p>
+          <h1>Create Business Account</h1>
+          <p>Set up a separate workspace for a business.</p>
         </div>
 
         <form onSubmit={handleSubmit} className="register-form">
           {error && <div className="error-message">{error}</div>}
+
+          <div className="form-group">
+            <label htmlFor="businessName">Business Name *</label>
+            <input
+              type="text"
+              id="businessName"
+              name="businessName"
+              value={formData.businessName}
+              onChange={handleChange}
+              placeholder="Enter business name"
+              disabled={loading}
+              required
+            />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="businessCode">Business Code</label>
+            <input
+              type="text"
+              id="businessCode"
+              name="businessCode"
+              value={formData.businessCode}
+              onChange={handleChange}
+              placeholder="Optional, e.g. meanar-liquor"
+              disabled={loading}
+            />
+          </div>
 
           <div className="form-group">
             <label htmlFor="username">Username *</label>
@@ -120,7 +155,7 @@ const Register = () => {
           </button>
 
           <div className="register-footer">
-            Already set up the system? <Link to="/login">Login here</Link>
+            Already have an account? <Link to="/login">Login here</Link>
           </div>
         </form>
       </div>

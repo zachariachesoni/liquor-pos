@@ -1,6 +1,11 @@
 import mongoose from 'mongoose';
 
 const productVariantSchema = new mongoose.Schema({
+  business_id: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Business',
+    index: true
+  },
   product_id: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Product',
@@ -40,9 +45,7 @@ const productVariantSchema = new mongoose.Schema({
     default: 5
   },
   barcode: {
-    type: String,
-    unique: true,
-    sparse: true
+    type: String
   },
   is_active: {
     type: Boolean,
@@ -54,6 +57,7 @@ const productVariantSchema = new mongoose.Schema({
 
 // Compound index for unique product-size combination
 productVariantSchema.index({ product_id: 1, size: 1 }, { unique: true });
-productVariantSchema.index({ current_stock: 1 });
+productVariantSchema.index({ business_id: 1, current_stock: 1 });
+productVariantSchema.index({ business_id: 1, barcode: 1 }, { unique: true, sparse: true });
 
 export default mongoose.model('ProductVariant', productVariantSchema);

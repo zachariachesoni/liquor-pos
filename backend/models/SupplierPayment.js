@@ -1,6 +1,11 @@
 import mongoose from 'mongoose';
 
 const supplierPaymentSchema = new mongoose.Schema({
+  business_id: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Business',
+    index: true
+  },
   po_id: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'PurchaseOrder',
@@ -34,7 +39,7 @@ const supplierPaymentSchema = new mongoose.Schema({
   timestamps: true
 });
 
-supplierPaymentSchema.index({ supplier_id: 1, paid_at: -1 });
+supplierPaymentSchema.index({ business_id: 1, supplier_id: 1, paid_at: -1 });
 supplierPaymentSchema.index({ po_id: 1, paid_at: -1 });
 
 export default mongoose.model('SupplierPayment', supplierPaymentSchema);

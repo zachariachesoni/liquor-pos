@@ -8,6 +8,7 @@ import './Login.css';
 const Login = () => {
   const [searchParams] = useSearchParams();
   const [username, setUsername] = useState(searchParams.get('username') || '');
+  const [businessCode, setBusinessCode] = useState(searchParams.get('business') || '');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -27,7 +28,7 @@ const Login = () => {
     setError('');
     setLoading(true);
 
-    const result = await login(username, password);
+    const result = await login(username, password, businessCode);
 
     if (result.success) {
       navigate('/dashboard');
@@ -48,6 +49,18 @@ const Login = () => {
 
         <form onSubmit={handleSubmit} className="login-form">
           {error && <div className="error-message">{error}</div>}
+
+          <div className="form-group">
+            <label htmlFor="businessCode">Business Code</label>
+            <input
+              type="text"
+              id="businessCode"
+              value={businessCode}
+              onChange={(e) => setBusinessCode(e.target.value)}
+              placeholder="Enter business code"
+              disabled={loading}
+            />
+          </div>
           
           <div className="form-group">
             <label htmlFor="username">Username</label>

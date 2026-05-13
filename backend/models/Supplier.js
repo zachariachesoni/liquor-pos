@@ -5,6 +5,11 @@ const normalizeTextValue = (value) => (
 );
 
 const supplierSchema = new mongoose.Schema({
+  business_id: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Business',
+    index: true
+  },
   name: {
     type: String,
     required: true,
@@ -64,7 +69,7 @@ const supplierSchema = new mongoose.Schema({
 });
 
 supplierSchema.index({ name: 'text', contact_name: 'text', phone: 'text', email: 'text' });
-supplierSchema.index({ name: 1 }, { unique: true });
-supplierSchema.index({ active: 1 });
+supplierSchema.index({ business_id: 1, name: 1 }, { unique: true });
+supplierSchema.index({ business_id: 1, active: 1 });
 
 export default mongoose.model('Supplier', supplierSchema);

@@ -1,6 +1,11 @@
 import mongoose from 'mongoose';
 
 const customerSchema = new mongoose.Schema({
+  business_id: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Business',
+    index: true
+  },
   name: {
     type: String,
     required: true,
@@ -34,5 +39,6 @@ const customerSchema = new mongoose.Schema({
 });
 
 customerSchema.index({ name: 'text', phone: 'text', email: 'text' });
+customerSchema.index({ business_id: 1, createdAt: -1 });
 
 export default mongoose.model('Customer', customerSchema);

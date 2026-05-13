@@ -19,6 +19,7 @@ import {
 } from '../utils/purchasing.js';
 import { syncSupplierProductPricing } from '../utils/supplierProducts.js';
 import { buildPaginationMeta, getPagination } from '../utils/pagination.js';
+import { attachBusinessId, getBusinessId, scopeToBusiness } from '../utils/tenant.js';
 
 const isValidObjectId = (value) => mongoose.Types.ObjectId.isValid(value);
 
@@ -184,8 +185,12 @@ const fetchPurchaseOrdersWithItems = async (filters = {}, sort = { ordered_at: -
   const purchaseOrders = await purchaseOrderQuery.lean();
 
   const purchaseOrderIds = purchaseOrders.map((purchaseOrder) => purchaseOrder._id);
+  const itemFilters = { po_id: { $in: purchaseOrderIds } };
+  if (filters.business_id) {
+    itemFilters.business_id = filters.business_id;
+  }
   const purchaseOrderItems = purchaseOrderIds.length
-    ? await PurchaseOrderItem.find({ po_id: { $in: purchaseOrderIds } })
+    ? await PurchaseOrderItem.find(itemFilters)
         .populate({
           path: 'variant_id',
           populate: {
@@ -223,6 +228,7 @@ const applyReceiptInventory = async ({
   receiptLines = [],
   purchaseOrderId,
   supplier,
+  businessId,
   userId,
   session = null
 }) => {
@@ -231,7 +237,7 @@ const applyReceiptInventory = async ({
   }
 
   const variantIds = receiptLines.map((line) => line.variant_id);
-  const variantQuery = ProductVariant.find({ _id: { $in: variantIds } });
+  const variantQuery = ProductVariant.find({ _id: { $in: variantIds }, business_id: businessId });
   const variants = session ? await variantQuery.session(session) : await variantQuery;
   const variantsById = new Map(variants.map((variant) => [String(variant._id), variant]));
 
@@ -252,6 +258,7 @@ const applyReceiptInventory = async ({
     await variant.save(session ? { session } : undefined);
 
     const adjustment = {
+      business_id: businessId,
       variant_id: variant._id,
       adjustment_type: 'in',
       quantity: receivedQuantity,
@@ -274,6 +281,7 @@ const applyReceiptInventory = async ({
     }
 
     await syncSupplierProductPricing({
+      businessId,
       supplierId: supplier._id,
       variantId: variant._id,
       unitCost: line.unit_cost,
@@ -290,7 +298,7 @@ const applyReceiptInventory = async ({
 // @route   GET /api/purchase-orders
 export const getPurchaseOrders = async (req, res) => {
   try {
-    const filters = {};
+    const filters = scopeToBusiness(req);
     const query = req.query.q?.trim();
 
     if (req.query.supplier_id) {
@@ -335,9 +343,9 @@ export const getPurchaseOrders = async (req, res) => {
 // @route   GET /api/purchase-orders/open
 export const getOpenPurchaseOrders = async (req, res) => {
   try {
-    const filters = {
+    const filters = scopeToBusiness(req, {
       status: { $in: ['draft', 'ordered', 'partially_received'] }
-    };
+    });
 
     if (req.query.supplier_id) {
       if (!isValidObjectId(req.query.supplier_id)) {
@@ -369,12 +377,12 @@ export const getPurchaseOrder = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Invalid purchase order id' });
     }
 
-    const [purchaseOrder] = await fetchPurchaseOrdersWithItems({ _id: req.params.id });
+    const [purchaseOrder] = await fetchPurchaseOrdersWithItems(scopeToBusiness(req, { _id: req.params.id }));
     if (!purchaseOrder) {
       return res.status(404).json({ success: false, message: 'Purchase order not found' });
     }
 
-    const payments = await SupplierPayment.find({ po_id: req.params.id })
+    const payments = await SupplierPayment.find(scopeToBusiness(req, { po_id: req.params.id }))
       .populate('recorded_by', 'username')
       .sort({ paid_at: -1 })
       .lean();
@@ -396,19 +404,20 @@ export const getPurchaseOrder = async (req, res) => {
 // @route   POST /api/purchase-orders
 export const createPurchaseOrder = async (req, res) => {
   try {
+    const businessId = getBusinessId(req);
     const supplierId = req.body.supplier_id || req.body.supplierId;
     if (!isValidObjectId(supplierId)) {
       return res.status(400).json({ success: false, message: 'A valid supplier is required' });
     }
 
     const items = normalizeCreatePurchaseItems(req.body.items);
-    const supplier = await Supplier.findById(supplierId);
+    const supplier = await Supplier.findOne(scopeToBusiness(req, { _id: supplierId }));
     if (!supplier) {
       return res.status(404).json({ success: false, message: 'Supplier not found' });
     }
 
     const variantIds = items.map((item) => item.variant_id);
-    const variantCount = await ProductVariant.countDocuments({ _id: { $in: variantIds } });
+    const variantCount = await ProductVariant.countDocuments(scopeToBusiness(req, { _id: { $in: variantIds } }));
     if (variantCount !== variantIds.length) {
       return res.status(400).json({ success: false, message: 'One or more purchase items reference missing inventory variants' });
     }
@@ -439,7 +448,7 @@ export const createPurchaseOrder = async (req, res) => {
     });
 
     const purchaseOrderId = await runPurchaseWrite(async (session) => {
-      const purchaseOrderPayload = {
+      const purchaseOrderPayload = attachBusinessId(req, {
         po_number: generatePurchaseOrderNumber(),
         supplier_id: supplier._id,
         ordered_at: req.body.ordered_at ? new Date(req.body.ordered_at) : new Date(),
@@ -453,13 +462,14 @@ export const createPurchaseOrder = async (req, res) => {
         notes: sanitizeText(req.body.notes),
         invoice_reference: sanitizeText(req.body.invoice_reference || req.body.invoiceReference),
         created_by: req.user._id || req.user.id
-      };
+      });
 
       const purchaseOrder = session
         ? (await PurchaseOrder.create([purchaseOrderPayload], { session, ordered: true }))[0]
         : await PurchaseOrder.create(purchaseOrderPayload);
 
       const purchaseOrderItemPayloads = items.map((item) => ({
+        business_id: businessId,
         po_id: purchaseOrder._id,
         variant_id: item.variant_id,
         qty_ordered: item.qty_ordered,
@@ -486,6 +496,7 @@ export const createPurchaseOrder = async (req, res) => {
           })),
           purchaseOrderId: purchaseOrder._id,
           supplier,
+          businessId,
           userId: req.user._id || req.user.id,
           session
         });
@@ -493,6 +504,7 @@ export const createPurchaseOrder = async (req, res) => {
 
       if (orderSnapshot.amount_paid > 0) {
         const payment = {
+          business_id: businessId,
           po_id: purchaseOrder._id,
           supplier_id: supplier._id,
           amount: orderSnapshot.amount_paid,
@@ -511,7 +523,7 @@ export const createPurchaseOrder = async (req, res) => {
       return purchaseOrder._id;
     });
 
-    const [result] = await fetchPurchaseOrdersWithItems({ _id: purchaseOrderId });
+    const [result] = await fetchPurchaseOrdersWithItems(scopeToBusiness(req, { _id: purchaseOrderId }));
     res.status(201).json({ success: true, data: result });
   } catch (error) {
     logger.error('Create purchase order error:', error);
@@ -527,8 +539,9 @@ export const receivePurchaseOrder = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Invalid purchase order id' });
     }
 
+    const businessId = getBusinessId(req);
     const purchaseOrderId = await runPurchaseWrite(async (session) => {
-      const purchaseOrderQuery = PurchaseOrder.findById(req.params.id);
+      const purchaseOrderQuery = PurchaseOrder.findOne(scopeToBusiness(req, { _id: req.params.id }));
       const purchaseOrder = session ? await purchaseOrderQuery.session(session) : await purchaseOrderQuery;
       if (!purchaseOrder) {
         const error = new Error('Purchase order not found');
@@ -536,7 +549,7 @@ export const receivePurchaseOrder = async (req, res) => {
         throw error;
       }
 
-      const supplierQuery = Supplier.findById(purchaseOrder.supplier_id);
+      const supplierQuery = Supplier.findOne(scopeToBusiness(req, { _id: purchaseOrder.supplier_id }));
       const supplier = session ? await supplierQuery.session(session) : await supplierQuery;
       if (!supplier) {
         const error = new Error('Supplier not found');
@@ -545,7 +558,7 @@ export const receivePurchaseOrder = async (req, res) => {
       }
 
       const incomingItems = normalizeReceiveItems(req.body.items);
-      const existingItemsQuery = PurchaseOrderItem.find({ po_id: purchaseOrder._id });
+      const existingItemsQuery = PurchaseOrderItem.find(scopeToBusiness(req, { po_id: purchaseOrder._id }));
       const existingItems = session ? await existingItemsQuery.session(session) : await existingItemsQuery;
       const existingItemsById = new Map(existingItems.map((item) => [String(item._id), item]));
       const existingItemsByVariant = new Map(existingItems.map((item) => [String(item.variant_id), item]));
@@ -594,7 +607,7 @@ export const receivePurchaseOrder = async (req, res) => {
             throw new Error('New received items must include a received quantity greater than zero');
           }
 
-          const variantQuery = ProductVariant.exists({ _id: incomingItem.variant_id });
+          const variantQuery = ProductVariant.exists(scopeToBusiness(req, { _id: incomingItem.variant_id }));
           const variantExists = session ? await variantQuery.session(session) : await variantQuery;
           if (!variantExists) {
             const error = new Error('One or more inventory variants could not be found');
@@ -603,6 +616,7 @@ export const receivePurchaseOrder = async (req, res) => {
           }
 
           const createdItem = new PurchaseOrderItem({
+            business_id: businessId,
             po_id: purchaseOrder._id,
             variant_id: incomingItem.variant_id,
             qty_ordered: Math.max(incomingItem.qty_ordered, incomingItem.qty_received_now),
@@ -661,6 +675,7 @@ export const receivePurchaseOrder = async (req, res) => {
           receiptLines,
           purchaseOrderId: purchaseOrder._id,
           supplier,
+          businessId,
           userId: req.user._id || req.user.id,
           session
         });
@@ -668,6 +683,7 @@ export const receivePurchaseOrder = async (req, res) => {
 
       if (amountPaidIncrement > 0) {
         const payment = {
+          business_id: businessId,
           po_id: purchaseOrder._id,
           supplier_id: supplier._id,
           amount: amountPaidIncrement,
@@ -686,8 +702,8 @@ export const receivePurchaseOrder = async (req, res) => {
       return purchaseOrder._id;
     });
 
-    const [result] = await fetchPurchaseOrdersWithItems({ _id: purchaseOrderId });
-    const payments = await SupplierPayment.find({ po_id: purchaseOrderId })
+    const [result] = await fetchPurchaseOrdersWithItems(scopeToBusiness(req, { _id: purchaseOrderId }));
+    const payments = await SupplierPayment.find(scopeToBusiness(req, { po_id: purchaseOrderId }))
       .populate('recorded_by', 'username')
       .sort({ paid_at: -1 })
       .lean();
@@ -718,18 +734,19 @@ export const recordSupplierPayment = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Payment amount must be greater than zero' });
     }
 
+    const businessId = getBusinessId(req);
     const paymentId = await runPurchaseWrite(async (session) => {
       let updatedPurchaseOrder = null;
       let payment = null;
 
       try {
         updatedPurchaseOrder = await PurchaseOrder.findOneAndUpdate(
-          {
+          scopeToBusiness(req, {
             _id: req.params.id,
             status: { $in: ['received', 'partially_received'] },
             total_amount: { $gt: 0 },
             balance_outstanding: { $gte: amount }
-          },
+          }),
           {
             $inc: {
               amount_paid: amount,
@@ -740,7 +757,7 @@ export const recordSupplierPayment = async (req, res) => {
         );
 
         if (!updatedPurchaseOrder) {
-          const currentQuery = PurchaseOrder.findById(req.params.id);
+          const currentQuery = PurchaseOrder.findOne(scopeToBusiness(req, { _id: req.params.id }));
           const currentPurchaseOrder = session ? await currentQuery.session(session) : await currentQuery;
 
           if (!currentPurchaseOrder) {
@@ -761,6 +778,7 @@ export const recordSupplierPayment = async (req, res) => {
         await updatedPurchaseOrder.save(session ? { session } : undefined);
 
         const paymentPayload = {
+          business_id: businessId,
           po_id: updatedPurchaseOrder._id,
           supplier_id: updatedPurchaseOrder.supplier_id,
           amount,
@@ -780,7 +798,7 @@ export const recordSupplierPayment = async (req, res) => {
         if (!session && updatedPurchaseOrder && !payment) {
           try {
             const restoredAmountPaid = Math.max(0, Number(updatedPurchaseOrder.amount_paid || 0) - amount);
-            await PurchaseOrder.findByIdAndUpdate(updatedPurchaseOrder._id, {
+            await PurchaseOrder.findOneAndUpdate(scopeToBusiness(req, { _id: updatedPurchaseOrder._id }), {
               amount_paid: restoredAmountPaid,
               balance_outstanding: Math.max(0, Number(updatedPurchaseOrder.total_amount || 0) - restoredAmountPaid),
               payment_status: derivePaymentStatus(updatedPurchaseOrder.total_amount, restoredAmountPaid)
@@ -794,8 +812,8 @@ export const recordSupplierPayment = async (req, res) => {
       }
     });
 
-    const [result] = await fetchPurchaseOrdersWithItems({ _id: req.params.id });
-    const populatedPayment = await SupplierPayment.findById(paymentId).populate('recorded_by', 'username').lean();
+    const [result] = await fetchPurchaseOrdersWithItems(scopeToBusiness(req, { _id: req.params.id }));
+    const populatedPayment = await SupplierPayment.findOne(scopeToBusiness(req, { _id: paymentId })).populate('recorded_by', 'username').lean();
 
     res.status(201).json({
       success: true,
@@ -814,10 +832,10 @@ export const recordSupplierPayment = async (req, res) => {
 // @route   GET /api/purchase-orders/payables/dashboard
 export const getPayablesDashboard = async (req, res) => {
   try {
-    const purchaseOrders = await fetchPurchaseOrdersWithItems({
+    const purchaseOrders = await fetchPurchaseOrdersWithItems(scopeToBusiness(req, {
       status: { $in: ['received', 'partially_received'] },
       balance_outstanding: { $gt: 0 }
-    }, { payment_due_date: 1, ordered_at: -1 });
+    }), { payment_due_date: 1, ordered_at: -1 });
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);

@@ -1,5 +1,10 @@
 import logger from '../utils/logger.js';
 import { getSystemSettings, serializeSystemSettings } from '../utils/systemSettings.js';
+import jwt from 'jsonwebtoken';
+import Business from '../models/Business.js';
+import User from '../models/User.js';
+import { getAuthTokenFromRequest } from '../utils/authCookies.js';
+import { ensureLegacyBusinessForUser, normalizeBusinessSlug } from '../utils/tenant.js';
 
 const PAYMENT_ACCOUNT_TYPES = new Set(['', 'paybill', 'till']);
 const NUMERIC_FIELDS = new Set([
@@ -16,9 +21,40 @@ const normalizeNumber = (value, fallback = 0) => {
   return Number.isFinite(number) && number >= 0 ? number : fallback;
 };
 
+const getOptionalBusinessId = async (req) => {
+  if (req.businessId) {
+    return req.businessId;
+  }
+
+  const requestedBusiness = normalizeBusinessSlug(req.query.business || req.query.business_slug || req.query.businessCode);
+  if (requestedBusiness) {
+    const business = await Business.findOne({ slug: requestedBusiness, is_active: true });
+    return business?._id || null;
+  }
+
+  const token = getAuthTokenFromRequest(req);
+  if (!token) {
+    return null;
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await User.findById(decoded.id);
+    if (!user || user.is_active === false) {
+      return null;
+    }
+
+    const business = await ensureLegacyBusinessForUser(user);
+    return business?._id || null;
+  } catch (error) {
+    return null;
+  }
+};
+
 export const getPublicSettings = async (req, res) => {
   try {
-    const settings = await getSystemSettings();
+    const businessId = await getOptionalBusinessId(req);
+    const settings = await getSystemSettings(businessId);
     res.json({ success: true, data: serializeSystemSettings(settings) });
   } catch (error) {
     logger.error('Get public settings error:', error);
@@ -28,7 +64,7 @@ export const getPublicSettings = async (req, res) => {
 
 export const getSettings = async (req, res) => {
   try {
-    const settings = await getSystemSettings();
+    const settings = await getSystemSettings(req.businessId);
     res.json({ success: true, data: serializeSystemSettings(settings) });
   } catch (error) {
     logger.error('Get settings error:', error);
@@ -38,7 +74,7 @@ export const getSettings = async (req, res) => {
 
 export const updateSettings = async (req, res) => {
   try {
-    const settings = await getSystemSettings();
+    const settings = await getSystemSettings(req.businessId);
 
     const fields = [
       'business_name',

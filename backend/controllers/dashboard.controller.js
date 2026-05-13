@@ -3,6 +3,7 @@ import ProductVariant from '../models/ProductVariant.js';
 import SaleItem from '../models/SaleItem.js';
 import { getVariantProductSnapshot } from '../utils/productSnapshot.js';
 import { calculateEffectiveLowStockLevel, getSystemSettings, serializeSystemSettings } from '../utils/systemSettings.js';
+import { getBusinessId, scopeToBusiness } from '../utils/tenant.js';
 
 const MANAGEMENT_ROLES = ['admin', 'manager'];
 
@@ -12,11 +13,9 @@ const toNumber = (value) => {
 };
 
 const getSaleItemScopeStages = (req, createdAtMatch = null) => {
-  const stages = [];
-
-  if (createdAtMatch) {
-    stages.push({ $match: { createdAt: createdAtMatch } });
-  }
+  const stages = [
+    { $match: scopeToBusiness(req, createdAtMatch ? { createdAt: createdAtMatch } : {}) }
+  ];
 
   if (req.user?.role === 'cashier') {
     stages.push(
@@ -29,7 +28,7 @@ const getSaleItemScopeStages = (req, createdAtMatch = null) => {
         }
       },
       { $unwind: '$sale' },
-      { $match: { 'sale.user_id': req.user._id || req.user.id } }
+      { $match: { 'sale.user_id': req.user._id || req.user.id, 'sale.business_id': getBusinessId(req) } }
     );
   }
 
@@ -49,13 +48,14 @@ const redactProductCostFields = (row) => {
 
 export const getStats = async (req, res) => {
   try {
-    const settingsDoc = await getSystemSettings();
+    const businessId = getBusinessId(req);
+    const settingsDoc = await getSystemSettings(businessId);
     const settings = serializeSystemSettings(settingsDoc);
     const canViewCostDetails = MANAGEMENT_ROLES.includes(req.user?.role);
     const trendDays = Math.min(90, Math.max(1, Number(req.query.trend_days || 7)));
     const salesScope = req.user?.role === 'cashier'
-      ? { user_id: req.user._id || req.user.id }
-      : {};
+      ? scopeToBusiness(req, { user_id: req.user._id || req.user.id })
+      : scopeToBusiness(req);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -76,8 +76,8 @@ export const getStats = async (req, res) => {
     const [todaySales] = await Sale.aggregate(pipe(today));
     const [weekSales] = await Sale.aggregate(pipe(weekStart));
     const [monthSales] = await Sale.aggregate(pipe(monthStart));
-    const totalProducts = await ProductVariant.countDocuments({ is_active: { $ne: false } });
-    const variants = await ProductVariant.find({ is_active: { $ne: false } }, 'current_stock min_stock_level retail_price buying_price');
+    const totalProducts = await ProductVariant.countDocuments(scopeToBusiness(req, { is_active: { $ne: false } }));
+    const variants = await ProductVariant.find(scopeToBusiness(req, { is_active: { $ne: false } }), 'current_stock min_stock_level retail_price buying_price');
     const lowStockItems = variants.filter((variant) =>
       variant.current_stock <= calculateEffectiveLowStockLevel(variant, settings)
     ).length;
@@ -145,7 +145,9 @@ export const getStats = async (req, res) => {
       };
     });
 
-    const categoryBreakdownPipeline = [];
+    const categoryBreakdownPipeline = [
+      { $match: scopeToBusiness(req) }
+    ];
 
     if (req.user?.role === 'cashier') {
       categoryBreakdownPipeline.push(
@@ -158,7 +160,7 @@ export const getStats = async (req, res) => {
           }
         },
         { $unwind: '$sale' },
-        { $match: { 'sale.user_id': req.user._id || req.user.id } }
+        { $match: { 'sale.user_id': req.user._id || req.user.id, 'sale.business_id': businessId } }
       );
     }
 
@@ -206,7 +208,7 @@ export const getStats = async (req, res) => {
       ])
     ].filter(Boolean);
     const trendVariants = trendVariantIds.length
-      ? await ProductVariant.find({ _id: { $in: trendVariantIds } })
+      ? await ProductVariant.find(scopeToBusiness(req, { _id: { $in: trendVariantIds } }))
         .populate('product_id', 'name brand category')
         .lean()
       : [];

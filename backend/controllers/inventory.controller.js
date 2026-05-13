@@ -8,6 +8,7 @@ import { mongoose } from '../config/database.js';
 import { calculateWeightedAverageCost } from '../utils/inventoryCost.js';
 import { calculateEffectiveLowStockLevel, getSystemSettings, serializeSystemSettings } from '../utils/systemSettings.js';
 import { buildPaginationMeta, getPagination } from '../utils/pagination.js';
+import { attachBusinessId, getBusinessId, scopeToBusiness } from '../utils/tenant.js';
 
 const createInventoryError = (message, statusCode = 400) => {
   const error = new Error(message);
@@ -61,6 +62,7 @@ const applyStockChange = async ({
   notes,
   unitCost,
   userId,
+  businessId,
   session = null
 }) => {
   const normalizedQuantity = normalizePositiveQuantity(quantity);
@@ -74,7 +76,7 @@ const applyStockChange = async ({
   }
 
   const normalizedUnitCost = normalizeOptionalUnitCost(unitCost);
-  const query = ProductVariant.findById(variantId);
+  const query = ProductVariant.findOne({ _id: variantId, business_id: businessId });
   const variant = session ? await query.session(session) : await query;
 
   if (!variant) {
@@ -100,6 +102,7 @@ const applyStockChange = async ({
 
   const stockAdjustment = {
     variant_id: variantId,
+    business_id: businessId,
     adjustment_type: type,
     quantity: normalizedQuantity,
     unit_cost: appliedUnitCost,
@@ -123,9 +126,9 @@ const applyStockChange = async ({
 // @route   GET /api/inventory/stock-levels
 export const getStockLevels = async (req, res) => {
   try {
-    const settingsDoc = await getSystemSettings();
+    const settingsDoc = await getSystemSettings(getBusinessId(req));
     const settings = serializeSystemSettings(settingsDoc);
-    const variants = await ProductVariant.find({ is_active: { $ne: false } })
+    const variants = await ProductVariant.find(scopeToBusiness(req, { is_active: { $ne: false } }))
       .populate('product_id', 'name category is_active');
 
     const enrichedVariants = variants
@@ -152,9 +155,9 @@ export const getStockLevels = async (req, res) => {
 // @route   GET /api/inventory/low-stock
 export const getLowStock = async (req, res) => {
   try {
-    const settingsDoc = await getSystemSettings();
+    const settingsDoc = await getSystemSettings(getBusinessId(req));
     const settings = serializeSystemSettings(settingsDoc);
-    const variants = await ProductVariant.find({ is_active: { $ne: false } })
+    const variants = await ProductVariant.find(scopeToBusiness(req, { is_active: { $ne: false } }))
       .populate('product_id', 'name is_active');
     const lowStock = variants
       .filter((variant) => variant.product_id?.is_active !== false)
@@ -177,9 +180,9 @@ export const getLowStock = async (req, res) => {
 // @route   GET /api/inventory/reorder-suggestions
 export const getReorderSuggestions = async (req, res) => {
   try {
-    const settingsDoc = await getSystemSettings();
+    const settingsDoc = await getSystemSettings(getBusinessId(req));
     const settings = serializeSystemSettings(settingsDoc);
-    const variants = await ProductVariant.find({ is_active: { $ne: false } })
+    const variants = await ProductVariant.find(scopeToBusiness(req, { is_active: { $ne: false } }))
       .populate('product_id', 'name brand category is_active');
 
     const lowStockVariants = variants
@@ -197,10 +200,11 @@ export const getReorderSuggestions = async (req, res) => {
     const variantIds = lowStockVariants.map((variant) => variant._id);
     const [supplierLinks, purchaseOrderItems, openPurchaseOrders] = variantIds.length ? await Promise.all([
       SupplierProduct.find({
+        business_id: getBusinessId(req),
         variant_id: { $in: variantIds }
       }).populate('supplier_id', 'name phone payment_terms_days active').lean(),
       PurchaseOrderItem.aggregate([
-        { $match: { variant_id: { $in: variantIds.map((variantId) => new mongoose.Types.ObjectId(variantId)) } } },
+        { $match: scopeToBusiness(req, { variant_id: { $in: variantIds.map((variantId) => new mongoose.Types.ObjectId(variantId)) } }) },
         {
           $lookup: {
             from: 'purchaseorders',
@@ -221,14 +225,14 @@ export const getReorderSuggestions = async (req, res) => {
           }
         }
       ]),
-      PurchaseOrder.find({
+      PurchaseOrder.find(scopeToBusiness(req, {
         status: { $in: ['draft', 'ordered', 'partially_received'] }
-      }, '_id po_number status').lean()
+      }), '_id po_number status').lean()
     ]) : [[], [], []];
 
     const openPurchaseOrderIds = openPurchaseOrders.map((purchaseOrder) => purchaseOrder._id);
     const openPurchaseOrderItems = openPurchaseOrderIds.length
-      ? await PurchaseOrderItem.find({ po_id: { $in: openPurchaseOrderIds }, variant_id: { $in: variantIds } }, 'po_id variant_id qty_ordered qty_received').lean()
+      ? await PurchaseOrderItem.find(scopeToBusiness(req, { po_id: { $in: openPurchaseOrderIds }, variant_id: { $in: variantIds } }), 'po_id variant_id qty_ordered qty_received').lean()
       : [];
 
     const preferredSupplierByVariant = supplierLinks.reduce((map, link) => {
@@ -312,8 +316,8 @@ export const getReorderSuggestions = async (req, res) => {
 export const getHistory = async (req, res) => {
   try {
     const pagination = getPagination(req.query, 25, 100);
-    let historyQuery = StockAdjustment.find().sort({ createdAt: -1 }).populate('variant_id');
-    const total = pagination.enabled ? await StockAdjustment.countDocuments() : null;
+    let historyQuery = StockAdjustment.find(scopeToBusiness(req)).sort({ createdAt: -1 }).populate('variant_id');
+    const total = pagination.enabled ? await StockAdjustment.countDocuments(scopeToBusiness(req)) : null;
 
     if (pagination.enabled) {
       historyQuery = historyQuery.skip(pagination.skip).limit(pagination.limit);
@@ -385,6 +389,7 @@ const processManualAdjustment = async (req, session = null) => {
     notes,
     unitCost: unitCost !== undefined ? unitCost : unitCostSnake,
     userId: getRequestUserId(req),
+    businessId: getBusinessId(req),
     session
   });
 };

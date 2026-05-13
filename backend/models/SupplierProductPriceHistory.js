@@ -1,6 +1,11 @@
 import mongoose from 'mongoose';
 
 const supplierProductPriceHistorySchema = new mongoose.Schema({
+  business_id: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Business',
+    index: true
+  },
   supplier_id: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Supplier',
@@ -34,7 +39,7 @@ const supplierProductPriceHistorySchema = new mongoose.Schema({
   timestamps: true
 });
 
-supplierProductPriceHistorySchema.index({ supplier_id: 1, variant_id: 1, changed_at: -1 });
-supplierProductPriceHistorySchema.index({ variant_id: 1, changed_at: -1 });
+supplierProductPriceHistorySchema.index({ business_id: 1, supplier_id: 1, variant_id: 1, changed_at: -1 });
+supplierProductPriceHistorySchema.index({ business_id: 1, variant_id: 1, changed_at: -1 });
 
 export default mongoose.model('SupplierProductPriceHistory', supplierProductPriceHistorySchema);

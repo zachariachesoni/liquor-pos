@@ -1,6 +1,11 @@
 import mongoose from 'mongoose';
 
 const purchaseOrderItemSchema = new mongoose.Schema({
+  business_id: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Business',
+    index: true
+  },
   po_id: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'PurchaseOrder',
@@ -40,6 +45,6 @@ const purchaseOrderItemSchema = new mongoose.Schema({
 });
 
 purchaseOrderItemSchema.index({ po_id: 1 });
-purchaseOrderItemSchema.index({ variant_id: 1, createdAt: -1 });
+purchaseOrderItemSchema.index({ business_id: 1, variant_id: 1, createdAt: -1 });
 
 export default mongoose.model('PurchaseOrderItem', purchaseOrderItemSchema);

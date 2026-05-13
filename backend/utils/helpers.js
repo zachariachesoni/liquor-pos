@@ -17,6 +17,7 @@ export const generateToken = (user) => {
   return jwt.sign(
     { 
       id: user.id || user._id,
+      business_id: user.business_id,
       username: user.username,
       role: user.role 
     },

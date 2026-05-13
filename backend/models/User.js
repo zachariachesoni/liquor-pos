@@ -1,12 +1,15 @@
 import mongoose from 'mongoose';
 
 const userSchema = new mongoose.Schema({
+  business_id: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Business',
+    index: true
+  },
   username: {
     type: String,
     required: true,
-    unique: true,
-    trim: true,
-    index: true // This creates the index
+    trim: true
   },
   password: {
     type: String,
@@ -30,7 +33,7 @@ const userSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Index for role queries only (username already indexed above)
-userSchema.index({ role: 1 });
+userSchema.index({ business_id: 1, username: 1 }, { unique: true });
+userSchema.index({ business_id: 1, role: 1 });
 
 export default mongoose.model('User', userSchema);

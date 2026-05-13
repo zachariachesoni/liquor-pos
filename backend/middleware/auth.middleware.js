@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 import { getAuthTokenFromRequest } from '../utils/authCookies.js';
+import { ensureLegacyBusinessForUser } from '../utils/tenant.js';
 
 // Verify JWT token
 export const verifyToken = async (req, res, next) => {
@@ -27,8 +28,17 @@ export const verifyToken = async (req, res, next) => {
       });
     }
 
-    // Attach user to request
+    const business = await ensureLegacyBusinessForUser(user);
+    if (!business || business.is_active === false) {
+      return res.status(401).json({
+        success: false,
+        message: 'Business account is inactive'
+      });
+    }
+
     req.user = user;
+    req.business = business;
+    req.businessId = business._id;
     next();
   } catch (error) {
     if (error.name === 'JsonWebTokenError') {

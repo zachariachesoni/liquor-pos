@@ -1,6 +1,11 @@
 import mongoose from 'mongoose';
 
 const supplierProductSchema = new mongoose.Schema({
+  business_id: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Business',
+    index: true
+  },
   supplier_id: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Supplier',
@@ -35,7 +40,7 @@ const supplierProductSchema = new mongoose.Schema({
   timestamps: true
 });
 
-supplierProductSchema.index({ supplier_id: 1, variant_id: 1 }, { unique: true });
-supplierProductSchema.index({ variant_id: 1, is_preferred: 1 });
+supplierProductSchema.index({ business_id: 1, supplier_id: 1, variant_id: 1 }, { unique: true });
+supplierProductSchema.index({ business_id: 1, variant_id: 1, is_preferred: 1 });
 
 export default mongoose.model('SupplierProduct', supplierProductSchema);

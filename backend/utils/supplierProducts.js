@@ -14,11 +14,13 @@ export const syncSupplierProductPricing = async ({
   leadTimeDays,
   isPreferred,
   userId,
+  businessId,
   session = null
 }) => {
   const normalizedUnitCost = toNumberOrDefault(unitCost, 0);
 
   let existingLink = await SupplierProduct.findOne({
+    business_id: businessId,
     supplier_id: supplierId,
     variant_id: variantId
   }).session(session);
@@ -31,6 +33,7 @@ export const syncSupplierProductPricing = async ({
     : Math.max(0, toNumberOrDefault(existingLink?.lead_time_days, 0));
 
   const currentPreferred = await SupplierProduct.findOne({
+    business_id: businessId,
     variant_id: variantId,
     is_preferred: true
   }).session(session);
@@ -41,6 +44,7 @@ export const syncSupplierProductPricing = async ({
     await SupplierProductPriceHistory.create([{
       supplier_id: supplierId,
       variant_id: variantId,
+      business_id: businessId,
       old_cost: Number(existingLink.unit_cost || 0),
       new_cost: normalizedUnitCost,
       changed_by: userId
@@ -51,6 +55,7 @@ export const syncSupplierProductPricing = async ({
     const [createdLink] = await SupplierProduct.create([{
       supplier_id: supplierId,
       variant_id: variantId,
+      business_id: businessId,
       unit_cost: normalizedUnitCost,
       min_order_qty: normalizedMinOrderQty,
       lead_time_days: normalizedLeadTimeDays,
@@ -70,6 +75,7 @@ export const syncSupplierProductPricing = async ({
     await SupplierProduct.updateMany(
       {
         variant_id: variantId,
+        business_id: businessId,
         _id: { $ne: existingLink._id }
       },
       { $set: { is_preferred: false } },

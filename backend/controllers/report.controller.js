@@ -12,6 +12,7 @@ import StockAdjustment from '../models/StockAdjustment.js';
 import { getVariantProductSnapshot } from '../utils/productSnapshot.js';
 import { getSystemSettings, serializeSystemSettings } from '../utils/systemSettings.js';
 import { getDaysPastDue, getPaymentTermsLabel } from '../utils/purchasing.js';
+import { getBusinessId, scopeToBusiness } from '../utils/tenant.js';
 
 const buildDateFilters = (start_date, end_date) => {
   const saleItemMatch = {};
@@ -146,10 +147,12 @@ export const getPnLReport = async (req, res) => {
   try {
     const { start_date, end_date } = req.query;
     const { saleItemMatch, expenseMatch } = buildDateFilters(start_date, end_date);
+    const scopedSaleItemMatch = scopeToBusiness(req, saleItemMatch);
+    const scopedExpenseMatch = scopeToBusiness(req, expenseMatch);
 
     // 1. Calculate Gross Revenue, COGS, and Gross Profit from SaleItems
     const salesReport = await SaleItem.aggregate([
-      { $match: saleItemMatch },
+      { $match: scopedSaleItemMatch },
       {
         $group: {
           _id: null,
@@ -164,7 +167,7 @@ export const getPnLReport = async (req, res) => {
 
     // 2. Calculate Total Expenses
     const expenseReport = await Expense.aggregate([
-      { $match: Object.keys(expenseMatch).length ? expenseMatch : {} },
+      { $match: scopedExpenseMatch },
       {
         $group: {
           _id: null,
@@ -174,7 +177,7 @@ export const getPnLReport = async (req, res) => {
     ]);
 
     const totalExpenses = expenseReport[0]?.totalExpenses || 0;
-    const expenses = await Expense.find(Object.keys(expenseMatch).length ? expenseMatch : {})
+    const expenses = await Expense.find(scopedExpenseMatch)
       .populate('user_id', 'username')
       .sort({ expense_date: -1 })
       .lean();
@@ -217,8 +220,9 @@ export const getCustomerSalesReport = async (req, res) => {
     if (customer_id) {
       saleMatch.customer_id = new mongoose.Types.ObjectId(customer_id);
     }
+    const scopedSaleMatch = scopeToBusiness(req, saleMatch);
 
-    const sales = await Sale.find(saleMatch)
+    const sales = await Sale.find(scopedSaleMatch)
       .populate('customer_id', 'name phone email customer_type')
       .populate('user_id', 'username')
       .sort({ createdAt: -1 })
@@ -227,7 +231,7 @@ export const getCustomerSalesReport = async (req, res) => {
     const saleIds = sales.map((sale) => sale._id);
 
     const saleItems = saleIds.length
-      ? await SaleItem.find({ sale_id: { $in: saleIds } })
+      ? await SaleItem.find(scopeToBusiness(req, { sale_id: { $in: saleIds } }))
           .populate({
             path: 'variant_id',
             populate: {
@@ -317,13 +321,14 @@ export const getProductSalesReport = async (req, res) => {
     }
 
     const { saleItemMatch } = buildDateFilters(start_date, end_date);
+    const scopedSaleItemMatch = scopeToBusiness(req, saleItemMatch);
     const variantMatch = {
       ...(product_id ? { 'variant.product_id': new mongoose.Types.ObjectId(product_id) } : {}),
       ...(variant_id ? { 'variant._id': new mongoose.Types.ObjectId(variant_id) } : {})
     };
 
     const pipeline = [
-      { $match: saleItemMatch },
+      { $match: scopedSaleItemMatch },
       {
         $lookup: {
           from: 'productvariants',
@@ -487,14 +492,14 @@ export const getSupplierStatementReport = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Valid supplier_id is required' });
     }
 
-    const supplier = await Supplier.findById(supplier_id).lean();
+    const supplier = await Supplier.findOne(scopeToBusiness(req, { _id: supplier_id })).lean();
     if (!supplier) {
       return res.status(404).json({ success: false, message: 'Supplier not found' });
     }
 
     const range = getDateRange(start_date, end_date);
 
-    const purchaseOrdersRaw = await PurchaseOrder.find({ supplier_id })
+    const purchaseOrdersRaw = await PurchaseOrder.find(scopeToBusiness(req, { supplier_id }))
       .populate('created_by', 'username')
       .sort({ ordered_at: -1, createdAt: -1 })
       .lean();
@@ -504,7 +509,7 @@ export const getSupplierStatementReport = async (req, res) => {
     );
 
     const purchaseOrderItems = filteredOrders.length
-      ? await PurchaseOrderItem.find({ po_id: { $in: filteredOrders.map((purchaseOrder) => purchaseOrder._id) } })
+      ? await PurchaseOrderItem.find(scopeToBusiness(req, { po_id: { $in: filteredOrders.map((purchaseOrder) => purchaseOrder._id) } }))
           .populate({
             path: 'variant_id',
             populate: {
@@ -515,7 +520,7 @@ export const getSupplierStatementReport = async (req, res) => {
           .lean()
       : [];
 
-    const payments = await SupplierPayment.find({ supplier_id })
+    const payments = await SupplierPayment.find(scopeToBusiness(req, { supplier_id }))
       .populate('recorded_by', 'username')
       .populate('po_id', 'po_number invoice_reference')
       .sort({ paid_at: -1 })
@@ -566,10 +571,10 @@ export const getAccountsPayableAgingReport = async (req, res) => {
     const referenceDate = req.query.end_date ? new Date(req.query.end_date) : new Date();
     referenceDate.setHours(0, 0, 0, 0);
 
-    const purchaseOrders = await PurchaseOrder.find({
+    const purchaseOrders = await PurchaseOrder.find(scopeToBusiness(req, {
       status: { $in: ['received', 'partially_received'] },
       balance_outstanding: { $gt: 0 }
-    })
+    }))
       .populate('supplier_id', 'name contact_name phone payment_terms_days')
       .sort({ payment_due_date: 1, ordered_at: -1 })
       .lean();
@@ -640,7 +645,7 @@ export const getAccountsPayableAgingReport = async (req, res) => {
 export const getPurchaseHistoryReport = async (req, res) => {
   try {
     const { product_id, variant_id, start_date, end_date } = req.query;
-    const variantFilter = {};
+    const variantFilter = scopeToBusiness(req);
 
     if (variant_id) {
       if (!mongoose.Types.ObjectId.isValid(variant_id)) {
@@ -658,7 +663,7 @@ export const getPurchaseHistoryReport = async (req, res) => {
     const variantIds = variants.map((variant) => variant._id);
 
     const purchaseHistory = variantIds.length
-      ? await PurchaseOrderItem.find({ variant_id: { $in: variantIds } })
+      ? await PurchaseOrderItem.find(scopeToBusiness(req, { variant_id: { $in: variantIds } }))
           .populate('po_id')
           .populate({
             path: 'variant_id',
@@ -672,7 +677,7 @@ export const getPurchaseHistoryReport = async (req, res) => {
 
     const supplierIds = purchaseHistory.map((item) => item.po_id?.supplier_id).filter(Boolean);
     const suppliers = supplierIds.length
-      ? await Supplier.find({ _id: { $in: supplierIds } }, 'name contact_name phone').lean()
+      ? await Supplier.find(scopeToBusiness(req, { _id: { $in: supplierIds } }), 'name contact_name phone').lean()
       : [];
     const suppliersById = new Map(suppliers.map((supplier) => [String(supplier._id), supplier]));
     const range = getDateRange(start_date, end_date);
@@ -805,11 +810,11 @@ export const getPurchaseHistoryReport = async (req, res) => {
 // @route   GET /api/reports/margin-erosion
 export const getMarginErosionReport = async (req, res) => {
   try {
-    const settingsDoc = await getSystemSettings();
+    const settingsDoc = await getSystemSettings(getBusinessId(req));
     const settings = serializeSystemSettings(settingsDoc);
     const threshold = Number(req.query.threshold ?? settings.minimum_margin_threshold ?? 15);
     const { start_date, end_date } = req.query;
-    const historyFilter = {};
+    const historyFilter = scopeToBusiness(req);
 
     if (start_date || end_date) {
       historyFilter.changed_at = {};
@@ -822,7 +827,7 @@ export const getMarginErosionReport = async (req, res) => {
     }
 
     const [variants, priceHistory] = await Promise.all([
-      ProductVariant.find().populate('product_id', 'name brand category').lean(),
+      ProductVariant.find(scopeToBusiness(req)).populate('product_id', 'name brand category').lean(),
       SupplierProductPriceHistory.find(historyFilter).sort({ changed_at: -1 }).lean()
     ]);
 
@@ -884,8 +889,10 @@ export const getInventoryPerformanceReport = async (req, res) => {
   try {
     const range = getClosedDateRange(req.query.start_date, req.query.end_date);
     const previousRange = getPreviousDateRange(range);
-    const saleDateMatch = { createdAt: { $gte: range.start, $lte: range.end } };
-    const adjustmentDateMatch = { createdAt: { $gte: range.start, $lte: range.end } };
+    const saleDateMatch = scopeToBusiness(req, { createdAt: { $gte: range.start, $lte: range.end } });
+    const saleItemDateMatch = scopeToBusiness(req, { createdAt: { $gte: range.start, $lte: range.end } });
+    const previousSaleItemDateMatch = scopeToBusiness(req, { createdAt: { $gte: previousRange.start, $lte: previousRange.end } });
+    const adjustmentDateMatch = scopeToBusiness(req, { createdAt: { $gte: range.start, $lte: range.end } });
 
     const [
       dailySales,
@@ -908,7 +915,7 @@ export const getInventoryPerformanceReport = async (req, res) => {
         { $sort: { _id: 1 } }
       ]),
       SaleItem.aggregate([
-        { $match: { createdAt: saleDateMatch.createdAt } },
+        { $match: saleItemDateMatch },
         {
           $group: {
             _id: '$variant_id',
@@ -923,7 +930,7 @@ export const getInventoryPerformanceReport = async (req, res) => {
         { $limit: 25 }
       ]),
       SaleItem.aggregate([
-        { $match: { createdAt: saleDateMatch.createdAt } },
+        { $match: saleItemDateMatch },
         {
           $group: {
             _id: '$variant_id',
@@ -935,7 +942,7 @@ export const getInventoryPerformanceReport = async (req, res) => {
         }
       ]),
       SaleItem.aggregate([
-        { $match: { createdAt: { $gte: previousRange.start, $lte: previousRange.end } } },
+        { $match: previousSaleItemDateMatch },
         {
           $group: {
             _id: '$variant_id',
@@ -944,7 +951,7 @@ export const getInventoryPerformanceReport = async (req, res) => {
           }
         }
       ]),
-      ProductVariant.find().populate('product_id', 'name brand category').lean(),
+      ProductVariant.find(scopeToBusiness(req)).populate('product_id', 'name brand category').lean(),
       StockAdjustment.find(adjustmentDateMatch)
         .populate({
           path: 'variant_id',
@@ -1116,9 +1123,9 @@ export const getTopSuppliersReport = async (req, res) => {
   try {
     const range = getDateRange(req.query.start_date, req.query.end_date);
 
-    const purchaseOrders = await PurchaseOrder.find({
+    const purchaseOrders = await PurchaseOrder.find(scopeToBusiness(req, {
       status: { $in: ['received', 'partially_received'] }
-    })
+    }))
       .populate('supplier_id', 'name contact_name phone payment_terms_days')
       .lean();
 

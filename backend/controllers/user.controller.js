@@ -1,13 +1,14 @@
 import User from '../models/User.js';
 import logger from '../utils/logger.js';
 import { hashPassword } from '../utils/helpers.js';
+import { attachBusinessId, scopeToBusiness } from '../utils/tenant.js';
 
 // @desc    Get all users
 // @route   GET /api/users
 // @access  Private/Admin
 export const getUsers = async (req, res) => {
   try {
-    const filters = {};
+    const filters = scopeToBusiness(req);
     if (req.query.role) filters.role = req.query.role;
     if (req.query.is_active !== undefined) filters.is_active = req.query.is_active === 'true';
 
@@ -24,7 +25,7 @@ export const getUsers = async (req, res) => {
 // @access  Private/Admin
 export const getUser = async (req, res) => {
   try {
-    const user = await User.findById(req.params.id).select('-password');
+    const user = await User.findOne(scopeToBusiness(req, { _id: req.params.id })).select('-password');
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
     res.json({ success: true, data: user });
   } catch (error) {
@@ -52,7 +53,7 @@ export const createUser = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Password must be at least 6 characters long' });
     }
 
-    const employeeCount = await User.countDocuments({ role: { $ne: 'admin' }, is_active: true });
+    const employeeCount = await User.countDocuments(scopeToBusiness(req, { role: { $ne: 'admin' }, is_active: true }));
     if (employeeCount >= 3) {
       return res.status(400).json({
         success: false,
@@ -62,13 +63,13 @@ export const createUser = async (req, res) => {
 
     const hashedPassword = await hashPassword(password);
 
-    const user = await User.create({
+    const user = await User.create(attachBusinessId(req, {
       username,
       password: hashedPassword,
       role,
       permissions: req.body.permissions || {},
       is_active: true
-    });
+    }));
     
     // Remove password from response
     user.password = undefined;
@@ -92,7 +93,7 @@ export const createUser = async (req, res) => {
 export const updateUser = async (req, res) => {
   try {
     const { username, role, isActive, permissions } = req.body;
-    let user = await User.findById(req.params.id);
+    let user = await User.findOne(scopeToBusiness(req, { _id: req.params.id }));
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
     if (role && !['manager', 'cashier'].includes(role)) {
@@ -118,10 +119,10 @@ export const updateUser = async (req, res) => {
 // @access  Private/Admin
 export const deleteUser = async (req, res) => {
   try {
-    const user = await User.findById(req.params.id);
+    const user = await User.findOne(scopeToBusiness(req, { _id: req.params.id }));
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
-    await User.findByIdAndDelete(req.params.id);
+    await User.deleteOne(scopeToBusiness(req, { _id: req.params.id }));
     res.json({ success: true, data: {} });
   } catch (error) {
     logger.error('Delete user error:', error);

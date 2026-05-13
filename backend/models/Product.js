@@ -5,6 +5,11 @@ const normalizeTextValue = (value) => (
 );
 
 const productSchema = new mongoose.Schema({
+  business_id: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Business',
+    index: true
+  },
   name: {
     type: String,
     required: true,
@@ -26,8 +31,6 @@ const productSchema = new mongoose.Schema({
   },
   barcode: {
     type: String,
-    unique: true,
-    sparse: true,
     trim: true
   },
   image_url: {
@@ -43,7 +46,8 @@ const productSchema = new mongoose.Schema({
 
 // Index for faster searches
 productSchema.index({ name: 'text', brand: 'text', description: 'text' });
-productSchema.index({ category: 1 });
-productSchema.index({ brand: 1 });
+productSchema.index({ business_id: 1, category: 1 });
+productSchema.index({ business_id: 1, brand: 1 });
+productSchema.index({ business_id: 1, barcode: 1 }, { unique: true, sparse: true });
 
 export default mongoose.model('Product', productSchema);

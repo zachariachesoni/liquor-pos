@@ -1,6 +1,11 @@
 import mongoose from 'mongoose';
 
 const expenseSchema = new mongoose.Schema({
+  business_id: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Business',
+    index: true
+  },
   category: {
     type: String,
     required: true,
@@ -37,7 +42,7 @@ const expenseSchema = new mongoose.Schema({
   timestamps: true
 });
 
-expenseSchema.index({ category: 1 });
-expenseSchema.index({ expense_date: -1 });
+expenseSchema.index({ business_id: 1, category: 1 });
+expenseSchema.index({ business_id: 1, expense_date: -1 });
 
 export default mongoose.model('Expense', expenseSchema);

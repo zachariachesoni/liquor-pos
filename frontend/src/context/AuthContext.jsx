@@ -34,9 +34,9 @@ export const AuthProvider = ({ children }) => {
     };
   }, []);
 
-  const login = async (username, password) => {
+  const login = async (username, password, businessCode = '') => {
     try {
-      const response = await api.post('/auth/login', { username, password });
+      const response = await api.post('/auth/login', { username, password, businessCode });
       const { user } = response.data.data;
       setUser(user);
       
@@ -49,9 +49,11 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const register = async (username, password, role = 'admin') => {
+  const register = async ({ businessName, businessCode = '', username, password, role = 'admin' }) => {
     try {
       const response = await api.post('/auth/register', { 
+        businessName,
+        businessCode,
         username, 
         password,
         role 

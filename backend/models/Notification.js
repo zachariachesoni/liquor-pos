@@ -1,10 +1,14 @@
 import mongoose from 'mongoose';
 
 const notificationSchema = new mongoose.Schema({
+  business_id: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Business',
+    index: true
+  },
   source_key: {
     type: String,
     required: true,
-    unique: true,
     index: true
   },
   type: {
@@ -70,5 +74,7 @@ const notificationSchema = new mongoose.Schema({
 
 notificationSchema.index({ status: 1, severity: 1, updatedAt: -1 });
 notificationSchema.index({ status: 1, read_at: 1, updatedAt: -1 });
+notificationSchema.index({ business_id: 1, source_key: 1 }, { unique: true });
+notificationSchema.index({ business_id: 1, status: 1, severity: 1, updatedAt: -1 });
 
 export default mongoose.model('Notification', notificationSchema);

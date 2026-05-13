@@ -1,6 +1,11 @@
 import mongoose from 'mongoose';
 
 const systemSettingsSchema = new mongoose.Schema({
+  business_id: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Business',
+    index: true
+  },
   business_name: {
     type: String,
     default: 'Liquor POS',
@@ -65,5 +70,7 @@ const systemSettingsSchema = new mongoose.Schema({
 }, {
   timestamps: true
 });
+
+systemSettingsSchema.index({ business_id: 1 }, { unique: true, sparse: true });
 
 export default mongoose.model('SystemSettings', systemSettingsSchema);

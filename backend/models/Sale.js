@@ -1,15 +1,17 @@
 import mongoose from 'mongoose';
 
 const saleSchema = new mongoose.Schema({
+  business_id: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Business',
+    index: true
+  },
   invoice_number: {
     type: String,
-    required: true,
-    unique: true
+    required: true
   },
   idempotency_key: {
     type: String,
-    unique: true,
-    sparse: true,
     trim: true
   },
   customer_id: {
@@ -65,9 +67,10 @@ const saleSchema = new mongoose.Schema({
   timestamps: true
 });
 
-saleSchema.index({ createdAt: -1 });
-saleSchema.index({ customer_id: 1 });
-saleSchema.index({ user_id: 1 });
-saleSchema.index({ invoice_number: 1 });
+saleSchema.index({ business_id: 1, createdAt: -1 });
+saleSchema.index({ business_id: 1, customer_id: 1 });
+saleSchema.index({ business_id: 1, user_id: 1 });
+saleSchema.index({ business_id: 1, invoice_number: 1 }, { unique: true });
+saleSchema.index({ business_id: 1, idempotency_key: 1 }, { unique: true, sparse: true });
 
 export default mongoose.model('Sale', saleSchema);

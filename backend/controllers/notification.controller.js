@@ -6,6 +6,7 @@ import SupplierProductPriceHistory from '../models/SupplierProductPriceHistory.j
 import logger from '../utils/logger.js';
 import { calculateEffectiveLowStockLevel, getSystemSettings, serializeSystemSettings } from '../utils/systemSettings.js';
 import { buildPaginationMeta, getPagination } from '../utils/pagination.js';
+import { getBusinessId, scopeToBusiness } from '../utils/tenant.js';
 
 const formatCurrency = (value) => `KES ${Number(value || 0).toLocaleString()}`;
 
@@ -49,10 +50,10 @@ const getAverageCostSnapshot = (adjustment) => {
   return parseAverageCostFromNotes(adjustment.notes);
 };
 
-const buildLowStockConcerns = async () => {
-  const settingsDoc = await getSystemSettings();
+const buildLowStockConcerns = async (businessId) => {
+  const settingsDoc = await getSystemSettings(businessId);
   const settings = serializeSystemSettings(settingsDoc);
-  const variants = await ProductVariant.find({ is_active: { $ne: false } })
+  const variants = await ProductVariant.find({ business_id: businessId, is_active: { $ne: false } })
     .populate('product_id', 'name brand category is_active')
     .lean();
 
@@ -89,11 +90,12 @@ const buildLowStockConcerns = async () => {
     });
 };
 
-const buildOverduePayableConcerns = async () => {
+const buildOverduePayableConcerns = async (businessId) => {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
   const overdueOrders = await PurchaseOrder.find({
+    business_id: businessId,
     status: { $in: ['received', 'partially_received'] },
     balance_outstanding: { $gt: 0 },
     payment_due_date: { $lt: today }
@@ -123,11 +125,12 @@ const buildOverduePayableConcerns = async () => {
   });
 };
 
-const buildAverageCostChangeConcerns = async () => {
+const buildAverageCostChangeConcerns = async (businessId) => {
   const since = new Date();
   since.setDate(since.getDate() - 30);
 
   const adjustments = await StockAdjustment.find({
+    business_id: businessId,
     adjustment_type: 'in',
     reason: 'restocking',
     createdAt: { $gte: since }
@@ -188,11 +191,12 @@ const buildAverageCostChangeConcerns = async () => {
   });
 };
 
-const buildPriceChangeConcerns = async () => {
+const buildPriceChangeConcerns = async (businessId) => {
   const since = new Date();
   since.setDate(since.getDate() - 30);
 
   const priceChanges = await SupplierProductPriceHistory.find({
+    business_id: businessId,
     changed_at: { $gte: since }
   })
     .populate('supplier_id', 'name phone')
@@ -247,17 +251,18 @@ const buildPriceChangeConcerns = async () => {
   });
 };
 
-const syncGeneratedConcerns = async () => {
+const syncGeneratedConcerns = async (businessId) => {
   const concerns = [
-    ...await buildLowStockConcerns(),
-    ...await buildOverduePayableConcerns(),
-    ...await buildAverageCostChangeConcerns(),
-    ...await buildPriceChangeConcerns()
+    ...await buildLowStockConcerns(businessId),
+    ...await buildOverduePayableConcerns(businessId),
+    ...await buildAverageCostChangeConcerns(businessId),
+    ...await buildPriceChangeConcerns(businessId)
   ];
   const activeSourceKeys = concerns.map((concern) => concern.source_key);
 
   await Notification.updateMany(
     {
+      business_id: businessId,
       generated: true,
       status: 'open',
       source_key: { $nin: activeSourceKeys }
@@ -272,10 +277,11 @@ const syncGeneratedConcerns = async () => {
   );
 
   await Promise.all(concerns.map(async (concern) => {
-    const existing = await Notification.findOne({ source_key: concern.source_key });
+    const existing = await Notification.findOne({ business_id: businessId, source_key: concern.source_key });
 
     if (!existing) {
       await Notification.create({
+        business_id: businessId,
         ...concern,
         generated: true,
         status: 'open'
@@ -309,9 +315,9 @@ const syncGeneratedConcerns = async () => {
 
 export const getNotifications = async (req, res) => {
   try {
-    await syncGeneratedConcerns();
+    await syncGeneratedConcerns(getBusinessId(req));
 
-    const filters = {};
+    const filters = scopeToBusiness(req);
     if (req.query.status && req.query.status !== 'all') {
       filters.status = req.query.status;
     }
@@ -347,7 +353,7 @@ export const getNotifications = async (req, res) => {
 
 export const addressNotification = async (req, res) => {
   try {
-    const notification = await Notification.findById(req.params.id);
+    const notification = await Notification.findOne(scopeToBusiness(req, { _id: req.params.id }));
     if (!notification) {
       return res.status(404).json({ success: false, message: 'Notification not found' });
     }
@@ -360,7 +366,7 @@ export const addressNotification = async (req, res) => {
     notification.resolution_note = req.body.resolution_note || 'Addressed by admin.';
     await notification.save();
 
-    const populatedNotification = await Notification.findById(notification._id)
+    const populatedNotification = await Notification.findOne(scopeToBusiness(req, { _id: notification._id }))
       .populate('addressed_by', 'username')
       .populate('read_by', 'username')
       .lean();
@@ -374,10 +380,10 @@ export const addressNotification = async (req, res) => {
 
 export const addressAllNotifications = async (req, res) => {
   try {
-    await syncGeneratedConcerns();
+    await syncGeneratedConcerns(getBusinessId(req));
 
     const result = await Notification.updateMany(
-      { status: 'open' },
+      scopeToBusiness(req, { status: 'open' }),
       {
         $set: {
           read_by: req.user._id || req.user.id,

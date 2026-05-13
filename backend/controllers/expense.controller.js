@@ -1,5 +1,6 @@
 import Expense from '../models/Expense.js';
 import logger from '../utils/logger.js';
+import { attachBusinessId, scopeToBusiness } from '../utils/tenant.js';
 
 const expenseCategoryAliases = {
   operations: 'other',
@@ -73,7 +74,7 @@ const validateExpensePayload = (payload) => {
 // @route   GET /api/expenses
 export const getExpenses = async (req, res) => {
   try {
-    const filters = {};
+    const filters = scopeToBusiness(req);
     if (req.query.start_date) filters.expense_date = { $gte: new Date(req.query.start_date) };
     if (req.query.end_date) {
       filters.expense_date = filters.expense_date || {};
@@ -100,7 +101,7 @@ export const getExpenses = async (req, res) => {
 // @route   GET /api/expenses/categories
 export const getExpenseCategories = async (req, res) => {
   try {
-    const categories = await Expense.distinct('category');
+    const categories = await Expense.distinct('category', scopeToBusiness(req));
     res.json({ success: true, data: categories });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Server error' });
@@ -117,7 +118,7 @@ export const createExpense = async (req, res) => {
     }
 
     const expense = await Expense.create({
-      ...normalizeExpensePayload(req.body, req.user._id || req.user.id),
+      ...attachBusinessId(req, normalizeExpensePayload(req.body, req.user._id || req.user.id)),
       expense_date: req.body.expense_date || req.body.expenseDate || new Date(),
     });
     const populatedExpense = await Expense.findById(expense._id).populate('user_id', 'username');
@@ -137,7 +138,7 @@ export const createExpense = async (req, res) => {
 // @route   PUT /api/expenses/:id
 export const updateExpense = async (req, res) => {
   try {
-    const expense = await Expense.findById(req.params.id);
+    const expense = await Expense.findOne(scopeToBusiness(req, { _id: req.params.id }));
     if (!expense) return res.status(404).json({ success: false, message: 'Expense not found' });
 
     const validationError = validateExpensePayload({
@@ -171,7 +172,7 @@ export const updateExpense = async (req, res) => {
 // @route   DELETE /api/expenses/:id
 export const deleteExpense = async (req, res) => {
   try {
-    const expense = await Expense.findByIdAndDelete(req.params.id);
+    const expense = await Expense.findOneAndDelete(scopeToBusiness(req, { _id: req.params.id }));
     if (!expense) return res.status(404).json({ success: false, message: 'Expense not found' });
     res.json({ success: true, data: {} });
   } catch (error) {

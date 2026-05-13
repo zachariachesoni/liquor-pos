@@ -9,6 +9,7 @@ import ProductVariant from '../models/ProductVariant.js';
 import logger from '../utils/logger.js';
 import { getPaymentTermsLabel, getDaysPastDue } from '../utils/purchasing.js';
 import { syncSupplierProductPricing } from '../utils/supplierProducts.js';
+import { attachBusinessId, getBusinessId, scopeToBusiness } from '../utils/tenant.js';
 
 const isValidObjectId = (value) => mongoose.Types.ObjectId.isValid(value);
 
@@ -153,7 +154,7 @@ const sortSuppliers = (suppliers = [], sort = 'name_asc') => {
 // @route   GET /api/suppliers
 export const getSuppliers = async (req, res) => {
   try {
-    const filters = {};
+    const filters = scopeToBusiness(req);
     const query = req.query.q?.trim();
     const status = req.query.status || 'all';
 
@@ -178,10 +179,10 @@ export const getSuppliers = async (req, res) => {
 
     const [linkedCounts, purchaseOrders] = supplierIds.length ? await Promise.all([
       SupplierProduct.aggregate([
-        { $match: { supplier_id: { $in: supplierIds } } },
+        { $match: scopeToBusiness(req, { supplier_id: { $in: supplierIds } }) },
         { $group: { _id: '$supplier_id', count: { $sum: 1 } } }
       ]),
-      PurchaseOrder.find({ supplier_id: { $in: supplierIds } }, 'supplier_id status total_amount amount_paid balance_outstanding payment_due_date ordered_at').lean()
+      PurchaseOrder.find(scopeToBusiness(req, { supplier_id: { $in: supplierIds } }), 'supplier_id status total_amount amount_paid balance_outstanding payment_due_date ordered_at').lean()
     ]) : [[], []];
 
     const metricsMap = createSupplierMetricsMap(supplierIds, purchaseOrders, linkedCounts);
@@ -205,13 +206,13 @@ export const getSupplier = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Invalid supplier id' });
     }
 
-    const supplier = await Supplier.findById(req.params.id).lean();
+    const supplier = await Supplier.findOne(scopeToBusiness(req, { _id: req.params.id })).lean();
     if (!supplier) {
       return res.status(404).json({ success: false, message: 'Supplier not found' });
     }
 
     const [linkedProducts, purchaseOrdersRaw, payments, priceHistory, linkedCounts] = await Promise.all([
-      SupplierProduct.find({ supplier_id: supplier._id })
+      SupplierProduct.find(scopeToBusiness(req, { supplier_id: supplier._id }))
         .populate({
           path: 'variant_id',
           populate: {
@@ -221,28 +222,28 @@ export const getSupplier = async (req, res) => {
         })
         .sort({ is_preferred: -1, updatedAt: -1 })
         .lean(),
-      PurchaseOrder.find({ supplier_id: supplier._id })
+      PurchaseOrder.find(scopeToBusiness(req, { supplier_id: supplier._id }))
         .populate('created_by', 'username')
         .sort({ ordered_at: -1 })
         .lean(),
-      SupplierPayment.find({ supplier_id: supplier._id })
+      SupplierPayment.find(scopeToBusiness(req, { supplier_id: supplier._id }))
         .populate('po_id', 'po_number invoice_reference payment_due_date')
         .populate('recorded_by', 'username')
         .sort({ paid_at: -1 })
         .lean(),
-      SupplierProductPriceHistory.find({ supplier_id: supplier._id })
+      SupplierProductPriceHistory.find(scopeToBusiness(req, { supplier_id: supplier._id }))
         .sort({ changed_at: -1 })
         .limit(200)
         .lean(),
       SupplierProduct.aggregate([
-        { $match: { supplier_id: supplier._id } },
+        { $match: scopeToBusiness(req, { supplier_id: supplier._id }) },
         { $group: { _id: '$supplier_id', count: { $sum: 1 } } }
       ])
     ]);
 
     const purchaseOrderIds = purchaseOrdersRaw.map((purchaseOrder) => purchaseOrder._id);
     const purchaseOrderItems = purchaseOrderIds.length
-      ? await PurchaseOrderItem.find({ po_id: { $in: purchaseOrderIds } })
+      ? await PurchaseOrderItem.find(scopeToBusiness(req, { po_id: { $in: purchaseOrderIds } }))
           .populate({
             path: 'variant_id',
             populate: {
@@ -310,7 +311,7 @@ export const createSupplier = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Supplier name is required' });
     }
 
-    const supplier = await Supplier.create(payload);
+    const supplier = await Supplier.create(attachBusinessId(req, payload));
     res.status(201).json({ success: true, data: enrichSupplierRecord(supplier.toObject()) });
   } catch (error) {
     logger.error('Create supplier error:', error);
@@ -329,7 +330,7 @@ export const updateSupplier = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Invalid supplier id' });
     }
 
-    const existingSupplier = await Supplier.findById(req.params.id);
+    const existingSupplier = await Supplier.findOne(scopeToBusiness(req, { _id: req.params.id }));
     if (!existingSupplier) {
       return res.status(404).json({ success: false, message: 'Supplier not found' });
     }
@@ -339,7 +340,7 @@ export const updateSupplier = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Supplier name is required' });
     }
 
-    const supplier = await Supplier.findByIdAndUpdate(req.params.id, payload, {
+    const supplier = await Supplier.findOneAndUpdate(scopeToBusiness(req, { _id: req.params.id }), payload, {
       new: true,
       runValidators: true
     });
@@ -363,8 +364,8 @@ export const deleteSupplier = async (req, res) => {
     }
 
     const [purchaseOrdersCount, linksCount] = await Promise.all([
-      PurchaseOrder.countDocuments({ supplier_id: req.params.id }),
-      SupplierProduct.countDocuments({ supplier_id: req.params.id })
+      PurchaseOrder.countDocuments(scopeToBusiness(req, { supplier_id: req.params.id })),
+      SupplierProduct.countDocuments(scopeToBusiness(req, { supplier_id: req.params.id }))
     ]);
 
     if (purchaseOrdersCount > 0 || linksCount > 0) {
@@ -374,7 +375,7 @@ export const deleteSupplier = async (req, res) => {
       });
     }
 
-    const supplier = await Supplier.findByIdAndDelete(req.params.id);
+    const supplier = await Supplier.findOneAndDelete(scopeToBusiness(req, { _id: req.params.id }));
     if (!supplier) {
       return res.status(404).json({ success: false, message: 'Supplier not found' });
     }
@@ -399,9 +400,10 @@ export const upsertSupplierProductLink = async (req, res) => {
       return res.status(400).json({ success: false, message: 'A valid inventory variant is required' });
     }
 
+    const businessId = getBusinessId(req);
     const [supplier, variant] = await Promise.all([
-      Supplier.findById(req.params.id),
-      ProductVariant.findById(variantId)
+      Supplier.findOne(scopeToBusiness(req, { _id: req.params.id })),
+      ProductVariant.findOne(scopeToBusiness(req, { _id: variantId }))
     ]);
 
     if (!supplier) {
@@ -413,6 +415,7 @@ export const upsertSupplierProductLink = async (req, res) => {
     }
 
     const link = await syncSupplierProductPricing({
+      businessId,
       supplierId: supplier._id,
       variantId: variant._id,
       unitCost: req.body.unit_cost ?? req.body.unitCost,
@@ -422,7 +425,7 @@ export const upsertSupplierProductLink = async (req, res) => {
       userId: req.user._id || req.user.id
     });
 
-    const populatedLink = await SupplierProduct.findById(link._id)
+    const populatedLink = await SupplierProduct.findOne(scopeToBusiness(req, { _id: link._id }))
       .populate({
         path: 'variant_id',
         populate: {
@@ -447,7 +450,7 @@ export const deleteSupplierProductLink = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Invalid supplier product link id' });
     }
 
-    const link = await SupplierProduct.findById(req.params.linkId);
+    const link = await SupplierProduct.findOne(scopeToBusiness(req, { _id: req.params.linkId }));
     if (!link) {
       return res.status(404).json({ success: false, message: 'Supplier product link not found' });
     }
@@ -457,7 +460,7 @@ export const deleteSupplierProductLink = async (req, res) => {
     await link.deleteOne();
 
     if (wasPreferred) {
-      const nextPreferred = await SupplierProduct.findOne({ variant_id: variantId }).sort({ unit_cost: 1, updatedAt: -1 });
+      const nextPreferred = await SupplierProduct.findOne(scopeToBusiness(req, { variant_id: variantId })).sort({ unit_cost: 1, updatedAt: -1 });
       if (nextPreferred) {
         nextPreferred.is_preferred = true;
         await nextPreferred.save();
@@ -483,12 +486,13 @@ export const getSupplierPriceComparison = async (req, res) => {
     sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
 
     const [variant, links, priceHistory] = await Promise.all([
-      ProductVariant.findById(req.params.variantId).populate('product_id', 'name brand category').lean(),
-      SupplierProduct.find({ variant_id: req.params.variantId })
+      ProductVariant.findOne(scopeToBusiness(req, { _id: req.params.variantId })).populate('product_id', 'name brand category').lean(),
+      SupplierProduct.find(scopeToBusiness(req, { variant_id: req.params.variantId }))
         .populate('supplier_id', 'name contact_name phone payment_terms_days active')
         .sort({ unit_cost: 1, is_preferred: -1 })
         .lean(),
       SupplierProductPriceHistory.find({
+        business_id: getBusinessId(req),
         variant_id: req.params.variantId,
         changed_at: { $gte: sixMonthsAgo }
       }).sort({ changed_at: -1 }).lean()

@@ -6,19 +6,20 @@ import logger from '../utils/logger.js';
 import { generateInvoiceNumber } from '../utils/helpers.js';
 import { mongoose } from '../config/database.js';
 import { buildPaginationMeta, getPagination } from '../utils/pagination.js';
+import { attachBusinessId, getBusinessId, scopeToBusiness } from '../utils/tenant.js';
 
 const getSalesAccessFilter = (req) => (
-  req.user?.role === 'cashier'
+  scopeToBusiness(req, req.user?.role === 'cashier'
     ? { user_id: req.user._id || req.user.id }
-    : {}
+    : {})
 );
 
 const normalizeIdempotencyKey = (value) => (
   typeof value === 'string' ? value.trim().slice(0, 120) : ''
 );
 
-const getExistingSaleByKey = async (idempotencyKey) => (
-  idempotencyKey ? Sale.findOne({ idempotency_key: idempotencyKey }) : null
+const getExistingSaleByKey = async (idempotencyKey, businessId) => (
+  idempotencyKey ? Sale.findOne({ business_id: businessId, idempotency_key: idempotencyKey }) : null
 );
 
 // @desc    Process a sale (checkout)
@@ -27,7 +28,8 @@ export const createSale = async (req, res) => {
   const session = await mongoose.startSession();
   const idempotencyKey = normalizeIdempotencyKey(req.body.idempotencyKey || req.body.idempotency_key);
   try {
-    const existingSale = await getExistingSaleByKey(idempotencyKey);
+    const businessId = getBusinessId(req);
+    const existingSale = await getExistingSaleByKey(idempotencyKey, businessId);
     if (existingSale) {
       return res.status(200).json({ success: true, data: existingSale, duplicate: true });
     }
@@ -54,7 +56,7 @@ export const createSale = async (req, res) => {
         throw new Error('Each sale item must include a valid variant and quantity');
       }
 
-      const variant = await ProductVariant.findById(item.variantId).session(session);
+      const variant = await ProductVariant.findOne(scopeToBusiness(req, { _id: item.variantId })).session(session);
       if (!variant || variant.is_active === false || variant.current_stock < quantity) {
         throw new Error(`Insufficient stock for ${variant ? variant._id : 'Unknown item'}`);
       }
@@ -84,6 +86,7 @@ export const createSale = async (req, res) => {
       await variant.save({ session });
 
       await StockAdjustment.create([{
+        business_id: getBusinessId(req),
         variant_id: variant._id,
         adjustment_type: 'out',
         quantity,
@@ -103,7 +106,7 @@ export const createSale = async (req, res) => {
 
     const changeDue = appliedAmountPaid - totalAmount;
 
-    const sale = await Sale.create([{
+    const sale = await Sale.create([attachBusinessId(req, {
       invoice_number: generateInvoiceNumber(),
       idempotency_key: idempotencyKey || undefined,
       customer_id: customerId || null,
@@ -114,10 +117,10 @@ export const createSale = async (req, res) => {
       change_due: changeDue,
       sale_type: priceList || 'retail',
       user_id: req.user._id || req.user.id
-    }], { session, ordered: true });
+    })], { session, ordered: true });
 
     // Link sale id to sale items
-    const saleItemsToCreate = saleItemsData.map(si => ({ ...si, sale_id: sale[0]._id }));
+    const saleItemsToCreate = saleItemsData.map(si => attachBusinessId(req, { ...si, sale_id: sale[0]._id }));
     await SaleItem.create(saleItemsToCreate, { session, ordered: true });
 
     await session.commitTransaction();
@@ -126,7 +129,7 @@ export const createSale = async (req, res) => {
   } catch (error) {
     await session.abortTransaction();
     if (error.code === 11000 && idempotencyKey) {
-      const existingSale = await getExistingSaleByKey(idempotencyKey);
+      const existingSale = await getExistingSaleByKey(idempotencyKey, getBusinessId(req));
       if (existingSale) {
         return res.status(200).json({ success: true, data: existingSale, duplicate: true });
       }
@@ -151,7 +154,7 @@ export const createSale = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Each sale item must include a valid variant and quantity' });
           }
 
-          const variant = await ProductVariant.findById(item.variantId);
+          const variant = await ProductVariant.findOne(scopeToBusiness(req, { _id: item.variantId }));
           if (!variant || variant.is_active === false || variant.current_stock < quantity) {
              return res.status(400).json({ success: false, message: `Insufficient stock` });
           }
@@ -186,7 +189,7 @@ export const createSale = async (req, res) => {
           return res.status(400).json({ success: false, message: 'Amount paid cannot be less than the sale total' });
         }
 
-        createdSale = await Sale.create({
+        createdSale = await Sale.create(attachBusinessId(req, {
           invoice_number: generateInvoiceNumber(), 
           idempotency_key: idempotencyKey || undefined,
           customer_id: customerId || null,
@@ -197,15 +200,15 @@ export const createSale = async (req, res) => {
           change_due: appliedAmountPaid - totalAmount,
           sale_type: priceList || 'retail',
           user_id: req.user._id || req.user.id
-        });
+        }));
 
-        const saleItemsToCreate = saleItemsData.map(si => ({ ...si, sale_id: createdSale._id }));
+        const saleItemsToCreate = saleItemsData.map(si => attachBusinessId(req, { ...si, sale_id: createdSale._id }));
         await SaleItem.create(saleItemsToCreate);
         saleItemsCreated = true;
 
         for (const snapshot of variantSnapshots) {
           const updatedVariant = await ProductVariant.findOneAndUpdate(
-            { _id: snapshot.id, current_stock: { $gte: snapshot.quantity } },
+            scopeToBusiness(req, { _id: snapshot.id, current_stock: { $gte: snapshot.quantity } }),
             { $inc: { current_stock: -snapshot.quantity } },
             { new: true }
           );
@@ -215,6 +218,7 @@ export const createSale = async (req, res) => {
           }
 
           const adjustment = await StockAdjustment.create({
+            business_id: getBusinessId(req),
             variant_id: snapshot.id,
             adjustment_type: 'out',
             quantity: snapshot.quantity,
@@ -233,7 +237,7 @@ export const createSale = async (req, res) => {
         logger.error('Fallback sale creation failed:', fallbackErr);
 
         if (fallbackErr.code === 11000 && idempotencyKey) {
-          const existingSale = await getExistingSaleByKey(idempotencyKey);
+          const existingSale = await getExistingSaleByKey(idempotencyKey, getBusinessId(req));
           if (existingSale) {
             return res.status(200).json({ success: true, data: existingSale, duplicate: true });
           }
@@ -241,19 +245,19 @@ export const createSale = async (req, res) => {
 
         try {
           if (saleItemsCreated && createdSale?._id) {
-            await SaleItem.deleteMany({ sale_id: createdSale._id });
+            await SaleItem.deleteMany(scopeToBusiness(req, { sale_id: createdSale._id }));
           }
 
           if (createdSale?._id) {
-            await Sale.findByIdAndDelete(createdSale._id);
+            await Sale.deleteOne(scopeToBusiness(req, { _id: createdSale._id }));
           }
 
           if (createdStockAdjustmentIds.length) {
-            await StockAdjustment.deleteMany({ _id: { $in: createdStockAdjustmentIds } });
+              await StockAdjustment.deleteMany(scopeToBusiness(req, { _id: { $in: createdStockAdjustmentIds } }));
           }
 
           for (const snapshot of variantSnapshots) {
-            await ProductVariant.findByIdAndUpdate(snapshot.id, {
+            await ProductVariant.findOneAndUpdate(scopeToBusiness(req, { _id: snapshot.id }), {
               $max: { current_stock: snapshot.originalStock }
             });
           }
@@ -298,7 +302,7 @@ export const getSales = async (req, res) => {
     const saleIds = sales.map((sale) => sale._id);
     const saleItemSummaries = saleIds.length
       ? await SaleItem.aggregate([
-          { $match: { sale_id: { $in: saleIds } } },
+          { $match: scopeToBusiness(req, { sale_id: { $in: saleIds } }) },
           {
             $group: {
               _id: '$sale_id',
@@ -363,7 +367,7 @@ export const getSaleDetails = async (req, res) => {
       .populate('user_id', 'username')
       .populate('customer_id', 'name phone email');
     if (!sale) return res.status(404).json({ success: false, message: 'Sale not found' });
-    const items = await SaleItem.find({ sale_id: sale._id }).populate({
+    const items = await SaleItem.find(scopeToBusiness(req, { sale_id: sale._id })).populate({
       path: 'variant_id',
       populate: {
         path: 'product_id',

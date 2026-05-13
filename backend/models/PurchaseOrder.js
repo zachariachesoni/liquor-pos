@@ -1,10 +1,14 @@
 import mongoose from 'mongoose';
 
 const purchaseOrderSchema = new mongoose.Schema({
+  business_id: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Business',
+    index: true
+  },
   po_number: {
     type: String,
-    required: true,
-    unique: true
+    required: true
   },
   supplier_id: {
     type: mongoose.Schema.Types.ObjectId,
@@ -67,8 +71,9 @@ const purchaseOrderSchema = new mongoose.Schema({
   timestamps: true
 });
 
-purchaseOrderSchema.index({ supplier_id: 1, ordered_at: -1 });
-purchaseOrderSchema.index({ status: 1, payment_status: 1 });
-purchaseOrderSchema.index({ payment_due_date: 1, balance_outstanding: 1 });
+purchaseOrderSchema.index({ business_id: 1, supplier_id: 1, ordered_at: -1 });
+purchaseOrderSchema.index({ business_id: 1, status: 1, payment_status: 1 });
+purchaseOrderSchema.index({ business_id: 1, payment_due_date: 1, balance_outstanding: 1 });
+purchaseOrderSchema.index({ business_id: 1, po_number: 1 }, { unique: true });
 
 export default mongoose.model('PurchaseOrder', purchaseOrderSchema);
